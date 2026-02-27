@@ -724,6 +724,38 @@ class Axes:
             pass
 
     # ------------------------------------------------------------------
+    # Twin axes
+    # ------------------------------------------------------------------
+
+    def twinx(self):
+        """Create a twin Axes sharing the x-axis."""
+        ax2 = Axes(self.figure, self._position)
+        self.figure._axes.append(ax2)
+        # Share x-axis
+        shared = self._shared_x if self._shared_x else [self]
+        shared.append(ax2)
+        for a in shared:
+            a._shared_x = shared
+        # Copy current x-limits
+        if self._xlim is not None:
+            ax2._xlim = self._xlim
+        return ax2
+
+    def twiny(self):
+        """Create a twin Axes sharing the y-axis."""
+        ax2 = Axes(self.figure, self._position)
+        self.figure._axes.append(ax2)
+        # Share y-axis
+        shared = self._shared_y if self._shared_y else [self]
+        shared.append(ax2)
+        for a in shared:
+            a._shared_y = shared
+        # Copy current y-limits
+        if self._ylim is not None:
+            ax2._ylim = self._ylim
+        return ax2
+
+    # ------------------------------------------------------------------
     # Batch setter
     # ------------------------------------------------------------------
 

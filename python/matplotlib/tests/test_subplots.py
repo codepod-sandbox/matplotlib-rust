@@ -52,3 +52,57 @@ class TestSharexSharey:
         assert ax1.get_xlim() == (0, 10)
         assert ax2.get_xlim() == (100, 200)
         plt.close('all')
+
+
+class TestTwinAxes:
+    def test_twinx_creates_axes(self):
+        """twinx() creates a new Axes on the same Figure."""
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+        assert isinstance(ax2, Axes)
+        assert ax2.figure is fig
+        plt.close('all')
+
+    def test_twinx_shares_x(self):
+        """twinx() shares x-axis with parent."""
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+        ax1.set_xlim(0, 10)
+        assert ax2.get_xlim() == (0, 10)
+        plt.close('all')
+
+    def test_twinx_independent_y(self):
+        """twinx() has independent y-axis."""
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+        ax1.set_ylim(0, 10)
+        ax2.set_ylim(100, 200)
+        assert ax1.get_ylim() == (0, 10)
+        assert ax2.get_ylim() == (100, 200)
+        plt.close('all')
+
+    def test_twiny_creates_axes(self):
+        """twiny() creates a new Axes on the same Figure."""
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twiny()
+        assert isinstance(ax2, Axes)
+        assert ax2.figure is fig
+        plt.close('all')
+
+    def test_twiny_shares_y(self):
+        """twiny() shares y-axis with parent."""
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twiny()
+        ax1.set_ylim(0, 10)
+        assert ax2.get_ylim() == (0, 10)
+        plt.close('all')
+
+    def test_twiny_independent_x(self):
+        """twiny() has independent x-axis."""
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twiny()
+        ax1.set_xlim(0, 10)
+        ax2.set_xlim(100, 200)
+        assert ax1.get_xlim() == (0, 10)
+        assert ax2.get_xlim() == (100, 200)
+        plt.close('all')
