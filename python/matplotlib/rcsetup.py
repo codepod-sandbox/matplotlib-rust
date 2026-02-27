@@ -56,6 +56,9 @@ _default_params = {
     'xtick.labelsize': 'medium',
     'ytick.labelsize': 'medium',
 
+    # Text
+    'text.antialiased': True,
+
     # Saving
     'savefig.dpi': 'figure',
     'savefig.format': 'png',
