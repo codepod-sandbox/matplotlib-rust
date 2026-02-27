@@ -66,3 +66,64 @@ class TestLine2DConstruction:
         """No label kwarg gives empty label."""
         line = Line2D([0], [0])
         assert line.get_label() == ''
+
+
+class TestLine2DSetters:
+    def test_set_get_color(self):
+        line = Line2D([0], [0])
+        line.set_color('blue')
+        assert line.get_color() == 'blue'
+
+    def test_set_c_alias(self):
+        """set_c is an alias for set_color."""
+        line = Line2D([0], [0])
+        line.set_c('green')
+        assert line.get_color() == 'green'
+
+    def test_set_get_linewidth(self):
+        line = Line2D([0], [0])
+        line.set_linewidth(5.0)
+        assert line.get_linewidth() == 5.0
+
+    def test_set_lw_alias(self):
+        """set_lw is an alias for set_linewidth."""
+        line = Line2D([0], [0])
+        line.set_lw(2.5)
+        assert line.get_linewidth() == 2.5
+
+    def test_set_get_linestyle(self):
+        line = Line2D([0], [0])
+        line.set_linestyle(':')
+        assert line.get_linestyle() == ':'
+
+    def test_set_ls_alias(self):
+        """set_ls is an alias for set_linestyle."""
+        line = Line2D([0], [0])
+        line.set_ls('-.')
+        assert line.get_linestyle() == '-.'
+
+    def test_set_get_marker(self):
+        line = Line2D([0], [0])
+        line.set_marker('s')
+        assert line.get_marker() == 's'
+
+    def test_set_get_markersize(self):
+        line = Line2D([0], [0])
+        line.set_markersize(12.0)
+        assert line.get_markersize() == 12.0
+
+    def test_set_ms_alias(self):
+        """set_ms is an alias for set_markersize."""
+        line = Line2D([0], [0])
+        line.set_ms(8.0)
+        assert line.get_markersize() == 8.0
+
+    def test_set_get_fillstyle(self):
+        line = Line2D([0], [0])
+        line.set_fillstyle('none')
+        assert line.get_fillstyle() == 'none'
+
+    def test_set_get_drawstyle(self):
+        line = Line2D([0], [0])
+        line.set_drawstyle('steps')
+        assert line.get_drawstyle() == 'steps'
