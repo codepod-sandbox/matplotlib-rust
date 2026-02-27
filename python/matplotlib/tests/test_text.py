@@ -1,0 +1,527 @@
+"""Tests for matplotlib.text module --- Text and Annotation artists."""
+
+import pytest
+
+from matplotlib.text import Text, Annotation
+from matplotlib.patches import Patch
+from matplotlib.artist import Artist
+
+
+# -----------------------------------------------------------------------
+# Text construction and defaults
+# -----------------------------------------------------------------------
+
+class TestTextConstruction:
+    def test_default_text_is_empty(self):
+        """Default text content is an empty string."""
+        t = Text()
+        assert t.get_text() == ''
+
+    def test_default_position(self):
+        """Default position is (0, 0)."""
+        t = Text()
+        assert t.get_position() == (0, 0)
+
+    def test_default_fontsize(self):
+        """Default fontsize is 12.0."""
+        t = Text()
+        assert t.get_fontsize() == 12.0
+
+    def test_default_fontweight(self):
+        """Default fontweight is 'normal'."""
+        t = Text()
+        assert t.get_weight() == 'normal'
+
+    def test_default_horizontal_alignment(self):
+        """Default horizontal alignment is 'left'."""
+        t = Text()
+        assert t.get_horizontalalignment() == 'left'
+
+    def test_default_vertical_alignment(self):
+        """Default vertical alignment is 'baseline'."""
+        t = Text()
+        assert t.get_verticalalignment() == 'baseline'
+
+    def test_explicit_text(self):
+        """Positional text argument is stored."""
+        t = Text(text='hello')
+        assert t.get_text() == 'hello'
+
+    def test_explicit_position(self):
+        """x and y arguments set the position."""
+        t = Text(x=3, y=7)
+        assert t.get_position() == (3, 7)
+
+    def test_text_converted_to_str(self):
+        """Non-string text is coerced to str."""
+        t = Text(text=42)
+        assert t.get_text() == '42'
+
+    def test_fontsize_kwarg(self):
+        """fontsize keyword sets the font size."""
+        t = Text(fontsize=20)
+        assert t.get_fontsize() == 20
+
+    def test_size_kwarg(self):
+        """'size' is an alias for fontsize at construction."""
+        t = Text(size=18)
+        assert t.get_fontsize() == 18
+
+    def test_fontsize_takes_precedence_over_size(self):
+        """When both fontsize and size are given, fontsize wins."""
+        t = Text(fontsize=24, size=18)
+        assert t.get_fontsize() == 24
+
+    def test_fontweight_kwarg(self):
+        """fontweight keyword sets the font weight."""
+        t = Text(fontweight='bold')
+        assert t.get_weight() == 'bold'
+
+    def test_weight_kwarg(self):
+        """'weight' is an alias for fontweight at construction."""
+        t = Text(weight='bold')
+        assert t.get_weight() == 'bold'
+
+    def test_fontweight_takes_precedence_over_weight(self):
+        """When both fontweight and weight are given, fontweight wins."""
+        t = Text(fontweight='heavy', weight='bold')
+        assert t.get_weight() == 'heavy'
+
+    def test_ha_kwarg(self):
+        """'ha' keyword sets horizontal alignment."""
+        t = Text(ha='center')
+        assert t.get_horizontalalignment() == 'center'
+
+    def test_horizontalalignment_kwarg(self):
+        """'horizontalalignment' keyword sets horizontal alignment."""
+        t = Text(horizontalalignment='right')
+        assert t.get_horizontalalignment() == 'right'
+
+    def test_ha_takes_precedence_over_horizontalalignment(self):
+        """When both ha and horizontalalignment are given, ha wins."""
+        t = Text(ha='center', horizontalalignment='right')
+        assert t.get_horizontalalignment() == 'center'
+
+    def test_va_kwarg(self):
+        """'va' keyword sets vertical alignment."""
+        t = Text(va='top')
+        assert t.get_verticalalignment() == 'top'
+
+    def test_verticalalignment_kwarg(self):
+        """'verticalalignment' keyword sets vertical alignment."""
+        t = Text(verticalalignment='bottom')
+        assert t.get_verticalalignment() == 'bottom'
+
+    def test_va_takes_precedence_over_verticalalignment(self):
+        """When both va and verticalalignment are given, va wins."""
+        t = Text(va='top', verticalalignment='bottom')
+        assert t.get_verticalalignment() == 'top'
+
+    def test_full_construction(self):
+        """All arguments together."""
+        t = Text(x=5, y=10, text='label', fontsize=16, fontweight='bold',
+                 ha='center', va='top')
+        assert t.get_text() == 'label'
+        assert t.get_position() == (5, 10)
+        assert t.get_fontsize() == 16
+        assert t.get_weight() == 'bold'
+        assert t.get_horizontalalignment() == 'center'
+        assert t.get_verticalalignment() == 'top'
+
+
+# -----------------------------------------------------------------------
+# Text getter/setter round-trips
+# -----------------------------------------------------------------------
+
+class TestTextSetters:
+    def test_set_get_text(self):
+        t = Text()
+        t.set_text('world')
+        assert t.get_text() == 'world'
+
+    def test_set_text_coerces_to_str(self):
+        """set_text coerces non-string values."""
+        t = Text()
+        t.set_text(3.14)
+        assert t.get_text() == '3.14'
+
+    def test_set_get_fontsize(self):
+        t = Text()
+        t.set_fontsize(24)
+        assert t.get_fontsize() == 24
+
+    def test_set_get_weight(self):
+        t = Text()
+        t.set_weight('bold')
+        assert t.get_weight() == 'bold'
+
+    def test_set_get_fontweight(self):
+        """set_fontweight/get_fontweight round-trip."""
+        t = Text()
+        t.set_fontweight('light')
+        assert t.get_fontweight() == 'light'
+
+    def test_set_fontweight_reflects_in_get_weight(self):
+        """set_fontweight and get_weight share the same backing store."""
+        t = Text()
+        t.set_fontweight('heavy')
+        assert t.get_weight() == 'heavy'
+
+    def test_set_weight_reflects_in_get_fontweight(self):
+        """set_weight and get_fontweight share the same backing store."""
+        t = Text()
+        t.set_weight('medium')
+        assert t.get_fontweight() == 'medium'
+
+    def test_set_get_horizontalalignment(self):
+        t = Text()
+        t.set_horizontalalignment('center')
+        assert t.get_horizontalalignment() == 'center'
+
+    def test_set_get_verticalalignment(self):
+        t = Text()
+        t.set_verticalalignment('top')
+        assert t.get_verticalalignment() == 'top'
+
+    def test_set_get_position(self):
+        t = Text()
+        t.set_position((5, 10))
+        assert t.get_position() == (5, 10)
+
+    def test_set_position_updates_both_coords(self):
+        """set_position replaces both x and y."""
+        t = Text(x=1, y=2)
+        t.set_position((100, 200))
+        assert t.get_position() == (100, 200)
+
+
+# -----------------------------------------------------------------------
+# Text aliases
+# -----------------------------------------------------------------------
+
+class TestTextAliases:
+    def test_set_size_is_alias_for_set_fontsize(self):
+        """set_size is an alias for set_fontsize."""
+        t = Text()
+        t.set_size(30)
+        assert t.get_fontsize() == 30
+
+    def test_set_size_same_method_object(self):
+        """set_size and set_fontsize are the same function."""
+        t = Text()
+        assert t.set_size == t.set_fontsize
+
+    def test_set_ha_is_alias_for_set_horizontalalignment(self):
+        """set_ha is an alias for set_horizontalalignment."""
+        t = Text()
+        t.set_ha('right')
+        assert t.get_horizontalalignment() == 'right'
+
+    def test_set_ha_same_method_object(self):
+        """set_ha and set_horizontalalignment are the same function."""
+        t = Text()
+        assert t.set_ha == t.set_horizontalalignment
+
+    def test_set_va_is_alias_for_set_verticalalignment(self):
+        """set_va is an alias for set_verticalalignment."""
+        t = Text()
+        t.set_va('center')
+        assert t.get_verticalalignment() == 'center'
+
+    def test_set_va_same_method_object(self):
+        """set_va and set_verticalalignment are the same function."""
+        t = Text()
+        assert t.set_va == t.set_verticalalignment
+
+
+# -----------------------------------------------------------------------
+# Text position
+# -----------------------------------------------------------------------
+
+class TestTextPosition:
+    def test_position_from_construction(self):
+        t = Text(x=3.5, y=-1.0)
+        assert t.get_position() == (3.5, -1.0)
+
+    def test_position_default(self):
+        t = Text()
+        assert t.get_position() == (0, 0)
+
+    def test_position_set_tuple(self):
+        t = Text()
+        t.set_position((7, 8))
+        assert t.get_position() == (7, 8)
+
+    def test_position_set_list(self):
+        """set_position accepts a list as well as a tuple."""
+        t = Text()
+        t.set_position([2, 3])
+        assert t.get_position() == (2, 3)
+
+    def test_position_returns_tuple(self):
+        """get_position always returns a tuple."""
+        t = Text(x=1, y=2)
+        pos = t.get_position()
+        assert isinstance(pos, tuple)
+
+    def test_position_negative_coords(self):
+        t = Text(x=-5, y=-10)
+        assert t.get_position() == (-5, -10)
+
+    def test_position_float_coords(self):
+        t = Text(x=1.5, y=2.7)
+        assert t.get_position() == (1.5, 2.7)
+
+
+# -----------------------------------------------------------------------
+# Text inherits from Artist
+# -----------------------------------------------------------------------
+
+class TestTextArtistIntegration:
+    def test_is_artist(self):
+        """Text is a subclass of Artist."""
+        t = Text()
+        assert isinstance(t, Artist)
+
+    def test_class_zorder(self):
+        """Text class zorder is 3."""
+        assert Text.zorder == 3
+
+    def test_instance_zorder(self):
+        """Text instance zorder defaults to 3."""
+        t = Text()
+        assert t.get_zorder() == 3
+
+    def test_set_zorder(self):
+        """Text zorder can be changed via set_zorder."""
+        t = Text()
+        t.set_zorder(10)
+        assert t.get_zorder() == 10
+
+    def test_default_visible(self):
+        """Text defaults to visible."""
+        t = Text()
+        assert t.get_visible() is True
+
+    def test_set_visible(self):
+        t = Text()
+        t.set_visible(False)
+        assert t.get_visible() is False
+
+    def test_default_alpha(self):
+        """Text default alpha is None."""
+        t = Text()
+        assert t.get_alpha() is None
+
+    def test_set_alpha(self):
+        t = Text()
+        t.set_alpha(0.5)
+        assert t.get_alpha() == 0.5
+
+    def test_default_label(self):
+        """Text default label is empty string."""
+        t = Text()
+        assert t.get_label() == ''
+
+    def test_set_label(self):
+        t = Text()
+        t.set_label('my label')
+        assert t.get_label() == 'my label'
+
+    def test_batch_set(self):
+        """Artist.set() applies multiple properties at once."""
+        t = Text()
+        t.set(visible=False, alpha=0.3, label='batch')
+        assert t.get_visible() is False
+        assert t.get_alpha() == 0.3
+        assert t.get_label() == 'batch'
+
+    def test_figure_defaults_to_none(self):
+        t = Text()
+        assert t.figure is None
+
+    def test_axes_defaults_to_none(self):
+        t = Text()
+        assert t.axes is None
+
+    def test_stale_defaults_to_true(self):
+        t = Text()
+        assert t._stale is True
+
+
+# -----------------------------------------------------------------------
+# Annotation construction
+# -----------------------------------------------------------------------
+
+class TestAnnotationConstruction:
+    def test_basic_annotation(self):
+        """Annotation stores text and xy."""
+        ann = Annotation('note', (1, 2))
+        assert ann.get_text() == 'note'
+        assert ann.xy == (1, 2)
+
+    def test_xytext_defaults_to_xy(self):
+        """When xytext is not given, it defaults to xy."""
+        ann = Annotation('note', (3, 4))
+        assert ann.xytext == (3, 4)
+
+    def test_explicit_xytext(self):
+        """Explicit xytext overrides the default."""
+        ann = Annotation('note', (1, 2), xytext=(5, 6))
+        assert ann.xy == (1, 2)
+        assert ann.xytext == (5, 6)
+
+    def test_xy_is_tuple(self):
+        """xy is stored as a tuple even if given as list."""
+        ann = Annotation('note', [1, 2])
+        assert isinstance(ann.xy, tuple)
+        assert ann.xy == (1, 2)
+
+    def test_xytext_is_tuple(self):
+        """xytext is stored as a tuple even if given as list."""
+        ann = Annotation('note', (0, 0), xytext=[5, 6])
+        assert isinstance(ann.xytext, tuple)
+        assert ann.xytext == (5, 6)
+
+    def test_position_matches_xytext(self):
+        """Text position is set to xytext coordinates."""
+        ann = Annotation('note', (1, 2), xytext=(10, 20))
+        assert ann.get_position() == (10, 20)
+
+    def test_position_matches_xy_when_no_xytext(self):
+        """When xytext is omitted, Text position equals xy."""
+        ann = Annotation('note', (7, 8))
+        assert ann.get_position() == (7, 8)
+
+
+# -----------------------------------------------------------------------
+# Annotation with/without arrowprops
+# -----------------------------------------------------------------------
+
+class TestAnnotationArrowProps:
+    def test_no_arrowprops_default(self):
+        """Without arrowprops, arrow_patch is None."""
+        ann = Annotation('note', (0, 0))
+        assert ann.arrow_patch is None
+
+    def test_arrowprops_none_explicitly(self):
+        """Passing arrowprops=None gives arrow_patch=None."""
+        ann = Annotation('note', (0, 0), arrowprops=None)
+        assert ann.arrow_patch is None
+
+    def test_arrowprops_creates_patch(self):
+        """With arrowprops dict, arrow_patch is a Patch instance."""
+        ann = Annotation('note', (0, 0), arrowprops={'arrowstyle': '->'})
+        assert ann.arrow_patch is not None
+        assert isinstance(ann.arrow_patch, Patch)
+
+    def test_arrowprops_empty_dict(self):
+        """Even an empty arrowprops dict creates an arrow_patch."""
+        ann = Annotation('note', (0, 0), arrowprops={})
+        assert ann.arrow_patch is not None
+        assert isinstance(ann.arrow_patch, Patch)
+
+
+# -----------------------------------------------------------------------
+# Annotation inherits Text properties
+# -----------------------------------------------------------------------
+
+class TestAnnotationInheritsText:
+    def test_is_text(self):
+        """Annotation is a subclass of Text."""
+        ann = Annotation('note', (0, 0))
+        assert isinstance(ann, Text)
+
+    def test_is_artist(self):
+        """Annotation is also a subclass of Artist."""
+        ann = Annotation('note', (0, 0))
+        assert isinstance(ann, Artist)
+
+    def test_default_fontsize(self):
+        """Annotation inherits default fontsize of 12.0."""
+        ann = Annotation('note', (0, 0))
+        assert ann.get_fontsize() == 12.0
+
+    def test_default_fontweight(self):
+        """Annotation inherits default fontweight of 'normal'."""
+        ann = Annotation('note', (0, 0))
+        assert ann.get_weight() == 'normal'
+
+    def test_default_ha(self):
+        """Annotation inherits default horizontal alignment 'left'."""
+        ann = Annotation('note', (0, 0))
+        assert ann.get_horizontalalignment() == 'left'
+
+    def test_default_va(self):
+        """Annotation inherits default vertical alignment 'baseline'."""
+        ann = Annotation('note', (0, 0))
+        assert ann.get_verticalalignment() == 'baseline'
+
+    def test_zorder(self):
+        """Annotation inherits Text zorder of 3."""
+        ann = Annotation('note', (0, 0))
+        assert ann.get_zorder() == 3
+
+    def test_fontsize_kwarg(self):
+        """Annotation passes fontsize through to Text."""
+        ann = Annotation('note', (0, 0), fontsize=20)
+        assert ann.get_fontsize() == 20
+
+    def test_fontweight_kwarg(self):
+        """Annotation passes fontweight through to Text."""
+        ann = Annotation('note', (0, 0), fontweight='bold')
+        assert ann.get_weight() == 'bold'
+
+    def test_ha_kwarg(self):
+        """Annotation passes ha through to Text."""
+        ann = Annotation('note', (0, 0), ha='center')
+        assert ann.get_horizontalalignment() == 'center'
+
+    def test_va_kwarg(self):
+        """Annotation passes va through to Text."""
+        ann = Annotation('note', (0, 0), va='top')
+        assert ann.get_verticalalignment() == 'top'
+
+    def test_set_text(self):
+        """Annotation text can be changed via set_text."""
+        ann = Annotation('note', (0, 0))
+        ann.set_text('updated')
+        assert ann.get_text() == 'updated'
+
+    def test_set_fontsize(self):
+        """Annotation fontsize can be changed via set_fontsize."""
+        ann = Annotation('note', (0, 0))
+        ann.set_fontsize(36)
+        assert ann.get_fontsize() == 36
+
+    def test_set_size_alias(self):
+        """Annotation set_size alias works."""
+        ann = Annotation('note', (0, 0))
+        ann.set_size(48)
+        assert ann.get_fontsize() == 48
+
+    def test_set_visible(self):
+        """Artist.set_visible works on Annotation."""
+        ann = Annotation('note', (0, 0))
+        ann.set_visible(False)
+        assert ann.get_visible() is False
+
+    def test_set_alpha(self):
+        """Artist.set_alpha works on Annotation."""
+        ann = Annotation('note', (0, 0))
+        ann.set_alpha(0.7)
+        assert ann.get_alpha() == 0.7
+
+    def test_set_label(self):
+        """Artist.set_label works on Annotation."""
+        ann = Annotation('note', (0, 0))
+        ann.set_label('ann-label')
+        assert ann.get_label() == 'ann-label'
+
+    def test_batch_set(self):
+        """Artist.set() batch setter works on Annotation."""
+        ann = Annotation('note', (0, 0))
+        ann.set(visible=False, alpha=0.2, label='batch')
+        assert ann.get_visible() is False
+        assert ann.get_alpha() == 0.2
+        assert ann.get_label() == 'batch'
