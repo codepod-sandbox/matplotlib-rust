@@ -2,10 +2,21 @@
 matplotlib.pyplot — stateful module-level plotting API.
 """
 
+import matplotlib
 from matplotlib.figure import Figure
 
-# Global state
-_figures = []
+# ------------------------------------------------------------------
+# Re-exports
+# ------------------------------------------------------------------
+rcParams = matplotlib.rcParams
+rc_context = matplotlib.rc_context
+
+# ------------------------------------------------------------------
+# Global state: figure management
+# ------------------------------------------------------------------
+_figures = {}        # num -> Figure
+_fig_order = []      # creation-order list of figure numbers
+_next_num = 1        # auto-incrementing figure number
 _current_fig = None
 _current_ax = None
 
@@ -18,54 +29,311 @@ def _ensure():
     return _current_fig, _current_ax
 
 
-def figure(num=None, figsize=None, dpi=100):
-    """Create a new Figure."""
-    global _current_fig, _current_ax
+# ------------------------------------------------------------------
+# Figure management
+# ------------------------------------------------------------------
+
+def figure(num=None, figsize=None, dpi=100, clear=False, **kwargs):
+    """Create a new Figure, or activate an existing one by number/label.
+
+    Parameters
+    ----------
+    num : int or str or None
+        If None, a new figure is created with the next auto-number.
+        If int, activate existing figure with that number or create one.
+        If str, treated as a label — find existing or create new.
+    figsize : (float, float), optional
+    dpi : int
+    clear : bool
+        If True, clear the figure after getting/creating it.
+    """
+    global _current_fig, _current_ax, _next_num
+
+    # Resolve the figure number
+    if num is None:
+        num = _next_num
+
+    if isinstance(num, str):
+        # Search by label
+        label = num
+        for n, fig in _figures.items():
+            if fig.get_label() == label:
+                num = n
+                break
+        else:
+            # Not found — create with next number
+            num = _next_num
+
+    if num in _figures:
+        # Activate existing figure
+        fig = _figures[num]
+        _current_fig = fig
+        _current_ax = fig._axes[-1] if fig._axes else None
+        if clear:
+            fig.clear()
+        return fig
+
+    # Create a new figure
     fig = Figure(figsize=figsize, dpi=dpi)
-    ax = fig.add_subplot(1, 1, 1)
-    _figures.append(fig)
+    fig.number = num
+    # If the original num argument was a string label, set it
+    # (we captured it above before overwriting num)
+    _figures[num] = fig
+    _fig_order.append(num)
+    if num >= _next_num:
+        _next_num = num + 1
+
     _current_fig = fig
-    _current_ax = ax
+    _current_ax = None
     return fig
 
 
-def subplots(nrows=1, ncols=1, figsize=None, dpi=100):
-    """Create a Figure and a set of subplots."""
-    global _current_fig, _current_ax
-    fig = Figure(figsize=figsize, dpi=dpi)
-    if nrows == 1 and ncols == 1:
-        ax = fig.add_subplot(1, 1, 1)
-        _figures.append(fig)
-        _current_fig = fig
-        _current_ax = ax
-        return fig, ax
-    axes = []
-    for r in range(nrows):
-        row = []
-        for c in range(ncols):
-            ax = fig.add_subplot(nrows, ncols, r * ncols + c + 1)
-            row.append(ax)
-        axes.append(row)
-    _figures.append(fig)
-    _current_fig = fig
-    _current_ax = axes[0][0] if axes else None
-    if nrows == 1:
-        axes = axes[0]
-    elif ncols == 1:
-        axes = [row[0] for row in axes]
-    return fig, axes
+def get_fignums():
+    """Return a sorted list of existing figure numbers."""
+    return sorted(_figures.keys())
 
+
+def get_figlabels():
+    """Return a list of existing figure labels (in creation order)."""
+    return [_figures[n].get_label() for n in _fig_order if n in _figures]
+
+
+def fignum_exists(num):
+    """Return whether figure number *num* exists."""
+    return num in _figures
+
+
+def close(fig='all'):
+    """Close figure(s).
+
+    Parameters
+    ----------
+    fig : 'all', int, or Figure
+        - ``'all'``: close all figures
+        - int: close figure with that number
+        - Figure instance: close that figure
+    """
+    global _current_fig, _current_ax
+
+    if isinstance(fig, str) and fig == 'all':
+        _figures.clear()
+        _fig_order.clear()
+        _current_fig = None
+        _current_ax = None
+        return
+
+    if isinstance(fig, int):
+        num = fig
+    elif isinstance(fig, Figure):
+        # Find the number for this figure
+        num = None
+        for n, f in _figures.items():
+            if f is fig:
+                num = n
+                break
+        if num is None:
+            return  # Not tracked
+    elif isinstance(fig, float):
+        raise TypeError("close() does not accept float figure numbers")
+    else:
+        raise TypeError(
+            f"close() argument must be 'all', an int, or a Figure, "
+            f"not {type(fig).__name__}"
+        )
+
+    if num in _figures:
+        del _figures[num]
+        if num in _fig_order:
+            _fig_order.remove(num)
+
+    # Update current figure
+    if _current_fig is not None and _current_fig.number == num:
+        if _fig_order:
+            last_num = _fig_order[-1]
+            _current_fig = _figures[last_num]
+            _current_ax = (_current_fig._axes[-1]
+                           if _current_fig._axes else None)
+        else:
+            _current_fig = None
+            _current_ax = None
+
+
+# ------------------------------------------------------------------
+# Axes management
+# ------------------------------------------------------------------
 
 def gcf():
-    """Get current figure."""
+    """Get current figure, creating one if needed."""
     _ensure()
     return _current_fig
 
 
 def gca():
-    """Get current axes."""
+    """Get current axes, creating one if needed."""
     _ensure()
     return _current_ax
+
+
+def sca(ax):
+    """Set the current axes to *ax*, and the current figure to its parent."""
+    global _current_fig, _current_ax
+    _current_ax = ax
+    _current_fig = ax.figure
+    # Also update the figure's axes stack
+    _current_fig.sca(ax)
+
+
+def subplot(*args, **kwargs):
+    """Add a subplot to the current figure, with reuse semantics.
+
+    If a subplot with the same grid position already exists, it is
+    returned instead of creating a new one.
+
+    Usage: ``subplot(nrows, ncols, index)`` or ``subplot(NCI)`` where
+    NCI is a 3-digit integer.
+    """
+    global _current_ax
+    _ensure()
+
+    if len(args) == 1 and isinstance(args[0], int) and args[0] >= 100:
+        # 3-digit form: subplot(211) -> (2, 1, 1)
+        n = args[0]
+        nrows, ncols, index = n // 100, (n % 100) // 10, n % 10
+    elif len(args) == 3:
+        nrows, ncols, index = args
+    elif len(args) == 0:
+        nrows, ncols, index = 1, 1, 1
+    else:
+        nrows, ncols, index = 1, 1, 1
+
+    pos = (nrows, ncols, index)
+
+    # Reuse: check if an axes with the same grid position exists
+    for ax in _current_fig._axes:
+        if ax._position == pos:
+            _current_ax = ax
+            return ax
+
+    # Create new subplot
+    ax = _current_fig.add_subplot(nrows, ncols, index)
+    _current_ax = ax
+    return ax
+
+
+def axes(**kwargs):
+    """Add a new axes to the current figure (never reuses existing axes)."""
+    global _current_ax
+    _ensure()
+    rect = kwargs.pop('rect', None)
+    ax = _current_fig.add_axes(rect, **kwargs)
+    _current_ax = ax
+    return ax
+
+
+def subplots(nrows=1, ncols=1, figsize=None, dpi=100, **kwargs):
+    """Create a Figure and a set of subplots."""
+    global _current_fig, _current_ax, _next_num
+
+    fig = Figure(figsize=figsize, dpi=dpi)
+    num = _next_num
+    fig.number = num
+    _figures[num] = fig
+    _fig_order.append(num)
+    _next_num = num + 1
+    _current_fig = fig
+
+    if nrows == 1 and ncols == 1:
+        ax = fig.add_subplot(1, 1, 1)
+        _current_ax = ax
+        return fig, ax
+
+    axes_list = []
+    for r in range(nrows):
+        row = []
+        for c in range(ncols):
+            ax = fig.add_subplot(nrows, ncols, r * ncols + c + 1)
+            row.append(ax)
+        axes_list.append(row)
+
+    _current_ax = axes_list[0][0] if axes_list else None
+
+    if nrows == 1:
+        axes_list = axes_list[0]
+    elif ncols == 1:
+        axes_list = [row[0] for row in axes_list]
+
+    return fig, axes_list
+
+
+def cla():
+    """Clear the current axes."""
+    _ensure()
+    _current_ax.cla()
+
+
+def clf():
+    """Clear the current figure."""
+    global _current_ax
+    _ensure()
+    _current_fig.clear()
+    _current_ax = None
+
+
+# ------------------------------------------------------------------
+# Interactive mode
+# ------------------------------------------------------------------
+
+class _InteractiveContext:
+    """Context manager for interactive mode toggling.
+
+    Works both as a plain call and as a context manager::
+
+        plt.ioff()           # sets interactive=False immediately
+        with plt.ioff():     # restores state on exit
+            ...
+
+    The key subtlety: ``ioff()``/``ion()`` set the state immediately
+    *and* return this context.  When used as ``with plt.ioff():``,
+    Python calls ``ioff()`` first (setting state and saving old),
+    then ``__enter__`` (which must *not* overwrite the saved state).
+    ``__exit__`` restores the state that was saved by ``ioff()``/``ion()``.
+    """
+
+    def __init__(self, old_state):
+        self._old = old_state
+
+    def __enter__(self):
+        # State was already set by ion()/ioff(); nothing to do.
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        matplotlib._interactive = self._old
+        return False
+
+
+def ion():
+    """Enable interactive mode.
+
+    Also returns a context manager that restores the previous state.
+    """
+    old = matplotlib._interactive
+    matplotlib._interactive = True
+    return _InteractiveContext(old)
+
+
+def ioff():
+    """Disable interactive mode.
+
+    Also returns a context manager that restores the previous state.
+    """
+    old = matplotlib._interactive
+    matplotlib._interactive = False
+    return _InteractiveContext(old)
+
+
+def isinteractive():
+    """Return whether interactive mode is enabled."""
+    return matplotlib.is_interactive()
 
 
 # ------------------------------------------------------------------
@@ -92,9 +360,45 @@ def bar(x, height, width=0.8, **kwargs):
     return _current_ax.bar(x, height, width, **kwargs)
 
 
+def barh(y, width, height=0.8, **kwargs):
+    """Horizontal bar chart — delegates to current axes."""
+    _ensure()
+    return _current_ax.barh(y, width, height, **kwargs)
+
+
 def hist(x, bins=10, **kwargs):
     _ensure()
     return _current_ax.hist(x, bins, **kwargs)
+
+
+def errorbar(x, y, yerr=None, xerr=None, **kwargs):
+    """Error-bar plot — delegates to current axes."""
+    _ensure()
+    return _current_ax.errorbar(x, y, yerr=yerr, xerr=xerr, **kwargs)
+
+
+def fill_between(x, y1, y2=0, **kwargs):
+    """Fill area between two curves — delegates to current axes."""
+    _ensure()
+    return _current_ax.fill_between(x, y1, y2, **kwargs)
+
+
+def axhline(y=0, **kwargs):
+    """Add a horizontal line — delegates to current axes."""
+    _ensure()
+    return _current_ax.axhline(y, **kwargs)
+
+
+def axvline(x=0, **kwargs):
+    """Add a vertical line — delegates to current axes."""
+    _ensure()
+    return _current_ax.axvline(x, **kwargs)
+
+
+def text(x, y, s, **kwargs):
+    """Add text to the current axes."""
+    _ensure()
+    return _current_ax.text(x, y, s, **kwargs)
 
 
 # ------------------------------------------------------------------
@@ -116,14 +420,87 @@ def title(s):
     _current_ax.set_title(s)
 
 
-def xlim(left=None, right=None):
+def suptitle(t, **kwargs):
+    """Set a suptitle on the current figure."""
     _ensure()
+    return _current_fig.suptitle(t, **kwargs)
+
+
+def xlim(*args, **kwargs):
+    """Get or set the x-axis limits.
+
+    - ``xlim()`` returns current limits.
+    - ``xlim(left, right)`` sets limits.
+    - ``xlim(left=v)`` / ``xlim(right=v)`` sets one side.
+    """
+    _ensure()
+    if not args and not kwargs:
+        return _current_ax.get_xlim()
+    if args:
+        if len(args) == 1 and hasattr(args[0], '__iter__'):
+            left, right = args[0]
+        elif len(args) == 2:
+            left, right = args
+        else:
+            left, right = args[0], None
+    else:
+        left = kwargs.get('left')
+        right = kwargs.get('right')
     _current_ax.set_xlim(left, right)
 
 
-def ylim(bottom=None, top=None):
+def ylim(*args, **kwargs):
+    """Get or set the y-axis limits.
+
+    - ``ylim()`` returns current limits.
+    - ``ylim(bottom, top)`` sets limits.
+    """
     _ensure()
+    if not args and not kwargs:
+        return _current_ax.get_ylim()
+    if args:
+        if len(args) == 1 and hasattr(args[0], '__iter__'):
+            bottom, top = args[0]
+        elif len(args) == 2:
+            bottom, top = args
+        else:
+            bottom, top = args[0], None
+    else:
+        bottom = kwargs.get('bottom')
+        top = kwargs.get('top')
     _current_ax.set_ylim(bottom, top)
+
+
+def xticks(*args, **kwargs):
+    """Get or set the x-axis tick locations and labels.
+
+    - ``xticks()`` returns current tick locations.
+    - ``xticks(ticks)`` sets tick locations.
+    - ``xticks(ticks, labels)`` sets locations and labels.
+    """
+    _ensure()
+    if not args and not kwargs:
+        return _current_ax.get_xticks()
+    ticks = args[0] if args else kwargs.get('ticks')
+    labels = args[1] if len(args) > 1 else kwargs.get('labels')
+    if ticks is not None:
+        _current_ax.set_xticks(ticks, labels=labels, **kwargs)
+
+
+def yticks(*args, **kwargs):
+    """Get or set the y-axis tick locations and labels.
+
+    - ``yticks()`` returns current tick locations.
+    - ``yticks(ticks)`` sets tick locations.
+    - ``yticks(ticks, labels)`` sets locations and labels.
+    """
+    _ensure()
+    if not args and not kwargs:
+        return _current_ax.get_yticks()
+    ticks = args[0] if args else kwargs.get('ticks')
+    labels = args[1] if len(args) > 1 else kwargs.get('labels')
+    if ticks is not None:
+        _current_ax.set_yticks(ticks, labels=labels, **kwargs)
 
 
 def legend(**kwargs):
@@ -148,17 +525,3 @@ def savefig(fname, format=None, dpi=None):
 def show():
     """No-op in sandbox environment."""
     pass
-
-
-def close(fig='all'):
-    """Close figure(s)."""
-    global _current_fig, _current_ax, _figures
-    if fig == 'all':
-        _figures = []
-        _current_fig = None
-        _current_ax = None
-    elif fig is _current_fig:
-        if fig in _figures:
-            _figures.remove(fig)
-        _current_fig = _figures[-1] if _figures else None
-        _current_ax = _current_fig._axes[-1] if _current_fig and _current_fig._axes else None
