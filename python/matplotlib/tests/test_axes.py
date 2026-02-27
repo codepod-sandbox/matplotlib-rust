@@ -213,6 +213,14 @@ class TestBar:
         bc = ax.bar([], [])
         assert len(bc) == 0
 
+    def test_bar_scalar_height(self):
+        """Scalar height is broadcast to all bars."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2, 3], 5)
+        assert len(bc) == 3
+        for patch in bc:
+            assert patch.get_height() == 5
+
     def test_bar_facecolor_precedence(self):
         """facecolor overrides color."""
         fig, ax = plt.subplots()
@@ -285,12 +293,14 @@ class TestHist:
         assert sum(counts) == len(data)
 
     def test_hist_density_kwarg(self):
-        """density kwarg is accepted without error."""
-        # NOTE: The current implementation does not actually normalize
-        # with density=True; this test just verifies it does not raise.
+        """density=True normalizes so area under histogram equals 1."""
         fig, ax = plt.subplots()
         counts, edges, bc = ax.hist([1, 2, 3, 4, 5], bins=5, density=True)
         assert len(counts) == 5
+        # Integral (sum of count * bin_width) should equal 1.0
+        bin_width = edges[1] - edges[0]
+        total_area = sum(c * bin_width for c in counts)
+        assert abs(total_area - 1.0) < 1e-10
 
     def test_hist_label(self):
         fig, ax = plt.subplots()
@@ -309,16 +319,13 @@ class TestErrorbar:
         assert isinstance(ec, ErrorbarContainer)
 
     def test_errorbar_fmt_none(self):
-        """fmt='none' still creates an ErrorbarContainer.
-
-        NOTE: The current implementation always creates a data line
-        regardless of fmt. This test verifies the container is valid.
-        """
+        """fmt='none' suppresses data line — plotline is None."""
         fig, ax = plt.subplots()
         ec = ax.errorbar([1, 2], [3, 4], yerr=[0.1, 0.2], fmt='none')
         assert isinstance(ec, ErrorbarContainer)
         # lines is a 3-tuple: (plotline, caplines, barlinecols)
         assert len(ec.lines) == 3
+        assert ec.lines[0] is None  # no data line
 
     def test_errorbar_with_data(self):
         """Basic x, y, yerr works and data line has correct data."""

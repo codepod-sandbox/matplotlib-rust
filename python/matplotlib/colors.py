@@ -254,6 +254,17 @@ _colors_full_map = _build_colors_full_map()
 _CN_PATTERN = re.compile(r'^C(\d+)$', re.IGNORECASE)
 
 
+def _check_alpha(alpha):
+    """Validate alpha is in [0, 1] range."""
+    if alpha is not None:
+        alpha = float(alpha)
+        if not (0.0 <= alpha <= 1.0):
+            raise ValueError(
+                f"'alpha' must be between 0 and 1, inclusive, "
+                f"but got {alpha}")
+    return alpha
+
+
 def to_rgba(c, alpha=None):
     """Convert colour specification *c* to an ``(r, g, b, a)`` tuple.
 
@@ -282,8 +293,11 @@ def to_rgba(c, alpha=None):
     Raises
     ------
     ValueError
-        If *c* is not a recognised colour specification.
+        If *c* is not a recognised colour specification, or if *alpha*
+        is outside [0, 1].
     """
+    alpha = _check_alpha(alpha)
+
     if isinstance(c, tuple) and len(c) == 2:
         # (color, alpha) pair
         color_part, alpha_part = c

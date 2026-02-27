@@ -149,9 +149,12 @@ class Axes:
         if edgecolor is None:
             edgecolor = 'black'
 
-        # Convert x and height to lists
+        # Convert x and height to lists (broadcast scalar height)
         x_vals = list(x)
-        h_vals = list(height)
+        if not hasattr(height, '__iter__'):
+            h_vals = [height] * len(x_vals)
+        else:
+            h_vals = list(height)
 
         # Handle bottom as list or scalar
         if hasattr(bottom, '__iter__'):
@@ -199,6 +202,7 @@ class Axes:
         color = kwargs.get('color') or self._next_color()
         color = to_hex(color)
         label = kwargs.get('label')
+        density = kwargs.get('density', False)
 
         # Compute histogram bins
         lo = min(data)
@@ -213,6 +217,11 @@ class Axes:
             if idx >= bins:
                 idx = bins - 1
             counts[idx] += 1
+
+        # Normalize to probability density if requested
+        if density:
+            n = len(data)
+            counts = [c / (n * bin_width) for c in counts]
 
         centers = [(edges[i] + edges[i + 1]) / 2 for i in range(bins)]
 
@@ -270,11 +279,14 @@ class Axes:
         x_list = list(x)
         y_list = list(y)
 
-        # Create the data line
-        data_line = Line2D(x_list, y_list, color=color, label=label)
-        data_line.axes = self
-        data_line.figure = self.figure
-        self.lines.append(data_line)
+        # Create the data line (suppressed when fmt='none' or 'None')
+        if fmt.lower() == 'none':
+            data_line = None
+        else:
+            data_line = Line2D(x_list, y_list, color=color, label=label)
+            data_line.axes = self
+            data_line.figure = self.figure
+            self.lines.append(data_line)
 
         # Create ErrorbarContainer
         has_yerr = yerr is not None
@@ -294,6 +306,7 @@ class Axes:
             'yerr': list(yerr) if yerr is not None else None,
             'xerr': list(xerr) if xerr is not None else None,
             'color': color, 'label': label,
+            'fmt': fmt,
         }
         self._elements.append(elem)
 

@@ -144,21 +144,24 @@ class TestToRgba:
         assert a == 0.9
 
     def test_invalid_alpha_in_tuple(self):
-        """(color, alpha) with out-of-range alpha still produces a result.
-
-        Note: the current implementation does not validate alpha range,
-        so ('blue', 2.0) returns an rgba with a=2.0 without raising.
-        We verify it returns the expected color components.
-        """
-        r, g, b, a = to_rgba(('blue', 2.0))
-        assert (r, g, b) == (0.0, 0.0, 1.0)
-        assert a == 2.0
+        """(color, alpha) with out-of-range alpha raises ValueError."""
+        with pytest.raises(ValueError, match="alpha"):
+            to_rgba(('blue', 2.0))
+        with pytest.raises(ValueError, match="alpha"):
+            to_rgba(('red', -0.1))
 
     @pytest.mark.parametrize("bad_color", ['5', '-1', 'nan', 'unknown_color'])
     def test_failed_conversions(self, bad_color):
         """Invalid color strings raise ValueError."""
         with pytest.raises(ValueError):
             to_rgba(bad_color)
+
+    def test_invalid_alpha_kwarg(self):
+        """alpha kwarg outside [0, 1] raises ValueError."""
+        with pytest.raises(ValueError, match="alpha"):
+            to_rgba('red', alpha=1.5)
+        with pytest.raises(ValueError, match="alpha"):
+            to_rgba('red', alpha=-0.5)
 
     def test_2d_color(self):
         """A 1-D list [r, g, b] is treated like an RGB tuple."""
