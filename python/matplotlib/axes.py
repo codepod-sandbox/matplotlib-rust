@@ -50,6 +50,12 @@ class Axes:
         self._shared_x = []  # list of axes sharing x-limits
         self._shared_y = []  # list of axes sharing y-limits
 
+        # Tick/label visibility (for label_outer)
+        self._xticklabels_visible = True
+        self._yticklabels_visible = True
+        self._xlabel_visible = True
+        self._ylabel_visible = True
+
     def _next_color(self):
         c = DEFAULT_CYCLE[self._color_idx % len(DEFAULT_CYCLE)]
         self._color_idx += 1
@@ -724,6 +730,37 @@ class Axes:
             pass
 
     # ------------------------------------------------------------------
+    # Label outer
+    # ------------------------------------------------------------------
+
+    def label_outer(self):
+        """Only show outer labels and tick labels for subplots.
+
+        Hides x-axis labels/ticks if this is not a bottom-row subplot,
+        and y-axis labels/ticks if this is not a left-column subplot.
+        """
+        pos = self._position
+        # Determine grid position from (nrows, ncols, index) tuple
+        if isinstance(pos, tuple) and len(pos) == 3:
+            nrows, ncols, index = pos
+            row = (index - 1) // ncols
+            col = (index - 1) % ncols
+            is_bottom = (row == nrows - 1)
+            is_left = (col == 0)
+        else:
+            # Non-grid axes — keep all labels
+            is_bottom = True
+            is_left = True
+
+        if not is_bottom:
+            self._xticklabels_visible = False
+            self._xlabel_visible = False
+
+        if not is_left:
+            self._yticklabels_visible = False
+            self._ylabel_visible = False
+
+    # ------------------------------------------------------------------
     # Twin axes
     # ------------------------------------------------------------------
 
@@ -811,6 +848,10 @@ class Axes:
         self._aspect = 'auto'
         self._shared_x = []
         self._shared_y = []
+        self._xticklabels_visible = True
+        self._yticklabels_visible = True
+        self._xlabel_visible = True
+        self._ylabel_visible = True
 
 
 # ------------------------------------------------------------------
