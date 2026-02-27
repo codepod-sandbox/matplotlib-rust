@@ -239,6 +239,9 @@ def subplots(nrows=1, ncols=1, figsize=None, dpi=100, **kwargs):
     """Create a Figure and a set of subplots."""
     global _current_fig, _current_ax, _next_num
 
+    sharex = kwargs.pop('sharex', False)
+    sharey = kwargs.pop('sharey', False)
+
     fig = Figure(figsize=figsize, dpi=dpi)
     num = _next_num
     fig.number = num
@@ -252,13 +255,23 @@ def subplots(nrows=1, ncols=1, figsize=None, dpi=100, **kwargs):
         _current_ax = ax
         return fig, ax
 
+    all_axes = []
     axes_list = []
     for r in range(nrows):
         row = []
         for c in range(ncols):
             ax = fig.add_subplot(nrows, ncols, r * ncols + c + 1)
             row.append(ax)
+            all_axes.append(ax)
         axes_list.append(row)
+
+    # Link shared axes
+    if sharex and len(all_axes) > 1:
+        for ax in all_axes:
+            ax._shared_x = all_axes
+    if sharey and len(all_axes) > 1:
+        for ax in all_axes:
+            ax._shared_y = all_axes
 
     _current_ax = axes_list[0][0] if axes_list else None
 

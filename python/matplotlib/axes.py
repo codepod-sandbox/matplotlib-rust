@@ -46,6 +46,10 @@ class Axes:
         self._yscale = 'linear'
         self._aspect = 'auto'
 
+        # Shared axes
+        self._shared_x = []  # list of axes sharing x-limits
+        self._shared_y = []  # list of axes sharing y-limits
+
     def _next_color(self):
         c = DEFAULT_CYCLE[self._color_idx % len(DEFAULT_CYCLE)]
         self._color_idx += 1
@@ -512,7 +516,7 @@ class Axes:
     def get_ylabel(self):
         return self._ylabel
 
-    def set_xlim(self, left=None, right=None):
+    def set_xlim(self, left=None, right=None, _propagating=False):
         # Validate: reject NaN or Inf
         for val, name in [(left, 'left'), (right, 'right')]:
             if val is not None:
@@ -523,6 +527,11 @@ class Axes:
                     raise ValueError(
                         f"Axis limits cannot be Inf: {name}={val}")
         self._xlim = (left, right)
+        # Propagate to shared axes
+        if not _propagating:
+            for other in self._shared_x:
+                if other is not self:
+                    other.set_xlim(left, right, _propagating=True)
 
     def get_xlim(self):
         if self._xlim is not None and self._xlim[0] is not None and self._xlim[1] is not None:
@@ -536,8 +545,7 @@ class Axes:
             return (hi, lo)
         return (lo, hi)
 
-    def set_ylim(self, bottom=None, top=None):
-        # Validate: reject NaN or Inf
+    def set_ylim(self, bottom=None, top=None, _propagating=False):
         for val, name in [(bottom, 'bottom'), (top, 'top')]:
             if val is not None:
                 if math.isnan(val):
@@ -547,6 +555,10 @@ class Axes:
                     raise ValueError(
                         f"Axis limits cannot be Inf: {name}={val}")
         self._ylim = (bottom, top)
+        if not _propagating:
+            for other in self._shared_y:
+                if other is not self:
+                    other.set_ylim(bottom, top, _propagating=True)
 
     def get_ylim(self):
         if self._ylim is not None and self._ylim[0] is not None and self._ylim[1] is not None:
@@ -765,6 +777,8 @@ class Axes:
         self._xscale = 'linear'
         self._yscale = 'linear'
         self._aspect = 'auto'
+        self._shared_x = []
+        self._shared_y = []
 
 
 # ------------------------------------------------------------------
