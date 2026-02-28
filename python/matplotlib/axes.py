@@ -313,8 +313,8 @@ class Axes:
         elem = {
             'type': 'errorbar',
             'x': x_list, 'y': y_list,
-            'yerr': list(yerr) if yerr is not None else None,
-            'xerr': list(xerr) if xerr is not None else None,
+            'yerr': list(yerr) if yerr is not None and hasattr(yerr, '__iter__') else yerr,
+            'xerr': list(xerr) if xerr is not None and hasattr(xerr, '__iter__') else xerr,
             'color': color, 'label': label,
             'fmt': fmt,
         }
