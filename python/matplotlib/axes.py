@@ -686,6 +686,191 @@ class Axes:
             return wedges, texts, autotexts
         return wedges, texts
 
+    def boxplot(self, x, vert=True, widths=None, showfliers=True,
+                showmeans=False, **kwargs):
+        """Box-and-whisker plot."""
+        # Normalize input: always a list of datasets
+        if not hasattr(x[0], '__iter__'):
+            datasets = [list(x)]
+        else:
+            datasets = [list(d) for d in x]
+
+        n = len(datasets)
+        if widths is None:
+            widths = [0.5] * n
+        elif not hasattr(widths, '__iter__'):
+            widths = [widths] * n
+
+        result = {
+            'boxes': [],
+            'medians': [],
+            'whiskers': [],
+            'caps': [],
+            'fliers': [],
+            'means': [],
+        }
+
+        for i, data in enumerate(datasets):
+            pos = i + 1
+            w = widths[i]
+            sorted_data = sorted(data)
+
+            q1 = _percentile(sorted_data, 25)
+            med = _median(sorted_data)
+            q3 = _percentile(sorted_data, 75)
+            iqr = q3 - q1
+
+            whisker_lo = q1 - 1.5 * iqr
+            whisker_hi = q3 + 1.5 * iqr
+            actual_lo = min(v for v in sorted_data if v >= whisker_lo)
+            actual_hi = max(v for v in sorted_data if v <= whisker_hi)
+
+            if vert:
+                # Box
+                box = Rectangle((pos - w / 2, q1), w, q3 - q1,
+                                facecolor='white', edgecolor='black')
+                box.set_label('_nolegend_')
+                box.axes = self
+                box.figure = self.figure
+                self.patches.append(box)
+                result['boxes'].append(box)
+
+                # Median line
+                med_line = Line2D([pos - w / 2, pos + w / 2], [med, med],
+                                  color='orange', linewidth=2.0)
+                med_line.set_label('_nolegend_')
+                med_line.axes = self
+                med_line.figure = self.figure
+                self.lines.append(med_line)
+                result['medians'].append(med_line)
+
+                # Whiskers
+                lo_whisker = Line2D([pos, pos], [actual_lo, q1],
+                                    color='black', linewidth=1.0, linestyle='--')
+                lo_whisker.set_label('_nolegend_')
+                lo_whisker.axes = self
+                lo_whisker.figure = self.figure
+                self.lines.append(lo_whisker)
+
+                hi_whisker = Line2D([pos, pos], [q3, actual_hi],
+                                    color='black', linewidth=1.0, linestyle='--')
+                hi_whisker.set_label('_nolegend_')
+                hi_whisker.axes = self
+                hi_whisker.figure = self.figure
+                self.lines.append(hi_whisker)
+                result['whiskers'].extend([lo_whisker, hi_whisker])
+
+                # Caps
+                lo_cap = Line2D([pos - w / 4, pos + w / 4],
+                                [actual_lo, actual_lo],
+                                color='black', linewidth=1.0)
+                lo_cap.set_label('_nolegend_')
+                lo_cap.axes = self
+                lo_cap.figure = self.figure
+                self.lines.append(lo_cap)
+
+                hi_cap = Line2D([pos - w / 4, pos + w / 4],
+                                [actual_hi, actual_hi],
+                                color='black', linewidth=1.0)
+                hi_cap.set_label('_nolegend_')
+                hi_cap.axes = self
+                hi_cap.figure = self.figure
+                self.lines.append(hi_cap)
+                result['caps'].extend([lo_cap, hi_cap])
+
+                # Fliers
+                if showfliers:
+                    flier_pts = [v for v in sorted_data
+                                 if v < actual_lo or v > actual_hi]
+                    if flier_pts:
+                        flier_x = [pos] * len(flier_pts)
+                        pc = PathCollection(
+                            offsets=list(zip(flier_x, flier_pts)),
+                            sizes=[20], facecolors=['black'])
+                        pc.set_label('_nolegend_')
+                        pc.axes = self
+                        pc.figure = self.figure
+                        self.collections.append(pc)
+                        result['fliers'].append(pc)
+
+                # Means
+                if showmeans:
+                    mean_val = sum(data) / len(data)
+                    mean_pc = PathCollection(
+                        offsets=[(pos, mean_val)],
+                        sizes=[50], facecolors=['green'])
+                    mean_pc.set_label('_nolegend_')
+                    mean_pc.axes = self
+                    mean_pc.figure = self.figure
+                    self.collections.append(mean_pc)
+                    result['means'].append(mean_pc)
+
+            else:
+                # Horizontal boxplot: swap x and y
+                box = Rectangle((q1, pos - w / 2), q3 - q1, w,
+                                facecolor='white', edgecolor='black')
+                box.set_label('_nolegend_')
+                box.axes = self
+                box.figure = self.figure
+                self.patches.append(box)
+                result['boxes'].append(box)
+
+                med_line = Line2D([med, med], [pos - w / 2, pos + w / 2],
+                                  color='orange', linewidth=2.0)
+                med_line.set_label('_nolegend_')
+                med_line.axes = self
+                med_line.figure = self.figure
+                self.lines.append(med_line)
+                result['medians'].append(med_line)
+
+                lo_whisker = Line2D([actual_lo, q1], [pos, pos],
+                                    color='black', linewidth=1.0, linestyle='--')
+                lo_whisker.set_label('_nolegend_')
+                lo_whisker.axes = self
+                lo_whisker.figure = self.figure
+                self.lines.append(lo_whisker)
+
+                hi_whisker = Line2D([q3, actual_hi], [pos, pos],
+                                    color='black', linewidth=1.0, linestyle='--')
+                hi_whisker.set_label('_nolegend_')
+                hi_whisker.axes = self
+                hi_whisker.figure = self.figure
+                self.lines.append(hi_whisker)
+                result['whiskers'].extend([lo_whisker, hi_whisker])
+
+                lo_cap = Line2D([actual_lo, actual_lo],
+                                [pos - w / 4, pos + w / 4],
+                                color='black', linewidth=1.0)
+                lo_cap.set_label('_nolegend_')
+                lo_cap.axes = self
+                lo_cap.figure = self.figure
+                self.lines.append(lo_cap)
+
+                hi_cap = Line2D([actual_hi, actual_hi],
+                                [pos - w / 4, pos + w / 4],
+                                color='black', linewidth=1.0)
+                hi_cap.set_label('_nolegend_')
+                hi_cap.axes = self
+                hi_cap.figure = self.figure
+                self.lines.append(hi_cap)
+                result['caps'].extend([lo_cap, hi_cap])
+
+                if showfliers:
+                    flier_pts = [v for v in sorted_data
+                                 if v < actual_lo or v > actual_hi]
+                    if flier_pts:
+                        flier_y = [pos] * len(flier_pts)
+                        pc = PathCollection(
+                            offsets=list(zip(flier_pts, flier_y)),
+                            sizes=[20], facecolors=['black'])
+                        pc.set_label('_nolegend_')
+                        pc.axes = self
+                        pc.figure = self.figure
+                        self.collections.append(pc)
+                        result['fliers'].append(pc)
+
+        return result
+
     def text(self, x, y, s, **kwargs):
         """Add text to the axes."""
         t = Text(x, y, str(s), **kwargs)
@@ -1297,6 +1482,27 @@ class Axes:
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
+def _percentile(data, pct):
+    """Simple percentile calculation (linear interpolation)."""
+    sorted_d = sorted(data)
+    n = len(sorted_d)
+    if n == 0:
+        return 0
+    if n == 1:
+        return sorted_d[0]
+    k = (n - 1) * pct / 100.0
+    f = int(k)
+    c = f + 1
+    if c >= n:
+        return sorted_d[-1]
+    return sorted_d[f] + (k - f) * (sorted_d[c] - sorted_d[f])
+
+
+def _median(data):
+    """Simple median calculation."""
+    return _percentile(data, 50)
+
 
 def _parse_plot_args(args):
     """Parse positional args for plot(): (y,), (x, y), (x, y, fmt)."""

@@ -268,3 +268,49 @@ class TestPie:
         fig, ax = plt.subplots()
         ax.pie([1, 2, 3])
         assert ax.get_aspect() == 'equal'
+
+
+class TestBoxplot:
+    def test_boxplot_single(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.boxplot([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        assert 'boxes' in result
+        assert 'medians' in result
+        assert 'whiskers' in result
+        assert len(result['boxes']) == 1
+        assert len(result['medians']) == 1
+
+    def test_boxplot_multiple(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.boxplot([[1, 2, 3, 4, 5], [10, 20, 30, 40, 50]])
+        assert len(result['boxes']) == 2
+        assert len(result['medians']) == 2
+
+    def test_boxplot_median_value(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.boxplot([1, 2, 3, 4, 5])
+        med_line = result['medians'][0]
+        assert med_line.get_ydata()[0] == 3
+
+    def test_boxplot_fliers(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 100]
+        result = ax.boxplot(data)
+        assert 'fliers' in result
+        assert len(result['fliers']) == 1
+
+    def test_boxplot_no_fliers(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.boxplot([1, 2, 3, 4, 5], showfliers=False)
+        assert len(result['fliers']) == 0
+
+    def test_boxplot_vert_false(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.boxplot([1, 2, 3, 4, 5], vert=False)
+        assert len(result['boxes']) == 1
