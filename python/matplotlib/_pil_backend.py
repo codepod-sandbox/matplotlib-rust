@@ -54,6 +54,32 @@ class RendererPIL(RendererBase):
             fill=col
         )
 
+    def draw_wedge(self, cx, cy, r, start_angle, end_angle, color):
+        import math
+        col = _to_rgb_255(color)
+        sweep = end_angle - start_angle
+        if sweep >= 360:
+            self.draw_circle(cx, cy, r, color)
+            return
+        # Approximate wedge as a filled polygon: center + arc points + center
+        # Use enough segments for a smooth arc
+        n_segments = max(8, int(abs(sweep) / 3))
+        pts = [(int(cx), int(cy))]
+        for i in range(n_segments + 1):
+            angle_deg = start_angle + sweep * i / n_segments
+            angle_rad = math.radians(angle_deg)
+            # Negate y because screen y-axis is down
+            x = cx + r * math.cos(angle_rad)
+            y = cy - r * math.sin(angle_rad)
+            pts.append((int(x), int(y)))
+        pts.append((int(cx), int(cy)))
+        # Draw filled polygon using lines (PIL in RustPython lacks polygon())
+        for i in range(len(pts) - 1):
+            self._draw.line([pts[i], pts[i + 1]], fill=col, width=1)
+        # Fill using a simple scanline approach: draw radial lines from center
+        for i in range(1, len(pts) - 1):
+            self._draw.line([(int(cx), int(cy)), pts[i]], fill=col, width=1)
+
     def draw_polygon(self, points, color, alpha):
         col = _to_rgb_255(color)
         pts = [(int(x), int(y)) for x, y in points]

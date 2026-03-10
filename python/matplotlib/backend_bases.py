@@ -46,6 +46,9 @@ class RendererBase:
     def draw_circle(self, cx, cy, r, color):
         raise NotImplementedError
 
+    def draw_wedge(self, cx, cy, r, start_angle, end_angle, color):
+        raise NotImplementedError
+
     def draw_polygon(self, points, color, alpha):
         raise NotImplementedError
 

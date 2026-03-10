@@ -49,6 +49,34 @@ class RendererSVG(RendererBase):
             f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}"{clip}/>'
         )
 
+    def draw_wedge(self, cx, cy, r, start_angle, end_angle, color):
+        import math
+        sweep = end_angle - start_angle
+        clip = self._clip_attr()
+        if sweep >= 360:
+            # Full circle
+            self._parts.append(
+                f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}"{clip}/>'
+            )
+            return
+        # SVG y-axis is down, so negate angles
+        svg_start = -start_angle
+        svg_end = -end_angle
+        x1 = cx + r * math.cos(math.radians(svg_start))
+        y1 = cy + r * math.sin(math.radians(svg_start))
+        x2 = cx + r * math.cos(math.radians(svg_end))
+        y2 = cy + r * math.sin(math.radians(svg_end))
+        large_arc = 1 if sweep > 180 else 0
+        sweep_flag = 0  # CCW in screen coords
+        d = (
+            f'M {cx:.2f},{cy:.2f} '
+            f'L {x1:.2f},{y1:.2f} '
+            f'A {r},{r} 0 {large_arc},{sweep_flag} {x2:.2f},{y2:.2f} Z'
+        )
+        self._parts.append(
+            f'<path d="{d}" fill="{color}"{clip}/>'
+        )
+
     def draw_polygon(self, points, color, alpha):
         pts = ' '.join(f'{x},{y}' for x, y in points)
         clip = self._clip_attr()
