@@ -27,6 +27,7 @@ class TestDrawWedge:
         r.draw_wedge(100, 100, 50, 0, 360, '#00ff00')
         svg = r.get_result()
         assert '#00ff00' in svg
+        assert '<circle' in svg
 
     def test_pil_draw_wedge(self):
         from matplotlib._pil_backend import RendererPIL

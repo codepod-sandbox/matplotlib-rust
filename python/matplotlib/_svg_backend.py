@@ -67,7 +67,7 @@ class RendererSVG(RendererBase):
         x2 = cx + r * math.cos(math.radians(svg_end))
         y2 = cy + r * math.sin(math.radians(svg_end))
         large_arc = 1 if sweep > 180 else 0
-        sweep_flag = 0  # CCW in screen coords
+        sweep_flag = 1  # CW in SVG screen coords = CCW in math coords
         d = (
             f'M {cx:.2f},{cy:.2f} '
             f'L {x1:.2f},{y1:.2f} '
