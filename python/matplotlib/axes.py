@@ -514,7 +514,6 @@ class Axes:
             xs.extend([edg[i], edg[i + 1]])
             ys.extend([vals[i], vals[i]])
 
-        kwargs.setdefault('linestyle', '-')
         color = kwargs.pop('color', None) or self._next_color()
         line = Line2D(xs, ys,
                       color=color,
@@ -689,6 +688,9 @@ class Axes:
     def boxplot(self, x, vert=True, widths=None, showfliers=True,
                 showmeans=False, **kwargs):
         """Box-and-whisker plot."""
+        if not x:
+            return {'boxes': [], 'medians': [], 'whiskers': [],
+                    'caps': [], 'fliers': [], 'means': []}
         # Normalize input: always a list of datasets
         if not hasattr(x[0], '__iter__'):
             datasets = [list(x)]
@@ -875,6 +877,9 @@ class Axes:
                    showmeans=False, showmedians=False, showextrema=True,
                    **kwargs):
         """Violin plot."""
+        if not dataset:
+            return {'bodies': [], 'cmeans': [], 'cmedians': [],
+                    'cmins': [], 'cmaxes': [], 'cbars': []}
         # Normalize: always list of datasets
         if not hasattr(dataset[0], '__iter__'):
             datasets = [list(dataset)]
