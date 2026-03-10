@@ -1239,6 +1239,16 @@ class Axes:
     def get_yticks(self):
         return self._yticks if self._yticks is not None else []
 
+    def set_xticklabels(self, labels, **kwargs):
+        self._xticklabels = list(labels)
+
+    def set_yticklabels(self, labels, **kwargs):
+        self._yticklabels = list(labels)
+
+    def tick_params(self, **kwargs):
+        # No-op compatibility shim.
+        return None
+
     def legend(self, *args, **kwargs):
         if len(args) > 2:
             raise TypeError(
@@ -1641,6 +1651,9 @@ class Axes:
         self._yticklabels_visible = True
         self._xlabel_visible = True
         self._ylabel_visible = True
+
+    def clear(self):
+        self.cla()
 
 
 # ------------------------------------------------------------------
