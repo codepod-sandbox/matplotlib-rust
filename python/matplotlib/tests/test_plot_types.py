@@ -73,3 +73,142 @@ class TestStemContainer:
         assert sc.stemlines == ['s1', 's2']
         assert sc.baseline == 'base'
         assert sc.get_label() == 'test'
+
+
+class TestStep:
+    def test_step_pre(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        lines = ax.step([1, 2, 3], [1, 4, 2], where='pre')
+        assert len(lines) == 1
+        line = lines[0]
+        xd = line.get_xdata()
+        yd = line.get_ydata()
+        assert len(xd) == 5
+
+    def test_step_post(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        lines = ax.step([1, 2, 3], [1, 4, 2], where='post')
+        line = lines[0]
+        xd = line.get_xdata()
+        assert len(xd) == 5
+
+    def test_step_mid(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        lines = ax.step([1, 2, 3], [1, 4, 2], where='mid')
+        line = lines[0]
+        xd = line.get_xdata()
+        assert len(xd) == 7
+
+    def test_step_returns_line_list(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.step([0, 1], [0, 1])
+        assert isinstance(result, list)
+
+    def test_step_invalid_where(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        try:
+            ax.step([1, 2], [1, 2], where='invalid')
+            assert False, "Should raise ValueError"
+        except ValueError:
+            pass
+
+
+class TestStairs:
+    def test_stairs_basic(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line = ax.stairs([3, 2, 5, 1])
+        xd = line.get_xdata()
+        yd = line.get_ydata()
+        assert len(xd) == 2 * 4
+
+    def test_stairs_with_edges(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line = ax.stairs([3, 2, 5], [10, 20, 30, 40])
+        xd = line.get_xdata()
+        assert xd[0] == 10
+        assert xd[-1] == 40
+
+    def test_stairs_is_line(self):
+        from matplotlib.lines import Line2D
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.stairs([1, 2, 3])
+        assert isinstance(result, Line2D)
+
+
+class TestStackplot:
+    def test_stackplot_basic(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.stackplot([1, 2, 3], [1, 2, 3], [2, 1, 2])
+        assert len(result) == 2
+
+    def test_stackplot_returns_polygons(self):
+        from matplotlib.patches import Polygon
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.stackplot([1, 2, 3], [1, 2, 3])
+        assert len(result) == 1
+        assert isinstance(result[0], Polygon)
+
+    def test_stackplot_labels(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.stackplot([1, 2, 3], [1, 2, 3], [2, 1, 2],
+                              labels=['A', 'B'])
+        assert result[0].get_label() == 'A'
+        assert result[1].get_label() == 'B'
+
+    def test_stackplot_cumulative(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        polys = ax.stackplot([1, 2], [10, 20], [5, 10])
+        assert len(ax.patches) >= 2
+
+
+class TestStem:
+    def test_stem_basic(self):
+        from matplotlib.container import StemContainer
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.stem([1, 2, 3], [4, 5, 6])
+        assert isinstance(result, StemContainer)
+
+    def test_stem_has_markerline(self):
+        from matplotlib.lines import Line2D
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2, 3], [4, 5, 6])
+        assert isinstance(sc.markerline, Line2D)
+
+    def test_stem_has_baseline(self):
+        from matplotlib.lines import Line2D
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2, 3], [4, 5, 6])
+        assert isinstance(sc.baseline, Line2D)
+
+    def test_stem_stemlines_count(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2, 3], [4, 5, 6])
+        assert len(sc.stemlines) == 3
+
+    def test_stem_y_only(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.stem([4, 5, 6])
+        assert sc.markerline.get_xdata() == [0, 1, 2]
+
+    def test_stem_custom_bottom(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2], [3, 4], bottom=1)
+        assert sc.baseline.get_ydata() == [1, 1]

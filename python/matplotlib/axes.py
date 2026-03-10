@@ -8,7 +8,7 @@ from matplotlib.colors import DEFAULT_CYCLE, to_hex, parse_fmt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PathCollection
-from matplotlib.container import BarContainer, ErrorbarContainer
+from matplotlib.container import BarContainer, ErrorbarContainer, StemContainer
 from matplotlib.text import Text, Annotation
 from matplotlib.backend_bases import AxesLayout
 from matplotlib._svg_backend import _nice_ticks, _fmt_tick, _esc
@@ -471,6 +471,141 @@ class Axes:
         self.lines.append(line)
 
         return line
+
+    def step(self, x, y, where='pre', **kwargs):
+        """Step plot."""
+        x_list = list(x)
+        y_list = list(y)
+        n = len(x_list)
+        if n < 2:
+            return self.plot(x_list, y_list, **kwargs)
+
+        if where == 'pre':
+            xs, ys = [x_list[0]], [y_list[0]]
+            for i in range(1, n):
+                xs.extend([x_list[i], x_list[i]])
+                ys.extend([y_list[i - 1], y_list[i]])
+        elif where == 'post':
+            xs, ys = [x_list[0]], [y_list[0]]
+            for i in range(1, n):
+                xs.extend([x_list[i - 1], x_list[i]])
+                ys.extend([y_list[i], y_list[i]])
+        elif where == 'mid':
+            xs, ys = [x_list[0]], [y_list[0]]
+            for i in range(1, n):
+                mid = (x_list[i - 1] + x_list[i]) / 2
+                xs.extend([mid, mid, x_list[i]])
+                ys.extend([y_list[i - 1], y_list[i], y_list[i]])
+        else:
+            raise ValueError(
+                f"'where' must be 'pre', 'post', or 'mid', not {where!r}")
+
+        return self.plot(xs, ys, **kwargs)
+
+    def stairs(self, values, edges=None, **kwargs):
+        """Staircase plot for pre-binned data."""
+        vals = list(values)
+        n = len(vals)
+        if edges is None:
+            edg = list(range(n + 1))
+        else:
+            edg = list(edges)
+
+        xs, ys = [], []
+        for i in range(n):
+            xs.extend([edg[i], edg[i + 1]])
+            ys.extend([vals[i], vals[i]])
+
+        kwargs.setdefault('linestyle', '-')
+        color = kwargs.pop('color', None) or self._next_color()
+        line = Line2D(xs, ys,
+                      color=color,
+                      linewidth=kwargs.pop('linewidth', kwargs.pop('lw', 1.5)),
+                      linestyle=kwargs.pop('linestyle', '-'),
+                      label=kwargs.pop('label', None))
+        line.axes = self
+        line.figure = self.figure
+        self.lines.append(line)
+        return line
+
+    def stackplot(self, x, *args, labels=None, colors=None, **kwargs):
+        """Stacked area plot."""
+        from matplotlib.patches import Polygon
+        x_list = list(x)
+        ys = [list(a) for a in args]
+        n = len(x_list)
+
+        if labels is None:
+            labels = ['_nolegend_'] * len(ys)
+        if colors is None:
+            colors = [self._next_color() for _ in ys]
+        else:
+            colors = [to_hex(c) for c in colors]
+
+        alpha = kwargs.get('alpha', 0.5)
+
+        baseline = [0.0] * n
+        polys = []
+        for i, y_data in enumerate(ys):
+            top = [baseline[j] + y_data[j] for j in range(n)]
+            verts = []
+            for j in range(n):
+                verts.append((x_list[j], top[j]))
+            for j in range(n - 1, -1, -1):
+                verts.append((x_list[j], baseline[j]))
+
+            poly = Polygon(verts, facecolor=colors[i], edgecolor='none')
+            poly.set_alpha(alpha)
+            poly.set_label(labels[i])
+            poly.axes = self
+            poly.figure = self.figure
+            self.patches.append(poly)
+            polys.append(poly)
+            baseline = top
+
+        return polys
+
+    def stem(self, *args, linefmt=None, markerfmt=None, basefmt=None,
+             bottom=0, label=None, **kwargs):
+        """Stem plot (lollipop chart)."""
+        if len(args) == 1:
+            y_list = list(args[0])
+            x_list = list(range(len(y_list)))
+        elif len(args) == 2:
+            x_list = list(args[0])
+            y_list = list(args[1])
+        else:
+            raise TypeError(f"stem() takes 1-2 positional args, got {len(args)}")
+
+        color = self._next_color()
+
+        stemlines = []
+        for i in range(len(x_list)):
+            sl = Line2D([x_list[i], x_list[i]], [bottom, y_list[i]],
+                        color=color, linewidth=1.0, linestyle='-')
+            sl.set_label('_nolegend_')
+            sl.axes = self
+            sl.figure = self.figure
+            self.lines.append(sl)
+            stemlines.append(sl)
+
+        markerline = Line2D(x_list, y_list, color=color,
+                            linewidth=0, linestyle='None', marker='o')
+        markerline.set_label('_nolegend_')
+        markerline.axes = self
+        markerline.figure = self.figure
+        self.lines.append(markerline)
+
+        baseline = Line2D([min(x_list), max(x_list)], [bottom, bottom],
+                          color='C3', linewidth=1.0, linestyle='-')
+        baseline.set_label('_nolegend_')
+        baseline.axes = self
+        baseline.figure = self.figure
+        self.lines.append(baseline)
+
+        sc = StemContainer((markerline, stemlines, baseline), label=label)
+        self.containers.append(sc)
+        return sc
 
     def text(self, x, y, s, **kwargs):
         """Add text to the axes."""
