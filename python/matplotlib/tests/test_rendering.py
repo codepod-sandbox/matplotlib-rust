@@ -12,8 +12,8 @@ import pytest
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from matplotlib._svg_backend import render_figure_svg
-from matplotlib._pil_backend import render_figure_png
+from matplotlib._svg_backend import RendererSVG
+from matplotlib._pil_backend import RendererPIL
 
 
 # ===================================================================
@@ -22,7 +22,22 @@ from matplotlib._pil_backend import render_figure_png
 
 def _svg(fig):
     """Render a figure to SVG string."""
-    return render_figure_svg(fig)
+    dpi = fig.dpi
+    w_px = int(fig.figsize[0] * dpi)
+    h_px = int(fig.figsize[1] * dpi)
+    renderer = RendererSVG(w_px, h_px, dpi)
+    fig.draw(renderer)
+    return renderer.get_result()
+
+
+def render_figure_png(fig, dpi=None):
+    """Render a figure to PNG bytes using the new renderer."""
+    dpi = dpi or fig.dpi
+    w_px = int(fig.figsize[0] * dpi)
+    h_px = int(fig.figsize[1] * dpi)
+    renderer = RendererPIL(w_px, h_px, dpi)
+    fig.draw(renderer)
+    return renderer.get_result()
 
 
 def _count_tags(svg, tag):
@@ -63,14 +78,14 @@ class TestSvgStructure:
         fig, ax = plt.subplots()
         ax.plot([1, 2], [1, 2])
         svg = _svg(fig)
-        assert 'fill="white"' in svg
+        assert 'fill="white"' in svg or 'fill="#ffffff"' in svg
 
     def test_svg_plot_border(self):
         """SVG has a plot area border (rect with stroke)."""
         fig, ax = plt.subplots()
         ax.plot([1, 2], [1, 2])
         svg = _svg(fig)
-        assert 'stroke="#000"' in svg
+        assert 'stroke="#000"' in svg or 'stroke="#000000"' in svg
 
     def test_svg_clip_path(self):
         """SVG defines a clipPath for data elements."""
@@ -238,8 +253,8 @@ class TestSvgGrid:
         fig, ax = plt.subplots()
         ax.plot([1, 2, 3], [1, 2, 3])
         svg = _svg(fig)
-        # Grid uses stroke="#ddd" with dasharray
-        assert 'stroke="#ddd"' not in svg
+        # Grid uses stroke="#ddd" or "#dddddd" with dasharray
+        assert 'stroke="#ddd"' not in svg and 'stroke="#dddddd"' not in svg
 
     def test_grid_on_produces_dashed_lines(self):
         """grid(True) produces dashed grid lines."""
@@ -247,7 +262,7 @@ class TestSvgGrid:
         ax.plot([1, 2, 3], [1, 2, 3])
         ax.grid(True)
         svg = _svg(fig)
-        assert 'stroke="#ddd"' in svg
+        assert 'stroke="#ddd"' in svg or 'stroke="#dddddd"' in svg
 
 
 # ===================================================================
@@ -288,8 +303,8 @@ class TestSvgErrorbar:
         fig, ax = plt.subplots()
         ax.errorbar([1, 2, 3], [10, 20, 15], yerr=[1, 2, 1.5])
         svg = _svg(fig)
-        # Should have polyline (data) + circle (markers) + line (whiskers)
-        lines = _count_tags(svg, 'line')
+        # New renderer uses <polyline> for all lines (whiskers + caps)
+        lines = _count_tags(svg, 'line') + _count_tags(svg, 'polyline')
         assert lines >= 6  # at least 2 per whisker (cap + stem) for 3 points
 
     def test_errorbar_with_xerr(self):
@@ -297,7 +312,7 @@ class TestSvgErrorbar:
         fig, ax = plt.subplots()
         ax.errorbar([1, 2], [10, 20], xerr=[0.5, 1.0])
         svg = _svg(fig)
-        lines = _count_tags(svg, 'line')
+        lines = _count_tags(svg, 'line') + _count_tags(svg, 'polyline')
         assert lines >= 4
 
 
@@ -349,8 +364,8 @@ class TestSvgSubplots:
         ax1.plot([1, 2], [1, 2])
         ax2.plot([1, 2], [2, 1])
         svg = _svg(fig)
-        # Each subplot gets its own border rect (fill="none" stroke="#000")
-        border_rects = len(re.findall(r'fill="none"\s+stroke="#000"', svg))
+        # Each subplot gets its own border rect (fill="none" stroke="#000" or "#000000")
+        border_rects = len(re.findall(r'fill="none"\s+stroke="#000(?:000)?"', svg))
         assert border_rects >= 2
 
     def test_subplot_each_has_data(self):

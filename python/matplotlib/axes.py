@@ -20,7 +20,6 @@ class Axes:
     def __init__(self, fig, position):
         self.figure = fig
         self._position = position
-        self._elements = []
         self._title = ''
         self._xlabel = ''
         self._ylabel = ''
@@ -97,9 +96,6 @@ class Axes:
         # Store in typed list
         self.lines.append(line)
 
-        # Backend compatibility: append dict to _elements
-        self._elements.append(line._as_element())
-
         return [line]
 
     def scatter(self, x, y, s=20, c=None, **kwargs):
@@ -135,9 +131,6 @@ class Axes:
 
         # Store in typed list
         self.collections.append(pc)
-
-        # Backend compatibility
-        self._elements.append(pc._as_element())
 
         return pc
 
@@ -225,14 +218,6 @@ class Axes:
         bc = BarContainer(rect_patches, label=container_label)
         self.containers.append(bc)
 
-        # Backend compatibility: append a single bar element dict
-        elem = {
-            'type': 'bar',
-            'x': x_vals, 'height': h_vals, 'width': width,
-            'color': fc_hex, 'label': label,
-        }
-        self._elements.append(elem)
-
         return bc
 
     def hist(self, x, bins=10, **kwargs):
@@ -308,14 +293,6 @@ class Axes:
         bc = BarContainer(rect_patches, label=label)
         self.containers.append(bc)
 
-        # Backend compatibility
-        elem = {
-            'type': 'bar',
-            'x': centers, 'height': counts, 'width': bar_width,
-            'color': color, 'label': label,
-        }
-        self._elements.append(elem)
-
         return counts, edges, bc
 
     def barh(self, y, width, height=0.8, **kwargs):
@@ -342,13 +319,6 @@ class Axes:
         bc = BarContainer(rect_patches, label=label)
         self.containers.append(bc)
 
-        # Keep _elements for backward compat
-        elem = {
-            'type': 'barh',
-            'y': y_vals, 'width': w_vals, 'height': height,
-            'color': color, 'label': label,
-        }
-        self._elements.append(elem)
         return bc
 
     def errorbar(self, x, y, yerr=None, xerr=None, **kwargs):
@@ -385,17 +355,6 @@ class Axes:
         ec._yerr_data = (x_list, y_list, yerr) if yerr is not None else None
         ec._xerr_data = (x_list, y_list, xerr) if xerr is not None else None
 
-        # Backend compatibility
-        elem = {
-            'type': 'errorbar',
-            'x': x_list, 'y': y_list,
-            'yerr': list(yerr) if yerr is not None and hasattr(yerr, '__iter__') else yerr,
-            'xerr': list(xerr) if xerr is not None and hasattr(xerr, '__iter__') else xerr,
-            'color': color, 'label': label,
-            'fmt': fmt,
-        }
-        self._elements.append(elem)
-
         return ec
 
     def fill_between(self, x, y1, y2=0, **kwargs):
@@ -431,13 +390,6 @@ class Axes:
         poly.figure = self.figure
         self.patches.append(poly)
 
-        # Keep _elements for backward compat (will be removed in Task 11)
-        elem = {
-            'type': 'fill_between',
-            'x': x_list, 'y1': y1_list, 'y2': y2_list,
-            'color': color, 'alpha': alpha, 'label': label,
-        }
-        self._elements.append(elem)
         return poly
 
     def fill_betweenx(self, y, x1, x2=0, **kwargs):
@@ -472,12 +424,6 @@ class Axes:
         poly.figure = self.figure
         self.patches.append(poly)
 
-        elem = {
-            'type': 'fill_betweenx',
-            'y': y_list, 'x1': x1_list, 'x2': x2_list,
-            'color': color, 'alpha': alpha, 'label': label,
-        }
-        self._elements.append(elem)
         return poly
 
     def axhline(self, y=0, **kwargs):
@@ -500,15 +446,6 @@ class Axes:
         line.axes = self
         line.figure = self.figure
         self.lines.append(line)
-
-        # Backend compatibility
-        elem = {
-            'type': 'axhline',
-            'x': [], 'y': [y], 'color': color,
-            'linestyle': linestyle, 'linewidth': linewidth,
-            'label': label,
-        }
-        self._elements.append(elem)
 
         return line
 
@@ -533,15 +470,6 @@ class Axes:
         line.figure = self.figure
         self.lines.append(line)
 
-        # Backend compatibility
-        elem = {
-            'type': 'axvline',
-            'x': [x], 'y': [], 'color': color,
-            'linestyle': linestyle, 'linewidth': linewidth,
-            'label': label,
-        }
-        self._elements.append(elem)
-
         return line
 
     def text(self, x, y, s, **kwargs):
@@ -550,14 +478,6 @@ class Axes:
         t.axes = self
         t.figure = self.figure
         self.texts.append(t)
-
-        # Backend compatibility (use list values so _data_range extend works)
-        elem = {
-            'type': 'text',
-            'x': [x], 'y': [y], 's': str(s),
-        }
-        elem.update(kwargs)
-        self._elements.append(elem)
 
         return t
 
@@ -568,13 +488,6 @@ class Axes:
         ann.axes = self
         ann.figure = self.figure
         self.texts.append(ann)
-
-        # Backend compatibility (use list values so _data_range extend works)
-        elem = {
-            'type': 'text',
-            'x': [ann.xytext[0]], 'y': [ann.xytext[1]], 's': str(text),
-        }
-        self._elements.append(elem)
 
         return ann
 
@@ -1136,7 +1049,6 @@ class Axes:
 
     def cla(self):
         """Clear the axes."""
-        self._elements.clear()
         self._title = ''
         self._xlabel = ''
         self._ylabel = ''

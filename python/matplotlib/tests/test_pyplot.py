@@ -169,9 +169,9 @@ class TestClear:
         """cla() clears the current axes' elements."""
         fig, ax = plt.subplots()
         ax.plot([1, 2, 3], [4, 5, 6])
-        assert len(ax._elements) > 0
+        assert len(ax.lines) > 0 or len(ax.patches) > 0 or len(ax.collections) > 0
         plt.cla()
-        assert ax._elements == []
+        assert ax.lines == [] and ax.patches == [] and ax.collections == [] and ax.texts == []
         assert ax.get_title() == ''
         assert ax.get_xlabel() == ''
         assert ax.get_ylabel() == ''

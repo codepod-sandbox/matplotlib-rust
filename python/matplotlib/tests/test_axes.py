@@ -463,7 +463,6 @@ class TestAxesState:
         assert ax.patches == []
         assert ax.texts == []
         assert ax.containers == []
-        assert ax._elements == []
         assert ax.get_title() == ''
         assert ax.get_xlabel() == ''
         assert ax.get_ylabel() == ''

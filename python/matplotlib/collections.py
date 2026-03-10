@@ -73,25 +73,3 @@ class PathCollection(Collection):
             cy = layout.sy(pt[1])
             renderer.draw_circle(cx, cy, r, color)
 
-    # --- backend-compatible dict ---
-    def _as_element(self):
-        """Return a dict compatible with the existing backend renderers."""
-        # Determine a single representative colour for the backend
-        if self._facecolors:
-            fc = self._facecolors[0]
-            color_hex = to_hex(fc)
-        else:
-            color_hex = to_hex('C0')
-
-        xs = [pt[0] for pt in self._offsets]
-        ys = [pt[1] for pt in self._offsets]
-        s = self._sizes[0] if self._sizes else 20.0
-
-        return {
-            'type': 'scatter',
-            'x': xs,
-            'y': ys,
-            's': s,
-            'color': color_hex,
-            'label': self.get_label() or None,
-        }

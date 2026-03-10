@@ -164,37 +164,6 @@ class TestLine2DData:
         assert line.get_xdata() == [1, 2]
 
 
-class TestLine2DAsElement:
-    def test_as_element_type(self):
-        """_as_element returns dict with type='line'."""
-        line = Line2D([1, 2], [3, 4], color='red')
-        elem = line._as_element()
-        assert elem['type'] == 'line'
-
-    def test_as_element_data(self):
-        line = Line2D([1, 2], [3, 4])
-        elem = line._as_element()
-        assert elem['x'] == [1, 2]
-        assert elem['y'] == [3, 4]
-
-    def test_as_element_color_hex(self):
-        """Color is converted to hex in the element dict."""
-        line = Line2D([0], [0], color='red')
-        elem = line._as_element()
-        assert elem['color'] == '#ff0000'
-
-    def test_as_element_marker_none(self):
-        """Marker 'None' becomes None in element dict."""
-        line = Line2D([0], [0])
-        elem = line._as_element()
-        assert elem['marker'] is None
-
-    def test_as_element_marker_set(self):
-        line = Line2D([0], [0], marker='o')
-        elem = line._as_element()
-        assert elem['marker'] == 'o'
-
-
 class TestLine2DArtist:
     def test_zorder(self):
         """Line2D default zorder is 2."""

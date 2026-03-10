@@ -129,18 +129,3 @@ class Line2D(Artist):
             renderer.draw_markers(x_px, y_px, color,
                                   float(self._markersize))
 
-    # --- backend-compatible dict ---
-    def _as_element(self):
-        """Return a dict compatible with the existing backend renderers."""
-        color_hex = to_hex(self._color)
-        marker_out = self._marker if self._marker != 'None' else None
-        return {
-            'type': 'line',
-            'x': list(self._xdata),
-            'y': list(self._ydata),
-            'color': color_hex,
-            'linewidth': float(self._linewidth),
-            'linestyle': self._linestyle,
-            'marker': marker_out,
-            'label': self.get_label() or None,
-        }
