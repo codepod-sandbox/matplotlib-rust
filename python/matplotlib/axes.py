@@ -1179,6 +1179,10 @@ class Axes:
                 # Polygon
                 for pt in patch._xy:
                     xs.append(pt[0])
+            elif hasattr(patch, '_center') and hasattr(patch, '_r'):
+                # Wedge or Circle
+                xs.append(patch._center[0] - patch._r)
+                xs.append(patch._center[0] + patch._r)
         if not xs:
             return (0.0, 1.0)
         return (min(xs), max(xs))
@@ -1203,6 +1207,10 @@ class Axes:
                 # Polygon
                 for pt in patch._xy:
                     ys.append(pt[1])
+            elif hasattr(patch, '_center') and hasattr(patch, '_r'):
+                # Wedge or Circle
+                ys.append(patch._center[1] - patch._r)
+                ys.append(patch._center[1] + patch._r)
         # Bars typically start from 0
         if ys and any(hasattr(p, '_height') for p in self.patches):
             ys.append(0)

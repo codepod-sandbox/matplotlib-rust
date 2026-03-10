@@ -364,3 +364,61 @@ class TestViolinplot:
         fig, ax = plt.subplots()
         result = ax.violinplot([1, 2, 3, 4, 5], vert=False)
         assert len(result['bodies']) == 1
+
+
+class TestPyplotWrappers:
+    def test_step(self):
+        import matplotlib.pyplot as plt
+        result = plt.step([1, 2], [3, 4])
+        assert result is not None
+
+    def test_stairs(self):
+        import matplotlib.pyplot as plt
+        result = plt.stairs([1, 2, 3])
+        assert result is not None
+
+    def test_stackplot(self):
+        import matplotlib.pyplot as plt
+        result = plt.stackplot([1, 2], [3, 4])
+        assert result is not None
+
+    def test_stem(self):
+        import matplotlib.pyplot as plt
+        result = plt.stem([1, 2, 3])
+        assert result is not None
+
+    def test_pie(self):
+        import matplotlib.pyplot as plt
+        result = plt.pie([1, 2, 3])
+        assert result is not None
+
+    def test_boxplot(self):
+        import matplotlib.pyplot as plt
+        result = plt.boxplot([1, 2, 3, 4, 5])
+        assert result is not None
+
+    def test_violinplot(self):
+        import matplotlib.pyplot as plt
+        result = plt.violinplot([1, 2, 3, 4, 5])
+        assert result is not None
+
+
+class TestAutoLimitsNewTypes:
+    def test_pie_auto_limits(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.pie([1, 2, 3])
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        assert xlim[0] <= -1.0
+        assert xlim[1] >= 1.0
+        assert ylim[0] <= -1.0
+        assert ylim[1] >= 1.0
+
+    def test_boxplot_auto_limits(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.boxplot([1, 2, 3, 4, 5])
+        ylim = ax.get_ylim()
+        assert ylim[0] <= 1.0
+        assert ylim[1] >= 5.0

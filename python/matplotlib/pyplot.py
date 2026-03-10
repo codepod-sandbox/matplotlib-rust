@@ -467,6 +467,28 @@ def text(x, y, s, **kwargs):
     return _current_ax.text(x, y, s, **kwargs)
 
 
+def step(x, y, where='pre', **kwargs):
+    return gca().step(x, y, where=where, **kwargs)
+
+def stairs(values, edges=None, **kwargs):
+    return gca().stairs(values, edges=edges, **kwargs)
+
+def stackplot(x, *args, **kwargs):
+    return gca().stackplot(x, *args, **kwargs)
+
+def stem(*args, **kwargs):
+    return gca().stem(*args, **kwargs)
+
+def pie(x, **kwargs):
+    return gca().pie(x, **kwargs)
+
+def boxplot(x, **kwargs):
+    return gca().boxplot(x, **kwargs)
+
+def violinplot(dataset, **kwargs):
+    return gca().violinplot(dataset, **kwargs)
+
+
 # ------------------------------------------------------------------
 # Labels / config
 # ------------------------------------------------------------------
