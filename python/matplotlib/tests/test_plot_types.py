@@ -314,3 +314,53 @@ class TestBoxplot:
         fig, ax = plt.subplots()
         result = ax.boxplot([1, 2, 3, 4, 5], vert=False)
         assert len(result['boxes']) == 1
+
+
+class TestViolinplot:
+    def test_violinplot_basic(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.violinplot([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        assert 'bodies' in result
+
+    def test_violinplot_returns_bodies(self):
+        from matplotlib.patches import Polygon
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.violinplot([1, 2, 3, 4, 5])
+        assert len(result['bodies']) == 1
+        assert isinstance(result['bodies'][0], Polygon)
+
+    def test_violinplot_multiple(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.violinplot([[1, 2, 3, 4, 5], [10, 20, 30]])
+        assert len(result['bodies']) == 2
+
+    def test_violinplot_showmedians(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.violinplot([1, 2, 3, 4, 5], showmedians=True)
+        assert 'cmedians' in result
+        assert len(result['cmedians']) == 1
+
+    def test_violinplot_showmeans(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.violinplot([1, 2, 3, 4, 5], showmeans=True)
+        assert 'cmeans' in result
+        assert len(result['cmeans']) == 1
+
+    def test_violinplot_showextrema(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.violinplot([1, 2, 3, 4, 5], showextrema=True)
+        assert 'cmins' in result
+        assert 'cmaxes' in result
+        assert 'cbars' in result
+
+    def test_violinplot_vert_false(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.violinplot([1, 2, 3, 4, 5], vert=False)
+        assert len(result['bodies']) == 1

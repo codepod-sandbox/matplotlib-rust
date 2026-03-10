@@ -871,6 +871,157 @@ class Axes:
 
         return result
 
+    def violinplot(self, dataset, positions=None, vert=True, widths=0.5,
+                   showmeans=False, showmedians=False, showextrema=True,
+                   **kwargs):
+        """Violin plot."""
+        # Normalize: always list of datasets
+        if not hasattr(dataset[0], '__iter__'):
+            datasets = [list(dataset)]
+        else:
+            datasets = [list(d) for d in dataset]
+
+        n = len(datasets)
+        if positions is None:
+            positions = list(range(1, n + 1))
+
+        if not hasattr(widths, '__iter__'):
+            widths = [widths] * n
+
+        result = {
+            'bodies': [],
+            'cmeans': [],
+            'cmedians': [],
+            'cmins': [],
+            'cmaxes': [],
+            'cbars': [],
+        }
+
+        for i, data in enumerate(datasets):
+            pos = positions[i]
+            w = widths[i]
+            color = self._next_color()
+
+            kde_pos, kde_dens = _gaussian_kde(data, n_points=50)
+            if not kde_dens:
+                continue
+
+            max_d = max(kde_dens) if kde_dens else 1.0
+            scale = (w / 2) / max_d if max_d > 0 else 1.0
+
+            if vert:
+                verts = []
+                for j in range(len(kde_pos)):
+                    verts.append((pos + kde_dens[j] * scale, kde_pos[j]))
+                for j in range(len(kde_pos) - 1, -1, -1):
+                    verts.append((pos - kde_dens[j] * scale, kde_pos[j]))
+            else:
+                verts = []
+                for j in range(len(kde_pos)):
+                    verts.append((kde_pos[j], pos + kde_dens[j] * scale))
+                for j in range(len(kde_pos) - 1, -1, -1):
+                    verts.append((kde_pos[j], pos - kde_dens[j] * scale))
+
+            poly = Polygon(verts, facecolor=color, edgecolor='black')
+            poly.set_alpha(0.5)
+            poly.set_label('_nolegend_')
+            poly.axes = self
+            poly.figure = self.figure
+            self.patches.append(poly)
+            result['bodies'].append(poly)
+
+            sorted_data = sorted(data)
+            data_min = sorted_data[0]
+            data_max = sorted_data[-1]
+            data_mean = sum(data) / len(data)
+            data_med = _median(data)
+
+            if showextrema:
+                if vert:
+                    bar = Line2D([pos, pos], [data_min, data_max],
+                                 color='black', linewidth=1.0)
+                    bar.set_label('_nolegend_')
+                    bar.axes = self
+                    bar.figure = self.figure
+                    self.lines.append(bar)
+                    result['cbars'].append(bar)
+
+                    min_line = Line2D([pos - w / 4, pos + w / 4],
+                                     [data_min, data_min],
+                                     color='black', linewidth=1.0)
+                    min_line.set_label('_nolegend_')
+                    min_line.axes = self
+                    min_line.figure = self.figure
+                    self.lines.append(min_line)
+                    result['cmins'].append(min_line)
+
+                    max_line = Line2D([pos - w / 4, pos + w / 4],
+                                     [data_max, data_max],
+                                     color='black', linewidth=1.0)
+                    max_line.set_label('_nolegend_')
+                    max_line.axes = self
+                    max_line.figure = self.figure
+                    self.lines.append(max_line)
+                    result['cmaxes'].append(max_line)
+                else:
+                    bar = Line2D([data_min, data_max], [pos, pos],
+                                 color='black', linewidth=1.0)
+                    bar.set_label('_nolegend_')
+                    bar.axes = self
+                    bar.figure = self.figure
+                    self.lines.append(bar)
+                    result['cbars'].append(bar)
+
+                    min_line = Line2D([data_min, data_min],
+                                     [pos - w / 4, pos + w / 4],
+                                     color='black', linewidth=1.0)
+                    min_line.set_label('_nolegend_')
+                    min_line.axes = self
+                    min_line.figure = self.figure
+                    self.lines.append(min_line)
+                    result['cmins'].append(min_line)
+
+                    max_line = Line2D([data_max, data_max],
+                                     [pos - w / 4, pos + w / 4],
+                                     color='black', linewidth=1.0)
+                    max_line.set_label('_nolegend_')
+                    max_line.axes = self
+                    max_line.figure = self.figure
+                    self.lines.append(max_line)
+                    result['cmaxes'].append(max_line)
+
+            if showmeans:
+                if vert:
+                    m = Line2D([pos - w / 4, pos + w / 4],
+                               [data_mean, data_mean],
+                               color='red', linewidth=1.5)
+                else:
+                    m = Line2D([data_mean, data_mean],
+                               [pos - w / 4, pos + w / 4],
+                               color='red', linewidth=1.5)
+                m.set_label('_nolegend_')
+                m.axes = self
+                m.figure = self.figure
+                self.lines.append(m)
+                result['cmeans'].append(m)
+
+            if showmedians:
+                if vert:
+                    m = Line2D([pos - w / 4, pos + w / 4],
+                               [data_med, data_med],
+                               color='blue', linewidth=1.5)
+                else:
+                    m = Line2D([data_med, data_med],
+                               [pos - w / 4, pos + w / 4],
+                               color='blue', linewidth=1.5)
+                m.set_label('_nolegend_')
+                m.axes = self
+                m.figure = self.figure
+                self.lines.append(m)
+                result['cmedians'].append(m)
+
+        return result
+
     def text(self, x, y, s, **kwargs):
         """Add text to the axes."""
         t = Text(x, y, str(s), **kwargs)
@@ -1502,6 +1653,35 @@ def _percentile(data, pct):
 def _median(data):
     """Simple median calculation."""
     return _percentile(data, 50)
+
+
+def _gaussian_kde(data, n_points=100):
+    """Simple Gaussian kernel density estimate using Silverman's rule."""
+    n = len(data)
+    if n == 0:
+        return [], []
+
+    mean = sum(data) / n
+    var = sum((v - mean) ** 2 for v in data) / n
+    std = math.sqrt(var) if var > 0 else 1.0
+
+    bw = 1.06 * std * (n ** -0.2) if std > 0 else 1.0
+
+    lo = min(data) - 3 * bw
+    hi = max(data) + 3 * bw
+    step = (hi - lo) / (n_points - 1) if n_points > 1 else 1.0
+    positions = [lo + i * step for i in range(n_points)]
+
+    densities = []
+    coeff = 1.0 / (n * bw * math.sqrt(2 * math.pi))
+    for p in positions:
+        total = 0.0
+        for d in data:
+            z = (p - d) / bw
+            total += math.exp(-0.5 * z * z)
+        densities.append(total * coeff)
+
+    return positions, densities
 
 
 def _parse_plot_args(args):
