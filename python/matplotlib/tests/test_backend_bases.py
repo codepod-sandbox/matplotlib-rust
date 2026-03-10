@@ -431,3 +431,121 @@ class TestTextDraw:
         r = RendererSVG(100, 100, 100)
         t.draw(r, self._layout())
         assert 'hidden' not in r.get_result()
+
+
+# ===================================================================
+# TestAxesDraw
+# ===================================================================
+
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+
+
+class TestAxesDraw:
+    def test_empty_axes(self):
+        fig, ax = plt.subplots()
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        result = r.get_result()
+        assert '<rect' in result  # frame
+        plt.close('all')
+
+    def test_with_line(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1, 2], [0, 1, 0])
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        result = r.get_result()
+        assert '<polyline' in result
+        plt.close('all')
+
+    def test_with_scatter(self):
+        fig, ax = plt.subplots()
+        ax.scatter([1, 2, 3], [1, 2, 3])
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        assert '<circle' in r.get_result()
+        plt.close('all')
+
+    def test_with_bar(self):
+        fig, ax = plt.subplots()
+        ax.bar([1, 2, 3], [4, 5, 6])
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        assert '<rect' in r.get_result()
+        plt.close('all')
+
+    def test_with_title_and_labels(self):
+        fig, ax = plt.subplots()
+        ax.set_title('Title')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.plot([0, 1], [0, 1])
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        assert 'Title' in r.get_result()
+        plt.close('all')
+
+    def test_with_legend(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='data')
+        ax.legend()
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        assert 'data' in r.get_result()
+        plt.close('all')
+
+    def test_with_grid(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        ax.grid(True)
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        assert 'stroke-dasharray' in r.get_result()
+        plt.close('all')
+
+
+class TestFigureDraw:
+    def test_empty_figure(self):
+        fig = Figure()
+        r = RendererSVG(640, 480, 100)
+        fig.draw(r)
+        result = r.get_result()
+        assert '<svg' in result
+
+    def test_with_axes(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1])
+        r = RendererSVG(640, 480, 100)
+        fig.draw(r)
+        assert '<polyline' in r.get_result()
+
+    def test_with_suptitle(self):
+        fig = Figure()
+        fig.suptitle('My Title')
+        fig.add_subplot(1, 1, 1)
+        r = RendererSVG(640, 480, 100)
+        fig.draw(r)
+        assert 'My Title' in r.get_result()
+
+    def test_savefig_svg(self, tmp_path):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1, 2], [0, 1, 0])
+        path = str(tmp_path / 'test.svg')
+        fig.savefig(path)
+        with open(path) as f:
+            content = f.read()
+        assert '<svg' in content
+        assert '<polyline' in content
+
+    def test_savefig_png(self, tmp_path):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1])
+        path = str(tmp_path / 'test.png')
+        fig.savefig(path, format='png')
+        with open(path, 'rb') as f:
+            data = f.read()
+        assert data[:4] == b'\x89PNG'

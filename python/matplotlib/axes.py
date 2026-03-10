@@ -10,6 +10,8 @@ from matplotlib.patches import Rectangle
 from matplotlib.collections import PathCollection
 from matplotlib.container import BarContainer, ErrorbarContainer
 from matplotlib.text import Text, Annotation
+from matplotlib.backend_bases import AxesLayout
+from matplotlib._svg_backend import _nice_ticks, _fmt_tick, _esc
 
 
 class Axes:
@@ -857,6 +859,135 @@ class Axes:
                     setter(*v)
                 else:
                     setter(v)
+
+    # ------------------------------------------------------------------
+    # Renderer draw path
+    # ------------------------------------------------------------------
+
+    def _compute_layout(self, fig_w_px, fig_h_px):
+        ml, mr, mt, mb = 70, 20, 40, 50
+        plot_x = ml
+        plot_y = mt
+        plot_w = fig_w_px - ml - mr
+        plot_h = fig_h_px - mt - mb
+        if plot_w <= 0 or plot_h <= 0:
+            return None
+
+        xmin, xmax = self.get_xlim()
+        ymin, ymax = self.get_ylim()
+
+        # Padding (same as current backends)
+        dx = (xmax - xmin) or 1.0
+        dy = (ymax - ymin) or 1.0
+        xmin -= dx * 0.05
+        xmax += dx * 0.05
+        ymin -= dy * 0.05
+        ymax += dy * 0.05
+
+        return AxesLayout(plot_x, plot_y, plot_w, plot_h, xmin, xmax, ymin, ymax)
+
+    def draw(self, renderer):
+        layout = self._compute_layout(renderer.width, renderer.height)
+        if layout is None:
+            return
+
+        px, py, pw, ph = layout.plot_x, layout.plot_y, layout.plot_w, layout.plot_h
+
+        # Frame border
+        renderer.draw_rect(px, py, pw, ph, '#000000', 'none')
+
+        # Grid
+        if self._grid:
+            xticks = _nice_ticks(layout.xmin, layout.xmax, 8)
+            yticks = _nice_ticks(layout.ymin, layout.ymax, 6)
+            for t in xticks:
+                tx = layout.sx(t)
+                if px < tx < px + pw:
+                    renderer.draw_line([tx, tx], [py, py + ph],
+                                       '#dddddd', 0.5, '--')
+            for t in yticks:
+                ty = layout.sy(t)
+                if py < ty < py + ph:
+                    renderer.draw_line([px, px + pw], [ty, ty],
+                                       '#dddddd', 0.5, '--')
+
+        # Tick marks + labels
+        xticks = _nice_ticks(layout.xmin, layout.xmax, 8)
+        yticks = _nice_ticks(layout.ymin, layout.ymax, 6)
+        for t in xticks:
+            tx = layout.sx(t)
+            if px <= tx <= px + pw:
+                renderer.draw_line([tx, tx], [py + ph, py + ph + 5],
+                                   '#000000', 1.0, '-')
+                if self._xticklabels_visible:
+                    renderer.draw_text(tx, py + ph + 18, _fmt_tick(t),
+                                       11, '#333333', 'center')
+        for t in yticks:
+            ty = layout.sy(t)
+            if py <= ty <= py + ph:
+                renderer.draw_line([px - 5, px], [ty, ty],
+                                   '#000000', 1.0, '-')
+                if self._yticklabels_visible:
+                    renderer.draw_text(px - 8, ty + 4, _fmt_tick(t),
+                                       11, '#333333', 'right')
+
+        # Clip for data area
+        renderer.set_clip_rect(px, py, pw, ph)
+
+        # Collect + sort all artists by zorder
+        all_artists = []
+        for line in self.lines:
+            all_artists.append(line)
+        for patch in self.patches:
+            all_artists.append(patch)
+        for coll in self.collections:
+            all_artists.append(coll)
+        for txt in self.texts:
+            all_artists.append(txt)
+        all_artists.sort(key=lambda a: a.get_zorder())
+
+        for artist in all_artists:
+            if hasattr(artist, 'draw') and callable(artist.draw):
+                artist.draw(renderer, layout)
+
+        renderer.clear_clip()
+
+        # Title
+        if self._title:
+            renderer.draw_text(px + pw / 2, py - 10, self._title,
+                               14, '#000000', 'center')
+
+        # Axis labels
+        if self._xlabel and self._xlabel_visible:
+            renderer.draw_text(px + pw / 2, renderer.height - 5,
+                               self._xlabel, 12, '#333333', 'center')
+        if self._ylabel and self._ylabel_visible:
+            ty = py + ph / 2
+            renderer.draw_text(15, ty, self._ylabel, 12, '#333333', 'center')
+
+        # Legend
+        if self._legend:
+            self._draw_legend(renderer, px + pw - 10, py + 10)
+
+    def _draw_legend(self, renderer, right_x, top_y):
+        handles, labels = self.get_legend_handles_labels()
+        if not labels:
+            return
+        lw = 120
+        lh = len(labels) * 20 + 10
+        lx = right_x - lw
+        ly = top_y
+        renderer.draw_rect(lx, ly, lw, lh, '#999999', '#ffffff')
+        for i, (handle, label) in enumerate(zip(handles, labels)):
+            iy = ly + 15 + i * 20
+            color = '#000000'
+            if hasattr(handle, 'get_color'):
+                try:
+                    color = to_hex(handle.get_color())
+                except Exception:
+                    pass
+            renderer.draw_line([lx + 5, lx + 25], [iy, iy], color, 2.0, '-')
+            renderer.draw_text(lx + 30, iy + 4, label, 11, '#333333', 'left')
 
     # ------------------------------------------------------------------
     # Remove
