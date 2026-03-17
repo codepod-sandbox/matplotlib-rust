@@ -138,3 +138,55 @@ def test_logformatter():
     result = fmt(100, 0)
     assert isinstance(result, str)
     assert len(result) > 0
+
+
+# ---------------------------------------------------------------------------
+# axis.py tests
+# ---------------------------------------------------------------------------
+
+def test_axis_default_locator_formatter():
+    """XAxis defaults to AutoLocator + ScalarFormatter."""
+    from matplotlib.axis import XAxis
+    from matplotlib.ticker import AutoLocator, ScalarFormatter
+    ax_obj = XAxis()
+    assert isinstance(ax_obj.get_major_locator(), AutoLocator)
+    assert isinstance(ax_obj.get_major_formatter(), ScalarFormatter)
+
+
+def test_axis_set_major_locator():
+    """set_major_locator() replaces the locator."""
+    from matplotlib.axis import XAxis
+    from matplotlib.ticker import FixedLocator
+    ax_obj = XAxis()
+    loc = FixedLocator([1, 2, 3])
+    ax_obj.set_major_locator(loc)
+    assert ax_obj.get_major_locator() is loc
+
+
+def test_axis_set_ticks_uses_fixed_locator():
+    """set_ticks() installs a FixedLocator + ScalarFormatter."""
+    from matplotlib.axis import XAxis
+    from matplotlib.ticker import FixedLocator
+    ax_obj = XAxis()
+    ax_obj.set_ticks([0.0, 0.5, 1.0])
+    assert isinstance(ax_obj.get_major_locator(), FixedLocator)
+    assert list(ax_obj.get_ticks()) == [0.0, 0.5, 1.0]
+
+
+def test_axis_set_ticks_with_labels():
+    """set_ticks() with labels installs FixedFormatter."""
+    from matplotlib.axis import XAxis
+    from matplotlib.ticker import FixedFormatter
+    ax_obj = XAxis()
+    ax_obj.set_ticks([1, 2, 3], ['a', 'b', 'c'])
+    assert isinstance(ax_obj.get_major_formatter(), FixedFormatter)
+    assert ax_obj.get_major_formatter().seq == ['a', 'b', 'c']
+
+
+def test_axis_tick_values():
+    """tick_values() delegates to the locator."""
+    from matplotlib.axis import XAxis
+    ax_obj = XAxis()
+    ax_obj.set_ticks([10, 20, 30])
+    vals = ax_obj.tick_values(0, 40)
+    assert list(vals) == [10, 20, 30]
