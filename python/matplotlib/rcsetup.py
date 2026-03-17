@@ -29,6 +29,8 @@ _default_params = {
     'axes.formatter.min_exponent': 0,
     'axes.formatter.useoffset': True,
     'axes.formatter.offset_threshold': 4,
+    'axes.unicode_minus': True,
+    'axes.autolimit_mode': 'data',
 
     # Figure
     'figure.figsize': [6.4, 4.8],
@@ -66,6 +68,7 @@ _default_params = {
 
     # Text
     'text.antialiased': True,
+    'text.usetex': False,
 
     # Saving
     'savefig.dpi': 'figure',
