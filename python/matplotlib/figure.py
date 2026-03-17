@@ -322,6 +322,16 @@ class Figure:
             with open(fname, 'w') as f:
                 f.write(result)
 
+    def to_svg(self, dpi=None):
+        """Render the figure to an SVG string and return it."""
+        dpi = dpi or self.dpi
+        w_px = int(self.figsize[0] * dpi)
+        h_px = int(self.figsize[1] * dpi)
+        from matplotlib._svg_backend import RendererSVG
+        renderer = RendererSVG(w_px, h_px, dpi)
+        self.draw(renderer)
+        return renderer.get_result()
+
     # ------------------------------------------------------------------
     # Repr
     # ------------------------------------------------------------------

@@ -1245,11 +1245,29 @@ class Axes:
         return None
 
     def legend(self, *args, **kwargs):
+        from matplotlib.legend import Legend
         if len(args) > 2:
             raise TypeError(
                 f"legend() takes at most 2 positional arguments "
                 f"({len(args)} given)")
-        self._legend = True
+
+        # Determine handles and labels
+        if len(args) == 2:
+            handles, labels = args[0], args[1]
+        elif len(args) == 1:
+            # Single positional arg: list of labels; pair with auto-handles
+            auto_handles, _ = self.get_legend_handles_labels()
+            labels = list(args[0])
+            handles = auto_handles[:len(labels)]
+            # Pad with None if fewer handles than labels
+            while len(handles) < len(labels):
+                handles.append(None)
+        else:
+            handles, labels = self.get_legend_handles_labels()
+
+        leg = Legend(self, handles, labels, **kwargs)
+        self._legend = leg
+        return leg
 
     def grid(self, visible=True, **kwargs):
         self._grid = visible
@@ -1628,7 +1646,10 @@ class Axes:
 
         # Legend
         if self._legend:
-            self._draw_legend(renderer, px + pw - 10, py + 10)
+            if hasattr(self._legend, 'draw'):
+                self._legend.draw(renderer, layout)
+            else:
+                self._draw_legend(renderer, px + pw - 10, py + 10)
 
     def _draw_legend(self, renderer, right_x, top_y):
         handles, labels = self.get_legend_handles_labels()
