@@ -29,7 +29,7 @@ class Axes:
         self.xaxis = XAxis()
         self.yaxis = YAxis()
         self._grid = False
-        self._legend = False
+        self._legend_obj = None
         self._color_idx = 0
 
         # Typed artist lists
@@ -1266,7 +1266,7 @@ class Axes:
             handles, labels = self.get_legend_handles_labels()
 
         leg = Legend(self, handles, labels, **kwargs)
-        self._legend = leg
+        self._legend_obj = leg
         return leg
 
     def grid(self, visible=True, **kwargs):
@@ -1645,31 +1645,8 @@ class Axes:
             renderer.draw_text(15, ty, self._ylabel, 12, '#333333', 'center')
 
         # Legend
-        if self._legend:
-            if hasattr(self._legend, 'draw'):
-                self._legend.draw(renderer, layout)
-            else:
-                self._draw_legend(renderer, px + pw - 10, py + 10)
-
-    def _draw_legend(self, renderer, right_x, top_y):
-        handles, labels = self.get_legend_handles_labels()
-        if not labels:
-            return
-        lw = 120
-        lh = len(labels) * 20 + 10
-        lx = right_x - lw
-        ly = top_y
-        renderer.draw_rect(lx, ly, lw, lh, '#999999', '#ffffff')
-        for i, (handle, label) in enumerate(zip(handles, labels)):
-            iy = ly + 15 + i * 20
-            color = '#000000'
-            if hasattr(handle, 'get_color'):
-                try:
-                    color = to_hex(handle.get_color())
-                except Exception:
-                    pass
-            renderer.draw_line([lx + 5, lx + 25], [iy, iy], color, 2.0, '-')
-            renderer.draw_text(lx + 30, iy + 4, label, 11, '#333333', 'left')
+        if self._legend_obj is not None:
+            self._legend_obj.draw(renderer, layout)
 
     # ------------------------------------------------------------------
     # Remove
@@ -1694,7 +1671,7 @@ class Axes:
         self.xaxis = XAxis()
         self.yaxis = YAxis()
         self._grid = False
-        self._legend = False
+        self._legend_obj = None
         self._color_idx = 0
         # Clear typed artist lists
         self.lines.clear()

@@ -75,3 +75,15 @@ def test_legend_renders_without_error():
     svg = fig.to_svg()
     assert len(svg) > 0
     plt.close('all')
+
+
+def test_axes_legend_returns_legend_object():
+    """ax.legend() must return a Legend and store it as _legend_obj."""
+    import matplotlib.pyplot as plt
+    from matplotlib.legend import Legend
+    fig, ax = plt.subplots()
+    ax.plot([1, 2], [1, 2], label='x')
+    leg = ax.legend()
+    assert isinstance(leg, Legend)
+    assert ax._legend_obj is leg
+    plt.close('all')
