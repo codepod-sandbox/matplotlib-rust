@@ -14,7 +14,7 @@ Expand matplotlib-rust's upstream API coverage across five areas: tick formatter
 ## Licensing
 
 - **Repo root:** Add a `LICENSE` file (BSD-3-Clause) and set the license field on the GitHub repository.
-- **Copied files** (from CPython matplotlib): retain the original matplotlib copyright block verbatim at the top, followed by our BSD-3-Clause header.
+- **Copied files** (from matplotlib): retain the original matplotlib copyright block verbatim at the top, followed by our BSD-3-Clause header.
 - **New files:** BSD-3-Clause header only.
 - matplotlib uses a PSF-derived BSD-compatible license; BSD-3 is compatible.
 
@@ -25,13 +25,14 @@ matplotlib-rust/
   python/matplotlib/
     ticker.py          ← copied from matplotlib, adapted
     scale.py           ← copied from matplotlib, adapted
-    axis.py            ← new: XAxis/YAxis wrappers
-    axes.py            ← modified: integrate scale/axis objects
+    axis.py            ← new: XAxis/YAxis wrappers (Phase 1), Scale integration (Phase 2)
+    axes.py            ← modified: integrate scale/axis objects, migrate _xticks/_yticks
     legend.py          ← copied from matplotlib, adapted
-    patches.py         ← modified: arrow patch geometry
+    patches.py         ← modified: add FancyArrowPatch
     backend_bases.py   ← modified: draw_arrow primitive
     _svg_backend.py    ← modified: draw_arrow (SVG)
     _pil_backend.py    ← modified: draw_arrow (PIL)
+    artist.py          ← exists: consolidate per-class property duplication
   crates/
     matplotlib-python/ ← existing RustPython binary
     matplotlib-ticker/ ← new (if _ticker C extension needed)
@@ -41,11 +42,11 @@ matplotlib-rust/
 
 ## Phase 1 — `matplotlib.ticker`
 
-**Files:** `python/matplotlib/ticker.py`, optionally `crates/matplotlib-ticker/`
+**Files:** `python/matplotlib/ticker.py`, `python/matplotlib/axis.py` (new), `python/matplotlib/axes.py`, optionally `crates/matplotlib-ticker/`
 
 Copy real matplotlib's `ticker.py` verbatim. Required adaptations:
 - Replace `matplotlib._ticker` (C extension) imports: reimplement `_Edge_integer` and related in Python; promote to Rust crate only if needed
-- Replace `rcParams` lookups with calls to our `rcsetup.py` equivalents or hardcoded defaults
+- Replace `rcParams` lookups with hardcoded defaults for the following keys: `axes.formatter.limits`, `axes.formatter.use_locale`, `axes.formatter.use_mathtext`, `axes.formatter.min_exponent`, `axes.formatter.useoffset`, `axes.formatter.offset_threshold` — or add these keys to `rcsetup.py`
 - Drop `DateLocator`/`DateFormatter` (out of scope; date transforms not implemented)
 - All numpy usage copies as-is (numpy-rust provides `np.log`, `np.power`, etc.)
 
@@ -56,27 +57,37 @@ Copy real matplotlib's `ticker.py` verbatim. Required adaptations:
 **New `axis.py`:** Thin `Axis` class holding a `major` and `minor` ticker (formatter + locator pair). Exposes:
 - `set_major_formatter(fmt)` / `get_major_formatter()`
 - `set_major_locator(loc)` / `get_major_locator()`
+- `set_minor_formatter(fmt)` / `get_minor_formatter()`
 - `set_minor_locator(loc)` / `get_minor_locator()`
-- `set_ticks(ticks)` / `get_ticks()`
+- `set_ticks(ticks, labels=None)` / `get_ticks()`
 
-`Axes.xaxis` and `Axes.yaxis` are `XAxis`/`YAxis` instances. Current hardcoded tick generation in axes/renderers is replaced by locator tick positions and formatter labels.
+`Axes.xaxis` and `Axes.yaxis` are `XAxis`/`YAxis` instances.
 
-**Upstream tests:** Port `test_formatter_str`, `test_scalar_formatter`, `test_logformatter`, `test_auto_locator`, `test_multiple_locator`, `test_maxn_locator` from `lib/matplotlib/tests/test_ticker.py`.
+**Migration of `_xticks`/`_yticks`:** `Axes` currently stores tick positions and labels as `self._xticks` / `self._yticks` plain lists and renders them directly in the SVG/PIL draw routines. After Phase 1:
+- `set_xticks(ticks)` / `set_xticklabels(labels)` delegate to `ax.xaxis.set_ticks()` — `_xticks`/`_yticks` are removed
+- `get_xticks()` / `get_yticks()` delegate to `ax.xaxis.get_ticks()`
+- Draw routines read tick positions and labels from the `Axis` object (via `AutoLocator` if no explicit ticks set, or from the fixed list if `set_xticks` was called)
+- The `FixedLocator` + `FixedFormatter` pair is used when the user calls `set_xticks` explicitly, preserving existing behavior
+
+**Upstream tests:** Port `test_formatter_str`, `test_scalar_formatter`, `test_logformatter`, `test_auto_locator`, `test_multiple_locator`, `test_maxn_locator` from `lib/matplotlib/tests/test_ticker.py`. New file: `test_ticker_upstream.py`.
 
 ## Phase 2 — Log/Symlog Scale Rendering
 
-**Files:** `python/matplotlib/scale.py`, `python/matplotlib/axis.py` (extended), `python/matplotlib/axes.py`
+**Files:** `python/matplotlib/scale.py`, `python/matplotlib/axis.py` (extended), `python/matplotlib/axes.py`, `python/matplotlib/backend_bases.py`
 
 Copy real matplotlib's `scale.py` verbatim. Adaptations: same rcParams and C-extension rules as Phase 1.
 
 **Scale objects:** `LinearScale`, `LogScale`, `SymmetricalLogScale` (symlog), `FuncScale`. Each exposes:
 - `forward(values)` — data → transformed coordinate
 - `inverse(values)` — transformed → data
-- `get_transform()` — returns a `ScaleTransform` usable by tick locators
 
-**Integration:** Each `Axis` holds a `Scale` object (default `LinearScale`). `ax.set_xscale('log')` / `ax.set_yscale('log')` sets the axis scale and updates the default locator/formatter to `LogLocator`/`LogFormatter`. Data-to-pixel mapping in the renderers passes values through `scale.forward()` before the linear pixel mapping step.
+Named scales are constructed by `ax.set_xscale(name, **kwargs)`: `'linear'` → `LinearScale()`, `'log'` → `LogScale(base=10)`, `'symlog'` → `SymmetricalLogScale(linthresh=2)`. `FuncScale` is constructed directly: `ax.set_xscale(FuncScale(forward_fn, inverse_fn))`.
 
-**Upstream tests:** Port `test_logscale_nonpos`, `test_logscale_mask`, `test_symlog`, `test_symlog2` from `lib/matplotlib/tests/test_axes.py`.
+`axis.py` Phase 2 additions: each `Axis` gains a `set_scale(scale_obj)` method and holds the current `Scale` instance (default `LinearScale`). `ax.set_xscale('log')` constructs a `LogScale` and calls `ax.xaxis.set_scale()`, then updates the default locator/formatter to `LogLocator`/`LogFormatter`.
+
+**`AxesLayout` integration:** `AxesLayout` in `backend_bases.py` has `sx(x)` / `sy(y)` methods that perform direct linear data→pixel mapping. Phase 2 changes these to: `sx(x) = linear_map(xaxis.scale.forward(x))` and `sy(y) = linear_map(yaxis.scale.forward(y))`. For `LinearScale`, `forward(x) == x`, so existing behavior is unchanged.
+
+**Upstream tests:** Port `test_logscale_nonpos`, `test_logscale_mask`, `test_symlog`, `test_symlog2` from `lib/matplotlib/tests/test_axes.py`. New file: `test_scale_upstream.py`.
 
 ## Phase 3 — `ax.legend()`
 
@@ -88,11 +99,14 @@ Copy real matplotlib's `legend.py`. Adaptations:
 - Drop `BboxTransformTo` / `BboxTransformFrom` (replace with direct pixel math)
 - Retain: `loc`, `ncol`, `bbox_to_anchor`, `framealpha`, `title`, `handles`/`labels`, `fontsize`
 
-**Rendering:** Legend box is drawn using existing renderer primitives (`draw_rectangle`, `draw_text`, `draw_line`). No new renderer primitives needed.
+**Migration of `_draw_legend`:** `Axes` currently has `_draw_legend(renderer, layout)` called directly from `Axes.draw()`, and `ax.legend()` sets `self._legend = True`. After Phase 3:
+- `ax.legend(...)` constructs and stores a `Legend` object as `self._legend_obj`
+- `Axes.draw()` calls `self._legend_obj.draw(renderer, layout)` instead of `_draw_legend`
+- `_draw_legend` and the `_legend` bool are removed
 
-`ax.legend()` returns a `Legend` object. `Figure.draw()` calls `ax.legend_.draw(renderer, layout)` after plotting artists.
+**Rendering:** Legend box is drawn using existing renderer primitives (`draw_rect`, `draw_text`, `draw_line`). No new renderer primitives needed.
 
-**Upstream tests:** Port `test_legend_auto`, `test_legend_loc`, `test_legend_ncol`, `test_no_handles_labels`, `test_legend_title` from `lib/matplotlib/tests/test_legend.py`.
+**Upstream tests:** Port `test_legend_auto`, `test_legend_loc`, `test_legend_ncol`, `test_no_handles_labels`, `test_legend_title` from `lib/matplotlib/tests/test_legend.py`. New file: `test_legend_upstream.py`.
 
 ## Phase 4 — Arrow Annotations
 
@@ -104,27 +118,29 @@ Copy real matplotlib's `legend.py`. Adaptations:
 
 **`FancyArrowPatch` (simplified):** Add to `patches.py`. Supports `arrowstyle` strings: `'->'`, `'<-'`, `'<->'`, `'-'`, `'fancy'`. Handles `shrinkA`/`shrinkB` (shorten arrow at endpoints). Geometry copied from real matplotlib's `patches.py`, stripping transform-dependent code in favor of direct pixel coordinates.
 
-**`Annotation` update:** `text.py` `Annotation.draw()` constructs a `FancyArrowPatch` when `arrowprops` is set and delegates to `draw_arrow`.
+**`Annotation` update:** `Annotation` currently has no `draw()` method (text and arrow are placeholders). Phase 4 adds `Annotation.draw(renderer, layout)` which:
+1. Renders the text portion (same as `Text.draw()`)
+2. If `arrowprops` is set, constructs a `FancyArrowPatch` from `xytext` → `xy` and calls `draw_arrow`
 
-**Upstream tests:** Port `test_annotate_default_arrow`, `test_annotate_arrowprops` from `lib/matplotlib/tests/test_text.py`.
+**Upstream tests:** Port `test_annotate_default_arrow`, `test_annotate_arrowprops` from `lib/matplotlib/tests/test_text.py`. New file: `test_annotation_upstream.py`.
 
 ## Phase 5 — Artist Properties
 
-**Files:** `python/matplotlib/artist.py` (new base), `axes.py`, `lines.py`, `patches.py`, `text.py`, renderers
+**Files:** `python/matplotlib/artist.py`, `axes.py`, `lines.py`, `patches.py`, `text.py`, renderers
 
-**New `artist.py`:** Base `Artist` class with `alpha`, `zorder`, `visible`, `clip_on`, `label`. All artist classes inherit from it. Currently properties are duplicated per-class; this consolidates them.
+**`artist.py` consolidation:** The existing `Artist` base class already has `alpha`, `zorder`, `visible`, `label`. Phase 5 audits per-class duplications in `Line2D`, `Patch`, `Text` and migrates them to use the base class properties, adding `clip_on`. No new base class is created — this is a cleanup pass.
 
-**Zorder:** `Figure.draw()` sorts artists by `zorder` before calling `draw()`. Default zorder: lines=2, patches=1, text=3 (matching real matplotlib defaults).
+**Zorder:** `Axes.draw()` currently iterates its artists (Line2D, Patch, Text, etc.) in insertion order. Phase 5 sorts them by `zorder` inside `Axes.draw()` before the per-artist `draw()` loop. Default zorder: lines=2, patches=1, text=3 (matching real matplotlib defaults).
 
 **Alpha:** Passed through to renderer color functions. SVG: `opacity` attribute. PIL: `RGBA` blend.
 
 **Linestyle dashes:** Extend current `'solid'`/`'dashed'`/`'dotted'` to support `(offset, (on, off, ...))` tuple format and named styles `'dashdot'`, `'loosely dashed'`, etc. SVG: `stroke-dasharray`. PIL: manual segment iteration.
 
-**Upstream tests:** Port `test_alpha`, `test_zorder`, `test_linestyle_variants` from `lib/matplotlib/tests/test_artist.py` and `test_lines.py`.
+**Upstream tests:** Port `test_alpha`, `test_zorder`, `test_linestyle_variants` from `lib/matplotlib/tests/test_artist.py` and `test_lines.py`. New file: `test_artist_upstream.py`.
 
 ## Test Strategy
 
-Each phase adds tests to a new `test_<phase>_upstream.py` file (e.g., `test_ticker_upstream.py`, `test_scale_upstream.py`). Tests are ported from real matplotlib with the original file path and function name noted in a comment. All 789 existing tests must continue passing throughout.
+Each phase adds a new `test_<topic>_upstream.py` file. Tests are ported from real matplotlib with the original source file path and function name noted in a comment. All 789 existing tests must continue passing throughout all phases.
 
 ## Out of Scope
 
