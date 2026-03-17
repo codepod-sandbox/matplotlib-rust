@@ -48,15 +48,10 @@ The Locator subclasses defined here are:
 `SymmetricalLogLocator` Locator for use with the symlog norm; works like
                         `LogLocator` for the part outside of the threshold and
                         adds 0 if inside the limits.
-`AsinhLocator`          Locator for use with the asinh norm, attempting to
-                        space ticks approximately uniformly.
-`LogitLocator`          Locator for logit scaling.
-`AutoMinorLocator`      Locator for minor ticks when the axis is linear and the
-                        major ticks are uniformly spaced. Subdivides the major
-                        tick interval into a specified number of minor
-                        intervals, defaulting to 4 or 5 depending on the major
-                        interval.
 ======================= =======================================================
+
+Note: Date formatters/locators and some advanced classes (AsinhLocator,
+LogitLocator, AutoMinorLocator) are not available in this adaptation.
 
 There are a number of locators specialized for date locations - see
 the :mod:`.dates` module.
@@ -111,10 +106,10 @@ operates on a single tick value and returns a string to the axis.
 `LogFormatterMathtext`    Format values for log axis using
                           ``exponent = log_base(value)`` using Math text.
 `LogFormatterSciNotation` Format values for log axis using scientific notation.
-`LogitFormatter`          Probability formatter.
-`EngFormatter`            Format labels in engineering notation.
 `PercentFormatter`        Format labels as a percentage.
 ========================= =====================================================
+
+Note: LogitFormatter and EngFormatter are not available in this adaptation.
 
 You can derive your own formatter from the Formatter base class by
 simply overriding the ``__call__`` method. The formatter class has
@@ -183,13 +178,16 @@ def _setattr_cm(obj, **kwargs):
 
 
 def _g_sig_digits(value, delta):
-    """Return the number of significant digits needed to distinguish
-    *value* from *value* + *delta*.  Replacement for cbook._g_sig_digits."""
+    """Return the number of significant digits to %g-format *value*, assuming
+    it is known with an error of *delta*.  Replacement for cbook._g_sig_digits."""
     if delta == 0:
-        # Limit of the above formula
-        return 12
-    import math
-    return max(1, int(0.5 + math.log10(abs(value) / delta))) if value != 0 else 1
+        delta = abs(np.spacing(value))
+    if not math.isfinite(value):
+        return 0
+    return max(
+        0,
+        (math.floor(math.log10(abs(value))) + 1 if value else 1)
+        - math.floor(math.log10(delta)))
 
 
 def _strip_math(s):
@@ -208,6 +206,7 @@ def _strip_math(s):
 def _nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
     """Modify endpoints to avoid singularities.
     Replacement for mtransforms.nonsingular."""
+    vmin, vmax = float(vmin), float(vmax)
     if (not np.isfinite(vmin)) or (not np.isfinite(vmax)):
         return -expander, expander
     swapped = False
@@ -215,7 +214,7 @@ def _nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
         vmin, vmax = vmax, vmin
         swapped = True
     maxabs = max(abs(vmin), abs(vmax))
-    if maxabs < tiny * 1e6:
+    if maxabs < (1e6 / tiny) * np.finfo(float).tiny:
         vmin = -expander
         vmax = expander
     elif vmax - vmin <= maxabs * tiny:

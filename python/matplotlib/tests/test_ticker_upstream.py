@@ -43,7 +43,7 @@ def test_scalar_formatter():
     fmt.set_locs([0, 500, 1000, 1500, 2000])
     result = fmt(1000, 0)
     assert isinstance(result, str)
-    assert '1000' in result or '1' in result  # some numeric representation
+    assert result == '1000'
 
 
 def test_percent_formatter():
