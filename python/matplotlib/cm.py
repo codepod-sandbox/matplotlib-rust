@@ -200,3 +200,122 @@ def get_cmap(name=None, lut=None):
     Colormap
     """
     return _colormaps.get_cmap(name, lut)
+
+
+class ScalarMappable:
+    """Mixin for artists that map scalar data to colors.
+
+    Adapted from upstream matplotlib/cm.py ScalarMappable.
+    Event/callback infrastructure removed.
+    """
+
+    def __init__(self, norm=None, cmap=None):
+        """
+        Parameters
+        ----------
+        norm : Normalize or None
+        cmap : str or Colormap or None — defaults to rcParams['image.cmap']
+        """
+        self._A = None
+        self.set_cmap(cmap)
+        self.set_norm(norm)
+
+    def set_array(self, A):
+        """Set the data array."""
+        import numpy as np
+        if A is not None:
+            self._A = np.asarray(A, dtype=float)
+        else:
+            self._A = None
+
+    def get_array(self):
+        """Return the data array."""
+        return self._A
+
+    def set_cmap(self, cmap):
+        """Set the colormap. Accepts name string or Colormap instance."""
+        if cmap is None:
+            import matplotlib
+            cmap = matplotlib.rcParams.get('image.cmap', 'viridis')
+        if isinstance(cmap, str):
+            cmap = get_cmap(cmap)
+        if not isinstance(cmap, Colormap):
+            raise TypeError(f"cmap must be a Colormap or str, got {type(cmap)}")
+        self._cmap = cmap
+
+    def get_cmap(self):
+        """Return the current Colormap."""
+        return self._cmap
+
+    def set_norm(self, norm):
+        """Set the normalization. Accepts Normalize instance or None."""
+        if norm is None:
+            norm = Normalize()
+        if not isinstance(norm, Normalize):
+            raise TypeError(f"norm must be a Normalize instance or None, got {type(norm)}")
+        self.norm = norm
+
+    def get_norm(self):
+        """Return the current Normalize instance."""
+        return self.norm
+
+    def get_clim(self):
+        """Return (vmin, vmax)."""
+        return self.norm.vmin, self.norm.vmax
+
+    def set_clim(self, vmin=None, vmax=None):
+        """Set vmin and vmax on the norm."""
+        if vmin is not None:
+            self.norm.vmin = float(vmin)
+        if vmax is not None:
+            self.norm.vmax = float(vmax)
+
+    def autoscale(self):
+        """Set vmin/vmax from the current data array."""
+        import numpy as np
+        if self._A is None:
+            raise ValueError("autoscale() requires set_array() to be called first")
+        flat = self._A.flatten().tolist()
+        valid = [v for v in flat if not np.isnan(v)]
+        if not valid:
+            return
+        self.norm.vmin = min(valid)
+        self.norm.vmax = max(valid)
+
+    def autoscale_None(self):
+        """Set vmin/vmax only where not already set."""
+        import numpy as np
+        if self._A is None:
+            return
+        if self.norm.vmin is None or self.norm.vmax is None:
+            flat = self._A.flatten().tolist()
+            valid = [v for v in flat if not np.isnan(v)]
+            if not valid:
+                return
+            if self.norm.vmin is None:
+                self.norm.vmin = min(valid)
+            if self.norm.vmax is None:
+                self.norm.vmax = max(valid)
+
+    def to_rgba(self, x, alpha=None, bytes=False, norm=True):
+        """Map data array x to RGBA.
+
+        Parameters
+        ----------
+        x : array-like
+        alpha : float, optional
+        bytes : bool
+        norm : bool — if True, apply self.norm before mapping
+
+        Returns
+        -------
+        ndarray of shape (*x.shape, 4), float64 or uint8
+        """
+        import numpy as np
+        x = np.asarray(x, dtype=float)
+        if norm:
+            orig_shape = x.shape
+            x_list = x.flatten().tolist()
+            x_normed = self.norm(x_list)
+            x = np.asarray(x_normed, dtype=float).reshape(orig_shape)
+        return self._cmap(x, alpha=alpha, bytes=bytes)
