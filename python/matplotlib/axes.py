@@ -1486,7 +1486,12 @@ class Axes:
     # ------------------------------------------------------------------
 
     def _compute_layout(self, fig_w_px, fig_h_px):
-        ml, mr, mt, mb = 70, 20, 40, 50
+        # Use proportional margins: 15% left, 5% right, 10% top, 12% bottom
+        # but clamp to reasonable pixel ranges
+        ml = max(5, min(70, int(fig_w_px * 0.15)))
+        mr = max(3, min(20, int(fig_w_px * 0.05)))
+        mt = max(3, min(40, int(fig_h_px * 0.10)))
+        mb = max(3, min(50, int(fig_h_px * 0.12)))
         plot_x = ml
         plot_y = mt
         plot_w = fig_w_px - ml - mr
