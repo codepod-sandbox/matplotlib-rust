@@ -1167,3 +1167,140 @@ class ListedColormap(Colormap):
             name = self.name + '_r'
         colors = self.colors[::-1] if isinstance(self.colors, list) else list(reversed(self.colors))
         return ListedColormap(colors, name=name, N=self.N)
+
+
+class BoundaryNorm(Normalize):
+    """Map values into integer bins defined by boundaries.
+
+    Parameters
+    ----------
+    boundaries : array-like, strictly increasing
+    ncolors : int — number of colors (bins) in the colormap
+    clip : bool
+    """
+
+    def __init__(self, boundaries, ncolors, clip=False):
+        b = sorted(float(x) for x in boundaries)
+        if len(b) < 2:
+            raise ValueError("boundaries must have at least 2 entries")
+        super().__init__(vmin=b[0], vmax=b[-1], clip=clip)
+        self.boundaries = b
+        self.ncolors = int(ncolors)
+        self._n_regions = len(b) - 1
+
+    def __call__(self, value, clip=None):
+        import numpy as np
+        scalar = not hasattr(value, '__len__') and not hasattr(value, 'shape')
+        arr = np.asarray(value, dtype=float)
+        flat = arr.flatten().tolist()
+        result = []
+        for v in flat:
+            if np.isnan(v):
+                result.append(float('nan'))
+                continue
+            # Find which bin v falls into
+            idx = 0
+            for i in range(len(self.boundaries) - 1):
+                if v >= self.boundaries[i]:
+                    idx = i
+            # Map bin index to [0, 1] via ncolors
+            r = (idx + 0.5) / self.ncolors
+            if self.clip:
+                r = max(0.0, min(1.0, r))
+            result.append(r)
+        out = np.array(result, dtype=float)
+        if scalar:
+            return float(out.tolist()[0])
+        return out.reshape(arr.shape)
+
+
+class TwoSlopeNorm(Normalize):
+    """Diverging normalization with separate slopes below/above vcenter.
+
+    Maps vmin->0, vcenter->0.5, vmax->1.
+    """
+
+    def __init__(self, vcenter, vmin=None, vmax=None):
+        super().__init__(vmin=vmin, vmax=vmax)
+        self.vcenter = float(vcenter)
+
+    def __call__(self, value, clip=None):
+        import numpy as np
+        if self.vmin is None or self.vmax is None:
+            raise ValueError("TwoSlopeNorm requires vmin and vmax")
+        vmin = float(self.vmin)
+        vmax = float(self.vmax)
+        vc = self.vcenter
+
+        scalar = not hasattr(value, '__len__') and not hasattr(value, 'shape')
+        arr = np.asarray(value, dtype=float)
+        flat = arr.flatten().tolist()
+        result = []
+        for v in flat:
+            if np.isnan(v):
+                result.append(float('nan'))
+            elif v <= vc:
+                # Map [vmin, vcenter] -> [0, 0.5]
+                if vc == vmin:
+                    result.append(0.5)
+                else:
+                    result.append(0.5 * (v - vmin) / (vc - vmin))
+            else:
+                # Map [vcenter, vmax] -> [0.5, 1.0]
+                if vmax == vc:
+                    result.append(0.5)
+                else:
+                    result.append(0.5 + 0.5 * (v - vc) / (vmax - vc))
+        out = np.array(result, dtype=float)
+        if self.clip:
+            out = np.clip(out, 0.0, 1.0)
+        if scalar:
+            return float(out.tolist()[0])
+        return out.reshape(arr.shape)
+
+
+class CenteredNorm(Normalize):
+    """Normalize symmetrically around a center value.
+
+    Maps [vcenter - halfrange, vcenter + halfrange] -> [0, 1].
+    halfrange is determined from the data if not provided.
+    """
+
+    def __init__(self, vcenter=0.0, halfrange=None):
+        super().__init__()
+        self.vcenter = float(vcenter)
+        self._halfrange = float(halfrange) if halfrange is not None else None
+
+    def __call__(self, value, clip=None):
+        import numpy as np
+        scalar = not hasattr(value, '__len__') and not hasattr(value, 'shape')
+        arr = np.asarray(value, dtype=float)
+
+        if self._halfrange is None:
+            # Determine halfrange from data (max abs deviation from vcenter)
+            flat = arr.flatten().tolist()
+            valid = [abs(v - self.vcenter) for v in flat if not np.isnan(v)]
+            halfrange = max(valid) if valid else 1.0
+        else:
+            halfrange = self._halfrange
+
+        if halfrange == 0.0:
+            halfrange = 1.0
+
+        vmin = self.vcenter - halfrange
+        vmax = self.vcenter + halfrange
+        flat = arr.flatten().tolist()
+        result = []
+        for v in flat:
+            if np.isnan(v):
+                result.append(float('nan'))
+            else:
+                r = (v - vmin) / (vmax - vmin)
+                use_clip = self.clip if clip is None else clip
+                if use_clip:
+                    r = max(0.0, min(1.0, r))
+                result.append(r)
+        out = np.array(result, dtype=float)
+        if scalar:
+            return float(out.tolist()[0])
+        return out.reshape(arr.shape)
