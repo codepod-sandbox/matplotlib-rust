@@ -1060,7 +1060,7 @@ class LinearSegmentedColormap(Colormap):
                 ys = np.array([pt[2] for pt in seg], dtype=float)
                 self._lut[:, 3] = _interp(x, xs, ys)
         else:
-            self._lut[:, 3] = 1.0
+            self._lut[:, 3] = np.ones(self.N)  # scalar broadcast workaround
 
         # Apply gamma
         if self._gamma != 1.0:
