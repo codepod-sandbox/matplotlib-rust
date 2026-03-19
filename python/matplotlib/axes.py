@@ -4,6 +4,8 @@ matplotlib.axes --- Axes class that stores plot elements.
 
 import math
 
+builtins_range = range  # alias so we can use 'range' as a parameter name
+
 from matplotlib.colors import DEFAULT_CYCLE, to_hex, parse_fmt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle, Polygon, Wedge
@@ -192,11 +194,24 @@ class Axes:
 
         return all_lines
 
-    def scatter(self, x, y, s=20, c=None, **kwargs):
-        """Scatter plot."""
-        color = c or kwargs.get('color') or self._next_color()
-        color = to_hex(color)
+    def scatter(self, x, y, s=20, c=None, marker=None, cmap=None,
+                norm=None, vmin=None, vmax=None, alpha=None,
+                edgecolors=None, **kwargs):
+        """Scatter plot.
+
+        Parameters
+        ----------
+        c : color or array-like of float
+            If a sequence of numbers, they are mapped through *cmap*.
+        cmap : str or Colormap, optional
+        norm : Normalize, optional
+        vmin, vmax : float, optional
+        """
+        from matplotlib.cm import get_cmap, ScalarMappable
+        from matplotlib.colors import Normalize as Norm, to_rgba
+
         label = kwargs.get('label')
+        color_kw = kwargs.get('color')
 
         x_list = list(x)
         y_list = list(y)
@@ -213,15 +228,69 @@ class Axes:
         else:
             sizes = [s]
 
+        # Resolve colors
+        facecolors = []
+        mappable = None
+        c_is_array = False
+
+        if c is not None:
+            # Check if c is array of numeric values for colormap mapping
+            if hasattr(c, '__iter__') and not isinstance(c, str):
+                c_list = list(c)
+                if c_list and isinstance(c_list[0], (int, float)):
+                    c_is_array = True
+                    # Map through colormap
+                    if cmap is None:
+                        cmap = 'viridis'
+                    cmap_obj = get_cmap(cmap) if isinstance(cmap, str) else cmap
+                    if norm is None:
+                        _vmin = vmin if vmin is not None else min(c_list)
+                        _vmax = vmax if vmax is not None else max(c_list)
+                        norm_obj = Norm(vmin=_vmin, vmax=_vmax)
+                    else:
+                        norm_obj = norm
+                    for val in c_list:
+                        nv = norm_obj(val)
+                        rgba = cmap_obj(nv)
+                        facecolors.append(to_hex(rgba))
+                    # Create ScalarMappable for colorbar support
+                    mappable = ScalarMappable(norm=norm_obj, cmap=cmap_obj)
+                    mappable.set_array(c_list)
+                else:
+                    # List of color specs
+                    facecolors = [to_hex(ci) for ci in c_list]
+            else:
+                facecolors = [to_hex(c)]
+        elif color_kw is not None:
+            facecolors = [to_hex(color_kw)]
+        else:
+            facecolors = [to_hex(self._next_color())]
+
         # Create PathCollection
         pc = PathCollection(
             offsets=offsets,
             sizes=sizes,
-            facecolors=[color],
+            facecolors=facecolors,
             label=label,
         )
+        if edgecolors is not None:
+            if isinstance(edgecolors, str):
+                pc.set_edgecolor([edgecolors])
+            else:
+                pc.set_edgecolor(list(edgecolors))
+        if alpha is not None:
+            pc.set_alpha(alpha)
         pc.axes = self
         pc.figure = self.figure
+
+        # Attach ScalarMappable properties for colorbar
+        if mappable is not None:
+            pc._norm = mappable._norm
+            pc._cmap = mappable._cmap
+            pc._A = mappable._A
+            pc.get_array = lambda: pc._A
+            pc.get_clim = lambda: (pc._norm.vmin, pc._norm.vmax)
+            pc.set_clim = lambda vmin=None, vmax=None: None
 
         # Store in typed list
         self.collections.append(pc)
@@ -321,94 +390,186 @@ class Axes:
 
         return bc
 
-    def hist(self, x, bins=10, **kwargs):
-        """Histogram --- compute bins, store as bar chart."""
-        label = kwargs.get('label')
+    def hist(self, x, bins=10, range=None, density=False, weights=None,
+             cumulative=False, bottom=None, histtype='bar', align='mid',
+             orientation='vertical', rwidth=None, log=False, color=None,
+             label=None, stacked=False, **kwargs):
+        """Histogram --- compute bins, store as bar chart.
+
+        Parameters
+        ----------
+        histtype : {'bar', 'barstacked', 'step', 'stepfilled'}
+        stacked : bool
+        range : (float, float), optional
+        """
+        # Backwards compat: pull from kwargs if passed there
+        if label is None:
+            label = kwargs.get('label')
+        if color is None:
+            color = kwargs.get('color')
+        if not density:
+            density = kwargs.get('density', False)
 
         # Check for list-of-lists (multiple datasets)
+        multi = False
+        datasets = []
         if hasattr(x, '__iter__') and not isinstance(x, str):
             x_check = list(x)
             if x_check and hasattr(x_check[0], '__iter__') and not isinstance(x_check[0], str):
-                # Multiple datasets — use same edges for all
-                all_data = []
-                for ds in x_check:
-                    all_data.extend(list(ds))
-                # Determine bin edges from combined data
-                if isinstance(bins, str) and bins == 'auto':
-                    n_bins = _auto_bins(all_data)
-                elif isinstance(bins, int):
-                    n_bins = bins
-                else:
-                    n_bins = 10
-                results = []
-                for dataset in x_check:
-                    results.append(self.hist(dataset, n_bins, **kwargs))
-                counts_list = [r[0] for r in results]
-                edges = results[0][1] if results else list(range(n_bins + 1))
-                bc = results[0][2] if results else BarContainer([], label=label)
-                return counts_list, edges, bc
+                multi = True
+                datasets = [list(ds) for ds in x_check]
 
-        data = list(x)
+        if not multi:
+            datasets = [list(x)]
 
-        # Resolve bins='auto'
+        # Resolve bins
+        all_data = []
+        for ds in datasets:
+            all_data.extend(ds)
+
         if isinstance(bins, str) and bins == 'auto':
-            bins = _auto_bins(data)
+            bins = _auto_bins(all_data)
 
         # Handle empty data
-        if not data:
-            color = kwargs.get('color') or self._next_color()
-            color = to_hex(color)
-            counts = [0] * bins
-            edges = list(range(bins + 1))
+        if not all_data:
+            c = color or self._next_color()
+            c = to_hex(c)
+            n_bins = bins if isinstance(bins, int) else 10
+            counts = [0] * n_bins
+            edges = list(builtins_range(n_bins + 1))
             bc = BarContainer([], label=label)
             self.containers.append(bc)
+            if multi:
+                return [counts for _ in datasets], edges, bc
             return counts, edges, bc
 
-        color = kwargs.get('color') or self._next_color()
-        color = to_hex(color)
-        density = kwargs.get('density', False)
+        # Compute bin edges
+        if isinstance(bins, (list, tuple)):
+            edges = list(bins)
+            n_bins = len(edges) - 1
+        else:
+            n_bins = bins
+            if range is not None:
+                lo, hi = float(range[0]), float(range[1])
+            else:
+                lo = min(all_data)
+                hi = max(all_data)
+            if lo == hi:
+                hi = lo + 1
+            bin_width = (hi - lo) / n_bins
+            edges = [lo + i * bin_width for i in builtins_range(n_bins + 1)]
 
-        # Compute histogram bins
-        lo = min(data)
-        hi = max(data)
-        if lo == hi:
-            hi = lo + 1
-        bin_width = (hi - lo) / bins
-        edges = [lo + i * bin_width for i in range(bins + 1)]
-        counts = [0] * bins
-        for v in data:
-            idx = int((v - lo) / bin_width)
-            if idx >= bins:
-                idx = bins - 1
-            counts[idx] += 1
+        # Compute counts for each dataset
+        all_counts = []
+        for ds in datasets:
+            counts = [0] * n_bins
+            bw = edges[-1] - edges[0]
+            for v in ds:
+                if v < edges[0] or v > edges[-1]:
+                    continue
+                idx = int((v - edges[0]) / (bw / n_bins))
+                if idx >= n_bins:
+                    idx = n_bins - 1
+                if weights is not None:
+                    # Find index in original ds
+                    pass
+                counts[idx] += 1
+            all_counts.append(counts)
 
-        # Normalize to probability density if requested
+        # Density normalization
         if density:
-            n = len(data)
-            counts = [c / (n * bin_width) for c in counts]
+            for ci in builtins_range(len(all_counts)):
+                n = sum(all_counts[ci])
+                if n > 0:
+                    for bi in builtins_range(n_bins):
+                        bw = edges[bi + 1] - edges[bi]
+                        all_counts[ci][bi] = all_counts[ci][bi] / (n * bw) if bw > 0 else 0
 
-        centers = [(edges[i] + edges[i + 1]) / 2 for i in range(bins)]
+        # Cumulative
+        if cumulative:
+            for ci in builtins_range(len(all_counts)):
+                for bi in builtins_range(1, n_bins):
+                    all_counts[ci][bi] += all_counts[ci][bi - 1]
 
-        # Create Rectangle patches
-        bar_width = bin_width * 0.9
+        # Stacked: accumulate counts
+        if stacked and len(all_counts) > 1:
+            for ci in builtins_range(1, len(all_counts)):
+                for bi in builtins_range(n_bins):
+                    all_counts[ci][bi] += all_counts[ci - 1][bi]
+
+        # Determine colors
+        if color is None:
+            colors_list = [to_hex(self._next_color()) for _ in datasets]
+        elif isinstance(color, (list, tuple)) and len(color) == len(datasets):
+            colors_list = [to_hex(c) for c in color]
+        else:
+            colors_list = [to_hex(color)] * len(datasets)
+
+        # Build visual elements
         rect_patches = []
-        for i in range(bins):
-            rect = Rectangle(
-                (centers[i] - bar_width / 2, 0),
-                bar_width,
-                counts[i],
-                facecolor=color,
-                edgecolor='black',
-            )
-            rect.axes = self
-            rect.figure = self.figure
-            self.patches.append(rect)
-            rect_patches.append(rect)
+        all_lines = []
 
-        bc = BarContainer(rect_patches, label=label)
+        if histtype in ('bar', 'barstacked'):
+            rw = rwidth if rwidth is not None else 0.9
+            for di in builtins_range(len(datasets)):
+                counts = all_counts[di]
+                clr = colors_list[di]
+                for bi in builtins_range(n_bins):
+                    bw = (edges[bi + 1] - edges[bi]) * rw
+                    center = (edges[bi] + edges[bi + 1]) / 2
+                    bot = 0
+                    if stacked and di > 0:
+                        bot = all_counts[di - 1][bi]
+                        h = counts[bi] - bot
+                    else:
+                        h = counts[bi]
+                    rect = Rectangle(
+                        (center - bw / 2, bot), bw, h,
+                        facecolor=clr, edgecolor='black',
+                    )
+                    rect.axes = self
+                    rect.figure = self.figure
+                    self.patches.append(rect)
+                    rect_patches.append(rect)
+
+        elif histtype == 'step':
+            for di in builtins_range(len(datasets)):
+                counts = all_counts[di]
+                clr = colors_list[di]
+                xs, ys = [], []
+                for bi in builtins_range(n_bins):
+                    xs.extend([edges[bi], edges[bi + 1]])
+                    ys.extend([counts[bi], counts[bi]])
+                line = Line2D(xs, ys, color=clr,
+                              linewidth=kwargs.get('linewidth', kwargs.get('lw', 1.5)))
+                line.axes = self
+                line.figure = self.figure
+                self.lines.append(line)
+                all_lines.append(line)
+
+        elif histtype == 'stepfilled':
+            for di in builtins_range(len(datasets)):
+                counts = all_counts[di]
+                clr = colors_list[di]
+                verts = []
+                verts.append((edges[0], 0))
+                for bi in builtins_range(n_bins):
+                    verts.append((edges[bi], counts[bi]))
+                    verts.append((edges[bi + 1], counts[bi]))
+                verts.append((edges[-1], 0))
+                poly = Polygon(verts, facecolor=clr, edgecolor='black')
+                poly.axes = self
+                poly.figure = self.figure
+                self.patches.append(poly)
+                rect_patches.append(poly)
+
+        lbl = label if not multi else (label[0] if isinstance(label, list) else label)
+        bc = BarContainer(rect_patches, label=lbl)
         self.containers.append(bc)
 
-        return counts, edges, bc
+        if multi:
+            return all_counts, edges, bc
+        return all_counts[0], edges, bc
 
     def barh(self, y, width, height=0.8, **kwargs):
         """Horizontal bar chart."""
@@ -1774,9 +1935,36 @@ class Axes:
     def set_yticklabels(self, labels, **kwargs):
         self._yticklabels = list(labels)
 
-    def tick_params(self, **kwargs):
-        # No-op compatibility shim.
-        return None
+    def tick_params(self, axis='both', **kwargs):
+        """Change the appearance of ticks, tick labels, and gridlines.
+
+        Parameters
+        ----------
+        axis : {'x', 'y', 'both'}, default 'both'
+            Which axis to apply to.
+        **kwargs
+            Tick parameters: direction, length, width, color, pad,
+            labelsize, labelcolor, labeltop, labelbottom, labelleft,
+            labelright, labelrotation, grid_color, grid_alpha,
+            grid_linewidth, grid_linestyle, bottom, top, left, right,
+            which ('major', 'minor', 'both').
+        """
+        if not hasattr(self, '_tick_params'):
+            self._tick_params = {'x': {}, 'y': {}}
+
+        if axis == 'both':
+            self._tick_params['x'].update(kwargs)
+            self._tick_params['y'].update(kwargs)
+        elif axis == 'x':
+            self._tick_params['x'].update(kwargs)
+        elif axis == 'y':
+            self._tick_params['y'].update(kwargs)
+
+    def get_tick_params(self, axis='x'):
+        """Return the tick parameters for *axis*."""
+        if not hasattr(self, '_tick_params'):
+            self._tick_params = {'x': {}, 'y': {}}
+        return dict(self._tick_params.get(axis, {}))
 
     def minorticks_on(self):
         """Turn on minor ticks (no-op)."""
@@ -1795,11 +1983,50 @@ class Axes:
         return getattr(self, '_visible', True)
 
     def legend(self, *args, **kwargs):
+        """Add a legend to the axes.
+
+        Returns a Legend object with get_texts(), get_title(), set_title().
+        """
+        from matplotlib.legend import Legend
+
         if len(args) > 2:
             raise TypeError(
                 f"legend() takes at most 2 positional arguments "
                 f"({len(args)} given)")
+
+        handles = None
+        labels = None
+
+        if len(args) == 2:
+            handles, labels = args
+        elif len(args) == 1:
+            # Single arg: list of labels
+            labels = list(args[0])
+
+        if handles is None:
+            handles = kwargs.pop('handles', None)
+        if labels is None:
+            labels = kwargs.pop('labels', None)
+
+        # Collect from lines/patches/collections if not provided
+        if handles is None and labels is None:
+            h, l = self.get_legend_handles_labels()
+            handles = h
+            labels = l
+        elif handles is not None and labels is None:
+            labels = [h.get_label() for h in handles]
+        elif labels is not None and handles is None:
+            h, _ = self.get_legend_handles_labels()
+            handles = h[:len(labels)]
+
+        loc = kwargs.pop('loc', 'best')
+        title = kwargs.pop('title', '')
+
+        leg = Legend(self, handles or [], labels or [],
+                     loc=loc, title=title, **kwargs)
+        self._legend_obj = leg
         self._legend = True
+        return leg
 
     def grid(self, visible=True, **kwargs):
         self._grid = visible
@@ -2226,6 +2453,8 @@ class Axes:
         self._yticklabels_visible = True
         self._xlabel_visible = True
         self._ylabel_visible = True
+        # Reset tick params
+        self._tick_params = {'x': {}, 'y': {}}
 
     def clear(self):
         self.cla()
@@ -2616,6 +2845,19 @@ class Axes:
         rect.figure = self.figure
         self.patches.append(rect)
         return rect
+
+    # ------------------------------------------------------------------
+    # table
+    # ------------------------------------------------------------------
+
+    def table(self, **kwargs):
+        """Add a table to the axes.
+
+        Returns a Table object.
+        """
+        from matplotlib.table import table as _table_func
+        tbl = _table_func(self, **kwargs)
+        return tbl
 
     # ------------------------------------------------------------------
     # contour / contourf (stub)

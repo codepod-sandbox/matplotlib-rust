@@ -270,21 +270,42 @@ class Figure:
         """Add a legend to the figure.
 
         Collects legend handles/labels from all axes and stores them.
+        Returns a Legend object.
         """
+        from matplotlib.legend import Legend
+
         self._has_legend = True
         # Collect from all axes
-        handles = []
-        labels = []
-        seen = set()
-        for ax in self._axes:
-            h, l = ax.get_legend_handles_labels()
-            for hi, li in zip(h, l):
-                if li not in seen:
-                    handles.append(hi)
-                    labels.append(li)
-                    seen.add(li)
+        handles = kwargs.pop('handles', None)
+        labels = kwargs.pop('labels', None)
+
+        if len(args) == 2:
+            handles, labels = args
+        elif len(args) == 1:
+            labels = list(args[0])
+
+        if handles is None or labels is None:
+            h_all = []
+            l_all = []
+            seen = set()
+            for ax in self._axes:
+                h, l = ax.get_legend_handles_labels()
+                for hi, li in zip(h, l):
+                    if li not in seen:
+                        h_all.append(hi)
+                        l_all.append(li)
+                        seen.add(li)
+            if handles is None:
+                handles = h_all
+            if labels is None:
+                labels = l_all
+
         self._legend_handles = handles
         self._legend_labels = labels
+
+        leg = Legend(self, handles, labels, **kwargs)
+        self._legend_obj = leg
+        return leg
 
     def draw_without_rendering(self):
         """No-op placeholder for layout engine compatibility."""

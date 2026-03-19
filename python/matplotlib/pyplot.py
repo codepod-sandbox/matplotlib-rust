@@ -651,14 +651,26 @@ def yticks(*args, **kwargs):
         _current_ax.set_yticks(ticks, labels=labels, **kwargs)
 
 
-def legend(**kwargs):
+def legend(*args, **kwargs):
     _ensure()
-    _current_ax.legend(**kwargs)
+    return _current_ax.legend(*args, **kwargs)
 
 
 def grid(visible=True, **kwargs):
     _ensure()
     _current_ax.grid(visible, **kwargs)
+
+
+def table(**kwargs):
+    """Add a table to the current axes."""
+    _ensure()
+    return _current_ax.table(**kwargs)
+
+
+def tick_params(**kwargs):
+    """Change tick parameters on the current axes."""
+    _ensure()
+    _current_ax.tick_params(**kwargs)
 
 
 # ------------------------------------------------------------------

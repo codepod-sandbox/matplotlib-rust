@@ -35,16 +35,69 @@ _default_params = {
     'lines.color': 'C0',
     'lines.marker': 'None',
     'lines.markersize': 6,
+    'lines.markerfacecolor': 'auto',
+    'lines.markeredgecolor': 'auto',
+    'lines.markeredgewidth': 1.0,
+    'lines.antialiased': True,
+    'lines.dash_joinstyle': 'round',
+    'lines.dash_capstyle': 'butt',
+    'lines.solid_joinstyle': 'round',
+    'lines.solid_capstyle': 'projecting',
+    'lines.scale_dashes': True,
+
+    # Markers
+    'markers.fillstyle': 'full',
 
     # Patch
     'patch.linewidth': 1.0,
     'patch.facecolor': 'C0',
     'patch.edgecolor': 'black',
+    'patch.antialiased': True,
+    'patch.force_edgecolor': False,
+
+    # Hatch
+    'hatch.color': 'black',
+    'hatch.linewidth': 1.0,
+
+    # Histogram
+    'hist.bins': 10,
+
+    # Boxplot
+    'boxplot.notch': False,
+    'boxplot.vertical': True,
+    'boxplot.whiskers': 1.5,
+    'boxplot.bootstrap': None,
+    'boxplot.patchartist': False,
+    'boxplot.showmeans': False,
+    'boxplot.showcaps': True,
+    'boxplot.showbox': True,
+    'boxplot.showfliers': True,
+    'boxplot.meanline': False,
+
+    # Scatter
+    'scatter.marker': 'o',
+    'scatter.edgecolors': 'face',
 
     # Legend
     'legend.loc': 'best',
     'legend.frameon': True,
     'legend.fontsize': 'medium',
+    'legend.framealpha': 0.8,
+    'legend.facecolor': 'inherit',
+    'legend.edgecolor': '0.8',
+    'legend.fancybox': True,
+    'legend.shadow': False,
+    'legend.numpoints': 1,
+    'legend.scatterpoints': 1,
+    'legend.markerscale': 1.0,
+    'legend.title_fontsize': None,
+    'legend.columnspacing': 2.0,
+    'legend.borderpad': 0.4,
+    'legend.labelspacing': 0.5,
+    'legend.handlelength': 2.0,
+    'legend.handleheight': 0.7,
+    'legend.handletextpad': 0.8,
+    'legend.borderaxespad': 0.5,
 
     # Grid
     'grid.color': '#b0b0b0',
@@ -53,15 +106,91 @@ _default_params = {
     'grid.alpha': 1.0,
 
     # Ticks
+    'xtick.top': False,
+    'xtick.bottom': True,
+    'xtick.labeltop': False,
+    'xtick.labelbottom': True,
+    'xtick.major.size': 3.5,
+    'xtick.minor.size': 2.0,
+    'xtick.major.width': 0.8,
+    'xtick.minor.width': 0.6,
+    'xtick.major.pad': 3.5,
+    'xtick.minor.pad': 3.4,
+    'xtick.color': 'black',
+    'xtick.labelcolor': 'inherit',
     'xtick.labelsize': 'medium',
+    'xtick.direction': 'out',
+    'xtick.minor.visible': False,
+    'xtick.major.top': True,
+    'xtick.major.bottom': True,
+    'xtick.minor.top': True,
+    'xtick.minor.bottom': True,
+    'xtick.alignment': 'center',
+    'ytick.left': True,
+    'ytick.right': False,
+    'ytick.labelleft': True,
+    'ytick.labelright': False,
+    'ytick.major.size': 3.5,
+    'ytick.minor.size': 2.0,
+    'ytick.major.width': 0.8,
+    'ytick.minor.width': 0.6,
+    'ytick.major.pad': 3.5,
+    'ytick.minor.pad': 3.4,
+    'ytick.color': 'black',
+    'ytick.labelcolor': 'inherit',
     'ytick.labelsize': 'medium',
+    'ytick.direction': 'out',
+    'ytick.minor.visible': False,
+    'ytick.major.left': True,
+    'ytick.major.right': True,
+    'ytick.minor.left': True,
+    'ytick.minor.right': True,
+    'ytick.alignment': 'center_baseline',
 
     # Text
     'text.antialiased': True,
+    'text.color': 'black',
+    'text.usetex': False,
+
+    # Font
+    'font.family': ['sans-serif'],
+    'font.style': 'normal',
+    'font.variant': 'normal',
+    'font.weight': 'normal',
+    'font.stretch': 'normal',
+    'font.size': 10.0,
+    'font.serif': ['DejaVu Serif', 'Times New Roman'],
+    'font.sans-serif': ['DejaVu Sans', 'Arial', 'Helvetica'],
+    'font.monospace': ['DejaVu Sans Mono', 'Courier New'],
+
+    # Image
+    'image.cmap': 'viridis',
+    'image.interpolation': 'antialiased',
+    'image.aspect': 'equal',
+    'image.origin': 'upper',
+
+    # Errorbar
+    'errorbar.capsize': 0,
 
     # Saving
     'savefig.dpi': 'figure',
     'savefig.format': 'png',
+    'savefig.bbox': None,
+    'savefig.pad_inches': 0.1,
+    'savefig.facecolor': 'auto',
+    'savefig.edgecolor': 'auto',
+    'savefig.transparent': False,
+
+    # Date
+    'date.autoformatter.year': '%Y',
+    'date.autoformatter.month': '%Y-%m',
+    'date.autoformatter.day': '%Y-%m-%d',
+
+    # Axes3d
+    'axes3d.grid': True,
+
+    # Animation
+    'animation.html': 'none',
 }
 
 
