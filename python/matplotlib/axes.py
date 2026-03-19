@@ -1718,6 +1718,7 @@ class Axes:
             return
         for rgba_array in images:
             renderer.draw_image(plot_x, plot_y, plot_w, plot_h, rgba_array)
+        self._images = []
 
     # ------------------------------------------------------------------
     # Remove

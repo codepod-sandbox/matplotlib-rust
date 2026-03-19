@@ -128,5 +128,5 @@ class Line2D(Artist):
         # Draw markers
         if self._marker and self._marker not in ('None', 'none', ''):
             renderer.draw_markers(x_px, y_px, color,
-                                  float(self._markersize))
+                                  float(self._markersize), self._marker)
 
