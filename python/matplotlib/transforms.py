@@ -243,6 +243,32 @@ class Bbox(BboxBase):
         return (self.x0 == 0 and self.y0 == 0 and
                 self.x1 == 1 and self.y1 == 1)
 
+    def count_contains(self, vertices):
+        """Count how many of *vertices* are inside the bbox."""
+        return sum(1 for v in vertices if self.contains(v[0], v[1]))
+
+    def count_overlaps(self, bboxes):
+        """Count how many *bboxes* overlap this bbox."""
+        return sum(1 for b in bboxes if self.overlaps(b))
+
+    def rotated(self, radians):
+        """Return the bounding box of the rotated bbox."""
+        cx = (self.x0 + self.x1) / 2
+        cy = (self.y0 + self.y1) / 2
+        corners = [
+            (self.x0, self.y0), (self.x1, self.y0),
+            (self.x0, self.y1), (self.x1, self.y1),
+        ]
+        c = math.cos(radians)
+        s = math.sin(radians)
+        rotated = []
+        for x, y in corners:
+            dx, dy = x - cx, y - cy
+            rotated.append((cx + dx * c - dy * s, cy + dx * s + dy * c))
+        xs = [p[0] for p in rotated]
+        ys = [p[1] for p in rotated]
+        return Bbox.from_extents(min(xs), min(ys), max(xs), max(ys))
+
     def get_points(self):
         """Return [[x0, y0], [x1, y1]]."""
         return [[self.x0, self.y0], [self.x1, self.y1]]

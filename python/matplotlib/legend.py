@@ -96,6 +96,10 @@ class Legend:
     def get_loc(self):
         return self._loc
 
+    def set_loc(self, loc):
+        """Set the legend location."""
+        self._loc = loc
+
     def set_draggable(self, state, use_blit=False, update='loc'):
         """Enable or disable dragging."""
         self._draggable = state
@@ -129,6 +133,40 @@ class Legend:
 
     def set_label(self, s):
         self._label = str(s) if s is not None else ''
+
+    def get_shadow(self):
+        return self._shadow
+
+    def set_shadow(self, shadow):
+        self._shadow = shadow
+
+    def get_fancybox(self):
+        return self._fancybox
+
+    def set_fancybox(self, b):
+        self._fancybox = b
+
+    def get_framealpha(self):
+        return self._framealpha
+
+    def set_framealpha(self, alpha):
+        self._framealpha = alpha
+
+    def get_edgecolor(self):
+        return self._edgecolor
+
+    def set_edgecolor(self, color):
+        self._edgecolor = color
+
+    def get_facecolor(self):
+        return self._facecolor
+
+    def set_facecolor(self, color):
+        self._facecolor = color
+
+    @property
+    def _ncols(self):
+        return self._ncol
 
     def __repr__(self):
         return f"<Legend>"
