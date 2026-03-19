@@ -536,6 +536,18 @@ def boxplot(x, **kwargs):
 def violinplot(dataset, **kwargs):
     return gca().violinplot(dataset, **kwargs)
 
+def imshow(X, **kwargs):
+    return gca().imshow(X, **kwargs)
+
+def pcolormesh(*args, **kwargs):
+    return gca().pcolormesh(*args, **kwargs)
+
+def contour(*args, **kwargs):
+    return gca().contour(*args, **kwargs)
+
+def contourf(*args, **kwargs):
+    return gca().contourf(*args, **kwargs)
+
 
 # ------------------------------------------------------------------
 # Labels / config

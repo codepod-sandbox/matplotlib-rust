@@ -286,3 +286,277 @@ def test_line_set_xdata_ydata():
     assert line.get_ydata() == [3, 4]
     line.set_ydata([30, 40])
     assert line.get_ydata() == [30, 40]
+
+
+# ---------------------------------------------------------------------------
+# Line2D set_data (upstream ~line 200)
+# ---------------------------------------------------------------------------
+def test_line_set_data():
+    """Line2D set_data updates both x and y."""
+    line = Line2D([1, 2], [3, 4])
+    line.set_data([10, 20, 30], [40, 50, 60])
+    assert line.get_xdata() == [10, 20, 30]
+    assert line.get_ydata() == [40, 50, 60]
+
+
+# ---------------------------------------------------------------------------
+# Line2D color validation (upstream ~line 120)
+# ---------------------------------------------------------------------------
+def test_line_set_color_valid():
+    """set_color accepts valid color strings."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_color('red')
+    assert line.get_color() == 'red'
+    line.set_color('#ff0000')
+    assert line.get_color() == '#ff0000'
+
+
+def test_line_set_color_invalid():
+    """set_color raises ValueError for invalid colors."""
+    line = Line2D([0, 1], [0, 1])
+    with pytest.raises(ValueError):
+        line.set_color('not_a_real_color')
+
+
+def test_line_set_c_alias():
+    """set_c is an alias for set_color."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_c('blue')
+    assert line.get_color() == 'blue'
+
+
+# ---------------------------------------------------------------------------
+# Line2D linestyle validation (upstream ~line 145)
+# ---------------------------------------------------------------------------
+def test_line_linestyle_solid():
+    """set_linestyle('solid') is valid."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_linestyle('solid')
+    assert line.get_linestyle() == 'solid'
+
+
+def test_line_linestyle_dashed():
+    """set_linestyle('--') is valid."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_linestyle('--')
+    assert line.get_linestyle() == '--'
+
+
+def test_line_linestyle_dashdot():
+    """set_linestyle('dashdot') is valid."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_linestyle('dashdot')
+    assert line.get_linestyle() == 'dashdot'
+
+
+def test_line_linestyle_dotted():
+    """set_linestyle(':') is valid."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_linestyle(':')
+    assert line.get_linestyle() == ':'
+
+
+def test_line_linestyle_none():
+    """set_linestyle('None') is valid."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_linestyle('None')
+    assert line.get_linestyle() == 'None'
+
+
+def test_line_linestyle_empty():
+    """set_linestyle('') is valid."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_linestyle('')
+    assert line.get_linestyle() == ''
+
+
+# ---------------------------------------------------------------------------
+# Line2D marker
+# ---------------------------------------------------------------------------
+def test_line_marker_set():
+    """set_marker changes the marker."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_marker('o')
+    assert line.get_marker() == 'o'
+
+
+def test_line_marker_none():
+    """Default marker is 'None'."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.get_marker() == 'None'
+
+
+# ---------------------------------------------------------------------------
+# Line2D markersize
+# ---------------------------------------------------------------------------
+def test_line_markersize_default():
+    """Default markersize is 6.0."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.get_markersize() == 6.0
+
+
+def test_line_markersize_set():
+    """set_markersize changes the size."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_markersize(10.0)
+    assert line.get_markersize() == 10.0
+
+
+def test_line_set_ms_alias():
+    """set_ms is an alias for set_markersize."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_ms(8.0)
+    assert line.get_markersize() == 8.0
+
+
+# ---------------------------------------------------------------------------
+# Line2D drawstyle
+# ---------------------------------------------------------------------------
+def test_line_drawstyle_default():
+    """Default drawstyle is 'default'."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.get_drawstyle() == 'default'
+
+
+def test_line_drawstyle_set():
+    """set_drawstyle changes the style."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_drawstyle('steps')
+    assert line.get_drawstyle() == 'steps'
+
+
+def test_line_drawstyle_invalid():
+    """Invalid drawstyle raises ValueError."""
+    line = Line2D([0, 1], [0, 1])
+    with pytest.raises(ValueError):
+        line.set_drawstyle('invalid')
+
+
+# ---------------------------------------------------------------------------
+# Line2D visibility
+# ---------------------------------------------------------------------------
+def test_line_visible_default():
+    """Default visibility is True."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.get_visible() is True
+
+
+def test_line_set_visible():
+    """set_visible changes visibility."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_visible(False)
+    assert line.get_visible() is False
+
+
+# ---------------------------------------------------------------------------
+# Line2D alpha
+# ---------------------------------------------------------------------------
+def test_line_alpha_default():
+    """Default alpha is None."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.get_alpha() is None
+
+
+def test_line_set_alpha():
+    """set_alpha changes alpha."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_alpha(0.5)
+    assert line.get_alpha() == 0.5
+
+
+# ---------------------------------------------------------------------------
+# Line2D zorder
+# ---------------------------------------------------------------------------
+def test_line_zorder_default():
+    """Default zorder for Line2D is 2."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.get_zorder() == 2
+
+
+def test_line_set_zorder():
+    """set_zorder changes the zorder."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_zorder(10)
+    assert line.get_zorder() == 10
+
+
+# ---------------------------------------------------------------------------
+# Line2D label
+# ---------------------------------------------------------------------------
+def test_line_label_default():
+    """Default label is empty string."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.get_label() == ''
+
+
+def test_line_label_set():
+    """set_label changes the label."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_label('my line')
+    assert line.get_label() == 'my line'
+
+
+def test_line_label_constructor():
+    """label in constructor sets the label."""
+    line = Line2D([0, 1], [0, 1], label='ctor label')
+    assert line.get_label() == 'ctor label'
+
+
+# ---------------------------------------------------------------------------
+# Line2D constructor kwargs
+# ---------------------------------------------------------------------------
+def test_line_constructor_color():
+    """color kwarg in constructor."""
+    line = Line2D([0, 1], [0, 1], color='red')
+    assert line.get_color() == 'red'
+
+
+def test_line_constructor_linewidth():
+    """linewidth kwarg in constructor."""
+    line = Line2D([0, 1], [0, 1], linewidth=3.0)
+    assert line.get_linewidth() == 3.0
+
+
+def test_line_constructor_linestyle():
+    """linestyle kwarg in constructor."""
+    line = Line2D([0, 1], [0, 1], linestyle='--')
+    assert line.get_linestyle() == '--'
+
+
+def test_line_constructor_marker():
+    """marker kwarg in constructor."""
+    line = Line2D([0, 1], [0, 1], marker='o')
+    assert line.get_marker() == 'o'
+
+
+# ---------------------------------------------------------------------------
+# Line2D set_lw alias
+# ---------------------------------------------------------------------------
+def test_line_set_lw_alias():
+    """set_lw is an alias for set_linewidth."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_lw(5.0)
+    assert line.get_linewidth() == 5.0
+
+
+# ---------------------------------------------------------------------------
+# Line2D set_ls alias
+# ---------------------------------------------------------------------------
+def test_line_set_ls_alias():
+    """set_ls is an alias for set_linestyle."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_ls('--')
+    assert line.get_linestyle() == '--'
+
+
+# ---------------------------------------------------------------------------
+# Line2D empty data
+# ---------------------------------------------------------------------------
+def test_line_empty_data():
+    """Line2D with empty data."""
+    line = Line2D([], [])
+    assert line.get_xdata() == []
+    assert line.get_ydata() == []
+    x, y = line.get_data()
+    assert x == []
+    assert y == []

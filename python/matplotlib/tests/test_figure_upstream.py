@@ -541,3 +541,276 @@ def test_figure_size_roundtrip():
     fig.set_size_inches((3, 7))
     assert fig.get_size_inches() == (3, 7)
     plt.close(fig)
+
+
+# ===================================================================
+# Figure.axes property (upstream tests)
+# ===================================================================
+
+def test_figure_axes_property():
+    """Figure.axes returns a list of axes."""
+    fig = plt.figure()
+    ax1 = fig.add_subplot(1, 2, 1)
+    ax2 = fig.add_subplot(1, 2, 2)
+    assert len(fig.axes) == 2
+    assert ax1 in fig.axes
+    assert ax2 in fig.axes
+    plt.close(fig)
+
+
+def test_figure_axes_is_copy():
+    """Figure.axes returns a copy, not the internal list."""
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    axes = fig.axes
+    axes.clear()  # modifying the copy
+    assert len(fig.axes) == 1  # internal unchanged
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure.get_axes
+# ===================================================================
+
+def test_figure_get_axes():
+    """get_axes returns same as axes property."""
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    assert fig.get_axes() == fig.axes
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure add_axes with rect
+# ===================================================================
+
+def test_figure_add_axes_rect():
+    """add_axes([l, b, w, h]) creates an axes."""
+    fig = plt.figure()
+    ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+    assert ax in fig.axes
+    pos = ax.get_position()
+    assert abs(pos.x0 - 0.1) < 1e-10
+    plt.close(fig)
+
+
+def test_figure_add_axes_reuse():
+    """add_axes(existing_ax) reuses the axes."""
+    fig = plt.figure()
+    ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+    ax2 = fig.add_axes(ax)
+    assert ax2 is ax
+    assert len(fig.axes) == 1
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure.gca / sca
+# ===================================================================
+
+def test_figure_gca_creates():
+    """gca creates an axes if none exist."""
+    fig = plt.figure()
+    ax = fig.gca()
+    assert ax is not None
+    assert len(fig.axes) == 1
+    plt.close(fig)
+
+
+def test_figure_sca():
+    """sca sets the current axes."""
+    fig = plt.figure()
+    ax1 = fig.add_subplot(1, 2, 1)
+    ax2 = fig.add_subplot(1, 2, 2)
+    fig.sca(ax1)
+    assert fig.gca() is ax1
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure.delaxes
+# ===================================================================
+
+def test_figure_delaxes():
+    """delaxes removes an axes from the figure."""
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    assert len(fig.axes) == 1
+    fig.delaxes(ax)
+    assert len(fig.axes) == 0
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure.clear removes axes
+# ===================================================================
+
+def test_figure_clear_removes_axes():
+    """clear removes all axes."""
+    fig = plt.figure()
+    fig.add_subplot(1, 1, 1)
+    assert len(fig.axes) == 1
+    fig.clear()
+    assert len(fig.axes) == 0
+    plt.close(fig)
+
+
+def test_figure_clf_alias():
+    """clf is an alias for clear."""
+    fig = plt.figure()
+    fig.add_subplot(1, 1, 1)
+    fig.clf()
+    assert len(fig.axes) == 0
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure.suptitle / supxlabel / supylabel getters
+# ===================================================================
+
+def test_figure_get_suptitle():
+    """get_suptitle returns the suptitle string."""
+    fig = plt.figure()
+    fig.suptitle('Test')
+    assert fig.get_suptitle() == 'Test'
+    plt.close(fig)
+
+
+def test_figure_get_suptitle_empty():
+    """get_suptitle returns '' when not set."""
+    fig = plt.figure()
+    assert fig.get_suptitle() == ''
+    plt.close(fig)
+
+
+def test_figure_supxlabel():
+    """supxlabel / get_supxlabel roundtrip."""
+    fig = plt.figure()
+    fig.supxlabel('X Label')
+    assert fig.get_supxlabel() == 'X Label'
+    plt.close(fig)
+
+
+def test_figure_supylabel():
+    """supylabel / get_supylabel roundtrip."""
+    fig = plt.figure()
+    fig.supylabel('Y Label')
+    assert fig.get_supylabel() == 'Y Label'
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure.number
+# ===================================================================
+
+def test_figure_number():
+    """Figure.number is set by pyplot."""
+    plt.close('all')
+    fig1 = plt.figure()
+    fig2 = plt.figure()
+    assert fig1.number is not None
+    assert fig2.number is not None
+    assert fig1.number != fig2.number
+
+
+# ===================================================================
+# Figure.stale
+# ===================================================================
+
+def test_figure_stale_initially():
+    """Figure starts stale."""
+    fig = Figure()
+    assert fig.stale is True
+
+
+def test_figure_stale_after_suptitle():
+    """Setting suptitle makes figure stale."""
+    fig = Figure()
+    fig.stale = False
+    fig.suptitle('test')
+    assert fig.stale is True
+
+
+# ===================================================================
+# Figure.legend
+# ===================================================================
+
+def test_figure_legend():
+    """Figure.legend collects from all axes."""
+    fig = plt.figure()
+    ax1 = fig.add_subplot(1, 2, 1)
+    ax1.plot([1, 2], [3, 4], label='line1')
+    ax2 = fig.add_subplot(1, 2, 2)
+    ax2.plot([1, 2], [3, 4], label='line2')
+    fig.legend()
+    assert hasattr(fig, '_has_legend')
+    assert fig._has_legend is True
+    assert 'line1' in fig._legend_labels
+    assert 'line2' in fig._legend_labels
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure.text
+# ===================================================================
+
+def test_figure_text():
+    """Figure.text adds to fig.texts."""
+    from matplotlib.text import Text
+    fig = plt.figure()
+    t = fig.text(0.5, 0.5, 'hello')
+    assert isinstance(t, Text)
+    assert t in fig.texts
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure.draw_without_rendering
+# ===================================================================
+
+def test_figure_draw_without_rendering():
+    """draw_without_rendering is a no-op but doesn't crash."""
+    fig = plt.figure()
+    fig.draw_without_rendering()
+    plt.close(fig)
+
+
+# ===================================================================
+# Figure label roundtrip
+# ===================================================================
+
+def test_figure_set_get_label():
+    """set_label / get_label roundtrip."""
+    fig = Figure()
+    fig.set_label('my_figure')
+    assert fig.get_label() == 'my_figure'
+
+
+# ===================================================================
+# Figure with invalid figsize
+# ===================================================================
+
+def test_figure_invalid_figsize_nan():
+    """NaN figsize raises ValueError."""
+    import math
+    with pytest.raises(ValueError):
+        Figure(figsize=(math.nan, 4.8))
+
+
+def test_figure_invalid_figsize_inf():
+    """Infinite figsize raises ValueError."""
+    import math
+    with pytest.raises(ValueError):
+        Figure(figsize=(math.inf, 4.8))
+
+
+def test_figure_invalid_figsize_zero():
+    """Zero figsize raises ValueError."""
+    with pytest.raises(ValueError):
+        Figure(figsize=(0, 4.8))
+
+
+def test_figure_invalid_figsize_negative():
+    """Negative figsize raises ValueError."""
+    with pytest.raises(ValueError):
+        Figure(figsize=(-1, 4.8))

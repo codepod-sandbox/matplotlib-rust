@@ -32,6 +32,7 @@ class Axes:
         self._grid = False
         self._legend = False
         self._color_idx = 0
+        self._facecolor = 'white'
 
         # Typed artist lists
         self.lines = []
@@ -39,6 +40,7 @@ class Axes:
         self.patches = []
         self.containers = []
         self.texts = []
+        self.images = []
 
         # Axis state
         self._x_inverted = False
@@ -56,6 +58,10 @@ class Axes:
         self._yticklabels_visible = True
         self._xlabel_visible = True
         self._ylabel_visible = True
+
+        # Navigate state (for interactive backends)
+        self._navigate = True
+        self._navigable = True
 
     def _next_color(self):
         c = DEFAULT_CYCLE[self._color_idx % len(DEFAULT_CYCLE)]
@@ -1653,13 +1659,41 @@ class Axes:
     # Aspect
     # ------------------------------------------------------------------
 
-    def set_aspect(self, aspect):
+    def set_aspect(self, aspect, adjustable=None, anchor=None, share=False):
         """Set the axes aspect ratio."""
         self._aspect = aspect
+        if adjustable is not None:
+            self._adjustable = adjustable
+        if anchor is not None:
+            self._anchor = anchor
 
     def get_aspect(self):
         """Return the axes aspect ratio."""
         return self._aspect
+
+    def set_adjustable(self, adjustable, share=False):
+        """Set how the axes adjusts to achieve the required aspect."""
+        self._adjustable = adjustable
+
+    def get_adjustable(self):
+        """Return the adjustable setting."""
+        return getattr(self, '_adjustable', 'box')
+
+    def set_anchor(self, anchor, share=False):
+        """Set the anchor position."""
+        self._anchor = anchor
+
+    def get_anchor(self):
+        """Return the anchor position."""
+        return getattr(self, '_anchor', 'C')
+
+    def set_box_aspect(self, aspect=None):
+        """Set the box aspect ratio (height/width)."""
+        self._box_aspect = aspect
+
+    def get_box_aspect(self):
+        """Return the box aspect ratio."""
+        return getattr(self, '_box_aspect', None)
 
     # ------------------------------------------------------------------
     # Axis utility
@@ -1984,12 +2018,14 @@ class Axes:
         self._grid = False
         self._legend = False
         self._color_idx = 0
+        self._facecolor = 'white'
         # Clear typed artist lists
         self.lines.clear()
         self.collections.clear()
         self.patches.clear()
         self.containers.clear()
         self.texts.clear()
+        self.images.clear()
         # Reset axis state
         self._x_inverted = False
         self._y_inverted = False
@@ -2200,6 +2236,183 @@ class Axes:
         return annotations
 
     # ------------------------------------------------------------------
+    # Facecolor
+    # ------------------------------------------------------------------
+
+    def set_facecolor(self, color):
+        """Set the axes background color."""
+        self._facecolor = color
+
+    def get_facecolor(self):
+        """Return the axes background color as an RGBA tuple."""
+        from matplotlib.colors import to_rgba
+        return to_rgba(self._facecolor)
+
+    # alias used by upstream
+    set_fc = set_facecolor
+    get_fc = get_facecolor
+
+    # ------------------------------------------------------------------
+    # Position
+    # ------------------------------------------------------------------
+
+    def get_position(self):
+        """Return the axes position.
+
+        Returns a Bbox-like object with x0, y0, width, height attributes.
+        For subplot positions (nrows, ncols, index), computes the position.
+        """
+        pos = self._position
+        if isinstance(pos, tuple) and len(pos) == 3:
+            nrows, ncols, index = pos
+            row = (index - 1) // ncols
+            col = (index - 1) % ncols
+            w = 1.0 / ncols
+            h = 1.0 / nrows
+            x0 = col * w
+            y0 = 1.0 - (row + 1) * h
+            return _BboxLike(x0, y0, w, h)
+        if isinstance(pos, (tuple, list)) and len(pos) == 4:
+            return _BboxLike(pos[0], pos[1], pos[2], pos[3])
+        return _BboxLike(0, 0, 1, 1)
+
+    def set_position(self, pos):
+        """Set the axes position."""
+        if isinstance(pos, (tuple, list)) and len(pos) == 4:
+            self._position = tuple(pos)
+        elif hasattr(pos, 'bounds'):
+            self._position = pos.bounds
+
+    # ------------------------------------------------------------------
+    # Navigate
+    # ------------------------------------------------------------------
+
+    def set_navigate(self, b):
+        """Set whether the axes responds to navigation commands."""
+        self._navigate = b
+
+    def get_navigate(self):
+        """Return whether the axes responds to navigation commands."""
+        return self._navigate
+
+    # ------------------------------------------------------------------
+    # imshow
+    # ------------------------------------------------------------------
+
+    def imshow(self, X, cmap=None, norm=None, aspect=None, interpolation=None,
+               alpha=None, vmin=None, vmax=None, origin=None, extent=None,
+               **kwargs):
+        """Display data as an image.
+
+        Parameters
+        ----------
+        X : array-like
+            The image data. Can be 2D (grayscale) or 3D (RGB/RGBA).
+        extent : (x0, x1, y0, y1), optional
+            The bounding box in data coordinates.
+        """
+        from matplotlib.image import AxesImage
+
+        # Determine shape from numpy or list
+        if hasattr(X, 'shape') and hasattr(X, 'ndim'):
+            shape = X.shape
+            nrows = shape[0]
+            ncols = shape[1] if len(shape) > 1 else 1
+            data = X.tolist() if hasattr(X, 'tolist') else X
+        elif hasattr(X, 'tolist'):
+            data = X.tolist()
+            nrows = len(data)
+            ncols = len(data[0]) if nrows > 0 and hasattr(data[0], '__len__') else 1
+        else:
+            data = [list(row) if hasattr(row, '__iter__') else [row] for row in X]
+            nrows = len(data)
+            ncols = len(data[0]) if nrows > 0 else 0
+
+        if extent is not None:
+            x0, x1, y0, y1 = extent
+        else:
+            x0, x1 = -0.5, ncols - 0.5
+            y0, y1 = nrows - 0.5, -0.5
+
+        im = AxesImage(self, data=data, extent=(x0, x1, y0, y1),
+                        cmap=cmap, norm=norm, interpolation=interpolation)
+        if alpha is not None:
+            im.set_alpha(alpha)
+
+        label = kwargs.get('label')
+        if label is not None:
+            im.set_label(label)
+
+        im.axes = self
+        im.figure = self.figure
+        self.images.append(im)
+
+        # Set aspect to 'equal' by default for imshow (like upstream)
+        if aspect is None:
+            self.set_aspect('equal')
+        else:
+            self.set_aspect(aspect)
+
+        return im
+
+    # ------------------------------------------------------------------
+    # pcolormesh (simplified)
+    # ------------------------------------------------------------------
+
+    def pcolormesh(self, *args, **kwargs):
+        """Simplified pcolormesh: create a Rectangle covering the data range."""
+        if len(args) == 1:
+            C = args[0]
+            if hasattr(C, 'shape') and hasattr(C, 'ndim') and C.ndim >= 2:
+                nrows, ncols = C.shape[0], C.shape[1]
+            elif hasattr(C, 'tolist'):
+                data = C.tolist()
+                nrows = len(data)
+                ncols = len(data[0]) if nrows > 0 and hasattr(data[0], '__len__') else 1
+            else:
+                data = list(C)
+                nrows = len(data)
+                ncols = len(data[0]) if nrows > 0 and hasattr(data[0], '__len__') else 1
+            x0, x1 = 0, ncols
+            y0, y1 = 0, nrows
+        elif len(args) == 3:
+            X, Y, C = args
+            x_flat = list(X.flat) if hasattr(X, 'flat') else (list(X) if not hasattr(X[0], '__iter__') else [v for row in X for v in row])
+            y_flat = list(Y.flat) if hasattr(Y, 'flat') else (list(Y) if not hasattr(Y[0], '__iter__') else [v for row in Y for v in row])
+            x0, x1 = min(x_flat), max(x_flat)
+            y0, y1 = min(y_flat), max(y_flat)
+            if hasattr(C, 'shape') and hasattr(C, 'ndim') and C.ndim >= 2:
+                nrows, ncols = C.shape[0], C.shape[1]
+            else:
+                nrows = len(list(C))
+                ncols = 1
+        else:
+            raise TypeError(f"pcolormesh takes 1 or 3 positional args, got {len(args)}")
+
+        cmap = kwargs.get('cmap')
+        color = kwargs.get('color') or self._next_color()
+        color = to_hex(color)
+
+        rect = Rectangle((x0, y0), x1 - x0, y1 - y0,
+                          facecolor=color, edgecolor='none')
+        rect.axes = self
+        rect.figure = self.figure
+        self.patches.append(rect)
+        return rect
+
+    # ------------------------------------------------------------------
+    # contour / contourf (stub)
+    # ------------------------------------------------------------------
+
+    def contour(self, *args, **kwargs):
+        """Stub contour that stores data but doesn't compute contour lines."""
+        return _ContourStub(self, args, kwargs)
+
+    def contourf(self, *args, **kwargs):
+        """Stub contourf that stores data but doesn't compute contour fills."""
+        return _ContourStub(self, args, kwargs)
+
+    # ------------------------------------------------------------------
     # __repr__
     # ------------------------------------------------------------------
 
@@ -2239,6 +2452,7 @@ class Axes:
         children.extend(self.patches)
         children.extend(self.texts)
         children.extend(self.collections)
+        children.extend(self.images)
         return children
 
 
@@ -2344,3 +2558,34 @@ def _validate_1d(data, name):
         if data_list and hasattr(data_list[0], '__iter__') and not isinstance(data_list[0], str):
             raise ValueError(
                 f"'{name}' must be 1D, but appears to be 2D")
+
+
+class _BboxLike:
+    """Lightweight Bbox stand-in returned by Axes.get_position()."""
+
+    def __init__(self, x0, y0, width, height):
+        self.x0 = x0
+        self.y0 = y0
+        self.x1 = x0 + width
+        self.y1 = y0 + height
+        self.width = width
+        self.height = height
+        self.bounds = (x0, y0, width, height)
+        self.p0 = (x0, y0)
+        self.p1 = (x0 + width, y0 + height)
+
+    def __iter__(self):
+        return iter(self.bounds)
+
+    def __repr__(self):
+        return (f"Bbox([[{self.x0}, {self.y0}], "
+                f"[{self.x1}, {self.y1}]])")
+
+
+class _ContourStub:
+    """Minimal stub for contour/contourf return values."""
+
+    def __init__(self, ax, args, kwargs):
+        self.ax = ax
+        self.levels = kwargs.get('levels', [])
+        self.collections = []

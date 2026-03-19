@@ -427,3 +427,276 @@ def test_rectangle_corners_standard():
     r = Rectangle((0, 0), 5, 3)
     corners = r.get_corners()
     assert corners == [(0, 0), (5, 0), (5, 3), (0, 3)]
+
+
+# ---------------------------------------------------------------------------
+# Rectangle setters (upstream style)
+# ---------------------------------------------------------------------------
+def test_rectangle_set_width():
+    """set_width changes the width."""
+    r = Rectangle((0, 0), 5, 3)
+    r.set_width(10)
+    assert r.get_width() == 10
+
+
+def test_rectangle_set_height():
+    """set_height changes the height."""
+    r = Rectangle((0, 0), 5, 3)
+    r.set_height(10)
+    assert r.get_height() == 10
+
+
+def test_rectangle_set_xy():
+    """set_xy changes the anchor point."""
+    r = Rectangle((0, 0), 5, 3)
+    r.set_xy((1, 2))
+    assert r.get_xy() == (1, 2)
+
+
+def test_rectangle_get_x_y():
+    """get_x / get_y return components of xy."""
+    r = Rectangle((3, 4), 5, 6)
+    assert r.get_x() == 3
+    assert r.get_y() == 4
+
+
+# ---------------------------------------------------------------------------
+# Circle setters
+# ---------------------------------------------------------------------------
+def test_circle_set_center():
+    """set_center changes the center."""
+    c = Circle((0, 0), 1)
+    c.set_center((5, 5))
+    assert c.get_center() == (5, 5)
+
+
+def test_circle_set_radius():
+    """set_radius changes the radius."""
+    c = Circle((0, 0), 1)
+    c.set_radius(10)
+    assert c.get_radius() == 10
+
+
+def test_circle_default_center():
+    """Default center is (0, 0)."""
+    c = Circle()
+    assert c.get_center() == (0.0, 0.0)
+
+
+def test_circle_default_radius():
+    """Default radius is 0.5."""
+    c = Circle()
+    assert c.get_radius() == 0.5
+
+
+# ---------------------------------------------------------------------------
+# Polygon
+# ---------------------------------------------------------------------------
+def test_polygon_get_xy():
+    """Polygon.get_xy returns vertices."""
+    from matplotlib.patches import Polygon
+    poly = Polygon([(0, 0), (1, 0), (1, 1)])
+    verts = poly.get_xy()
+    assert len(verts) == 3
+    assert verts[0] == (0, 0)
+
+
+def test_polygon_set_xy():
+    """Polygon.set_xy changes vertices."""
+    from matplotlib.patches import Polygon
+    poly = Polygon([(0, 0), (1, 0), (1, 1)])
+    poly.set_xy([(2, 2), (3, 2), (3, 3)])
+    verts = poly.get_xy()
+    assert verts[0] == (2, 2)
+
+
+def test_polygon_closed():
+    """Polygon.get_closed / set_closed."""
+    from matplotlib.patches import Polygon
+    poly = Polygon([(0, 0), (1, 0), (1, 1)], closed=True)
+    assert poly.get_closed() is True
+    poly.set_closed(False)
+    assert poly.get_closed() is False
+
+
+def test_polygon_default_closed():
+    """Polygon default closed=True."""
+    from matplotlib.patches import Polygon
+    poly = Polygon([(0, 0), (1, 0), (1, 1)])
+    assert poly.get_closed() is True
+
+
+# ---------------------------------------------------------------------------
+# Wedge
+# ---------------------------------------------------------------------------
+from matplotlib.patches import Wedge
+
+
+def test_wedge_basic():
+    """Wedge basic properties."""
+    w = Wedge((0, 0), 1.0, 0, 90)
+    assert w.get_center() == (0, 0)
+    assert w.get_r() == 1.0
+    assert w.get_theta1() == 0
+    assert w.get_theta2() == 90
+
+
+def test_wedge_set_center():
+    """Wedge set_center."""
+    w = Wedge((0, 0), 1.0, 0, 90)
+    w.set_center((5, 5))
+    assert w.get_center() == (5, 5)
+
+
+def test_wedge_set_r():
+    """Wedge set_r."""
+    w = Wedge((0, 0), 1.0, 0, 90)
+    w.set_r(2.0)
+    assert w.get_r() == 2.0
+
+
+def test_wedge_set_radius():
+    """Wedge set_radius is alias for set_r."""
+    w = Wedge((0, 0), 1.0, 0, 90)
+    w.set_radius(3.0)
+    assert w.get_r() == 3.0
+
+
+def test_wedge_set_theta1():
+    """Wedge set_theta1."""
+    w = Wedge((0, 0), 1.0, 0, 90)
+    w.set_theta1(45)
+    assert w.get_theta1() == 45
+
+
+def test_wedge_set_theta2():
+    """Wedge set_theta2."""
+    w = Wedge((0, 0), 1.0, 0, 90)
+    w.set_theta2(180)
+    assert w.get_theta2() == 180
+
+
+def test_wedge_width():
+    """Wedge get_width / set_width."""
+    w = Wedge((0, 0), 1.0, 0, 90)
+    assert w.get_width() == 90
+    w.set_width(180)
+    assert w.get_theta2() == 180
+
+
+# ---------------------------------------------------------------------------
+# Patch base class
+# ---------------------------------------------------------------------------
+def test_patch_facecolor_default():
+    """Default facecolor is C0."""
+    p = Patch()
+    fc = p.get_facecolor()
+    assert len(fc) == 4  # RGBA tuple
+
+
+def test_patch_edgecolor_default():
+    """Default edgecolor is black."""
+    p = Patch()
+    ec = p.get_edgecolor()
+    assert ec == (0.0, 0.0, 0.0, 1.0)
+
+
+def test_patch_linewidth_default():
+    """Default linewidth is 1.0."""
+    p = Patch()
+    assert p.get_linewidth() == 1.0
+
+
+def test_patch_set_linewidth():
+    """set_linewidth changes linewidth."""
+    p = Patch()
+    p.set_linewidth(3.0)
+    assert p.get_linewidth() == 3.0
+
+
+def test_patch_linestyle():
+    """Patch get_linestyle / set_linestyle."""
+    p = Patch()
+    assert p.get_linestyle() == 'solid'
+    p.set_linestyle('dashed')
+    assert p.get_linestyle() == 'dashed'
+
+
+def test_patch_antialiased():
+    """Patch get_antialiased / set_antialiased."""
+    p = Patch()
+    assert p.get_antialiased() is True
+    p.set_antialiased(False)
+    assert p.get_antialiased() is False
+
+
+def test_patch_visible():
+    """Patch visibility."""
+    p = Patch()
+    assert p.get_visible() is True
+    p.set_visible(False)
+    assert p.get_visible() is False
+
+
+def test_patch_alpha():
+    """Patch alpha."""
+    p = Patch()
+    assert p.get_alpha() is None
+    p.set_alpha(0.5)
+    assert p.get_alpha() == 0.5
+
+
+def test_patch_zorder():
+    """Patch zorder."""
+    p = Patch()
+    assert p.get_zorder() == 1  # Patch default zorder
+    p.set_zorder(5)
+    assert p.get_zorder() == 5
+
+
+def test_patch_facecolor_with_alpha():
+    """Facecolor respects artist alpha."""
+    p = Patch(facecolor='red')
+    p.set_alpha(0.5)
+    fc = p.get_facecolor()
+    assert fc == (1.0, 0.0, 0.0, 0.5)
+
+
+def test_patch_edgecolor_with_alpha():
+    """Edgecolor respects artist alpha."""
+    p = Patch(edgecolor='blue')
+    p.set_alpha(0.3)
+    ec = p.get_edgecolor()
+    assert ec[2] == 1.0  # blue
+    assert abs(ec[3] - 0.3) < 1e-10
+
+
+def test_patch_edgecolor_none():
+    """Edgecolor 'none' is transparent."""
+    p = Patch(edgecolor='none')
+    ec = p.get_edgecolor()
+    assert ec == (0.0, 0.0, 0.0, 0.0)
+
+
+def test_rectangle_constructor():
+    """Rectangle constructor stores all params."""
+    r = Rectangle((1, 2), 3, 4, facecolor='red', edgecolor='blue')
+    assert r.get_xy() == (1, 2)
+    assert r.get_width() == 3
+    assert r.get_height() == 4
+    fc = r.get_facecolor()
+    assert fc[0] == 1.0  # red
+
+
+# ---------------------------------------------------------------------------
+# Patch remove
+# ---------------------------------------------------------------------------
+def test_patch_remove():
+    """Patch.remove removes from axes."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    r = Rectangle((0, 0), 1, 1)
+    ax.add_artist(r)
+    assert r in ax.patches
+    r.remove()
+    assert r not in ax.patches

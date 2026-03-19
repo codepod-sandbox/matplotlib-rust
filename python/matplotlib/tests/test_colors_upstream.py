@@ -479,3 +479,210 @@ def test_normalize_vmin_vmax():
     norm = mcolors.Normalize(vmin=-10, vmax=10)
     assert norm.vmin == -10
     assert norm.vmax == 10
+
+
+# ---------------------------------------------------------------------------
+# Normalize.__eq__ (upstream ~line 500)
+# ---------------------------------------------------------------------------
+def test_normalize_eq_same():
+    """Two Normalize with same params are equal."""
+    n1 = mcolors.Normalize(0, 1)
+    n2 = mcolors.Normalize(0, 1)
+    assert n1 == n2
+
+
+def test_normalize_eq_diff_vmin():
+    """Different vmin makes norms not equal."""
+    n1 = mcolors.Normalize(0, 1)
+    n2 = mcolors.Normalize(0.5, 1)
+    assert n1 != n2
+
+
+def test_normalize_eq_diff_vmax():
+    """Different vmax makes norms not equal."""
+    n1 = mcolors.Normalize(0, 1)
+    n2 = mcolors.Normalize(0, 10)
+    assert n1 != n2
+
+
+def test_normalize_eq_diff_clip():
+    """Different clip makes norms not equal."""
+    n1 = mcolors.Normalize(0, 1, clip=False)
+    n2 = mcolors.Normalize(0, 1, clip=True)
+    assert n1 != n2
+
+
+def test_normalize_eq_diff_type():
+    """Normalize != LogNorm even with same params."""
+    n = mcolors.Normalize(1, 10)
+    ln = mcolors.LogNorm(1, 10)
+    assert n != ln
+
+
+def test_normalize_eq_not_norm():
+    """Normalize compared to non-Normalize returns NotImplemented."""
+    n = mcolors.Normalize(0, 1)
+    assert n != "not a norm"
+    assert n != 42
+
+
+def test_normalize_hash():
+    """Equal Normalize objects have same hash."""
+    n1 = mcolors.Normalize(0, 1)
+    n2 = mcolors.Normalize(0, 1)
+    assert hash(n1) == hash(n2)
+
+
+def test_normalize_hash_set():
+    """Equal Normalize objects deduplicate in a set."""
+    n1 = mcolors.Normalize(0, 1)
+    n2 = mcolors.Normalize(0, 1)
+    n3 = mcolors.Normalize(0, 10)
+    s = {n1, n2, n3}
+    assert len(s) == 2
+
+
+def test_normalize_repr():
+    """Normalize repr includes vmin, vmax, clip."""
+    n = mcolors.Normalize(0, 1, clip=True)
+    r = repr(n)
+    assert 'Normalize' in r
+    assert 'vmin=0' in r
+    assert 'vmax=1' in r
+    assert 'clip=True' in r
+
+
+def test_normalize_repr_none():
+    """Normalize repr handles None vmin/vmax."""
+    n = mcolors.Normalize()
+    r = repr(n)
+    assert 'None' in r
+
+
+# ---------------------------------------------------------------------------
+# Normalize.scaled property
+# ---------------------------------------------------------------------------
+def test_normalize_scaled():
+    """scaled returns True when both vmin and vmax are set."""
+    n = mcolors.Normalize(0, 1)
+    assert n.scaled is True
+
+
+def test_normalize_not_scaled():
+    """scaled returns False when vmin or vmax is None."""
+    n = mcolors.Normalize()
+    assert n.scaled is False
+    n2 = mcolors.Normalize(vmin=0)
+    assert n2.scaled is False
+    n3 = mcolors.Normalize(vmax=1)
+    assert n3.scaled is False
+
+
+# ---------------------------------------------------------------------------
+# Normalize.autoscale_None
+# ---------------------------------------------------------------------------
+def test_normalize_autoscale_none():
+    """autoscale_None only fills in None values."""
+    n = mcolors.Normalize(vmin=5)
+    n.autoscale_None([1, 2, 10])
+    assert n.vmin == 5  # not overwritten
+    assert n.vmax == 10  # set from data
+
+
+def test_normalize_autoscale_none_both():
+    """autoscale_None with both None fills both."""
+    n = mcolors.Normalize()
+    n.autoscale_None([1, 2, 10])
+    assert n.vmin == 1
+    assert n.vmax == 10
+
+
+def test_normalize_autoscale_none_neither():
+    """autoscale_None with both set doesn't change anything."""
+    n = mcolors.Normalize(vmin=0, vmax=100)
+    n.autoscale_None([1, 2, 10])
+    assert n.vmin == 0
+    assert n.vmax == 100
+
+
+# ---------------------------------------------------------------------------
+# Normalize clipping
+# ---------------------------------------------------------------------------
+def test_normalize_clip_values():
+    """Normalize with clip=True clips out-of-range values."""
+    n = mcolors.Normalize(0, 10, clip=True)
+    assert n(15) == 1.0
+    assert n(-5) == 0.0
+    assert n(5) == 0.5
+
+
+def test_normalize_no_clip():
+    """Normalize with clip=False allows out-of-range values."""
+    n = mcolors.Normalize(0, 10, clip=False)
+    assert n(15) == 1.5
+    assert n(-5) == -0.5
+
+
+def test_normalize_list_input():
+    """Normalize accepts a list of values."""
+    n = mcolors.Normalize(0, 10)
+    result = n([0, 5, 10])
+    assert result == [0.0, 0.5, 1.0]
+
+
+# ---------------------------------------------------------------------------
+# LogNorm eq (inherited)
+# ---------------------------------------------------------------------------
+def test_lognorm_eq():
+    """LogNorm equality check."""
+    ln1 = mcolors.LogNorm(1, 100)
+    ln2 = mcolors.LogNorm(1, 100)
+    ln3 = mcolors.LogNorm(1, 1000)
+    assert ln1 == ln2
+    assert ln1 != ln3
+
+
+def test_lognorm_hash():
+    """LogNorm hash consistency."""
+    ln1 = mcolors.LogNorm(1, 100)
+    ln2 = mcolors.LogNorm(1, 100)
+    assert hash(ln1) == hash(ln2)
+
+
+def test_lognorm_repr():
+    """LogNorm repr includes class name."""
+    ln = mcolors.LogNorm(1, 100)
+    r = repr(ln)
+    assert 'LogNorm' in r
+    assert 'vmin=1' in r
+
+
+# ---------------------------------------------------------------------------
+# Normalize autoscale
+# ---------------------------------------------------------------------------
+def test_normalize_autoscale():
+    """autoscale sets vmin and vmax from data."""
+    n = mcolors.Normalize()
+    n.autoscale([2, 5, 8])
+    assert n.vmin == 2
+    assert n.vmax == 8
+    assert n.scaled is True
+
+
+# ---------------------------------------------------------------------------
+# Normalize edge cases
+# ---------------------------------------------------------------------------
+def test_normalize_equal_vmin_vmax():
+    """Normalize with vmin == vmax returns 0.0."""
+    n = mcolors.Normalize(5, 5)
+    assert n(5) == 0.0
+    assert n(10) == 0.0
+
+
+def test_normalize_callbacks():
+    """Normalize has a callbacks registry."""
+    n = mcolors.Normalize(0, 1)
+    assert hasattr(n, 'callbacks')
+    # Should be able to connect/disconnect
+    cid = n.callbacks.connect('changed', lambda: None)
+    n.callbacks.disconnect(cid)

@@ -767,6 +767,22 @@ class Normalize:
             return [vmin + float(v) * (vmax - vmin) for v in value]
         return vmin + float(value) * (vmax - vmin)
 
+    def __eq__(self, other):
+        """Return True if *other* is a Normalize with same vmin/vmax/clip."""
+        if not isinstance(other, Normalize):
+            return NotImplemented
+        return (type(self) is type(other)
+                and self.vmin == other.vmin
+                and self.vmax == other.vmax
+                and self.clip == other.clip)
+
+    def __hash__(self):
+        return hash((type(self), self.vmin, self.vmax, self.clip))
+
+    def __repr__(self):
+        return (f"{type(self).__name__}(vmin={self.vmin!r}, "
+                f"vmax={self.vmax!r}, clip={self.clip!r})")
+
     def autoscale(self, data):
         """Set *vmin* and *vmax* from *data*.
 
@@ -777,6 +793,19 @@ class Normalize:
         data = [float(v) for v in data]
         self.vmin = min(data)
         self.vmax = max(data)
+
+    @property
+    def scaled(self):
+        """Return whether vmin and vmax are set."""
+        return self.vmin is not None and self.vmax is not None
+
+    def autoscale_None(self, data):
+        """Autoscale only if vmin/vmax are not already set."""
+        data = [float(v) for v in data]
+        if self.vmin is None:
+            self.vmin = min(data)
+        if self.vmax is None:
+            self.vmax = max(data)
 
 
 class LogNorm(Normalize):

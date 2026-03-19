@@ -82,6 +82,7 @@ class Text(Artist):
         self._ha = align
 
     set_ha = set_horizontalalignment
+    get_ha = get_horizontalalignment
 
     # --- vertical alignment ---
     def get_verticalalignment(self):
@@ -91,6 +92,15 @@ class Text(Artist):
         self._va = align
 
     set_va = set_verticalalignment
+    get_va = get_verticalalignment
+
+    # --- color ---
+    def get_color(self):
+        return self._color
+
+    def set_color(self, color):
+        to_rgba(color)  # validate
+        self._color = color
 
     # --- rotation ---
     def get_rotation(self):
@@ -174,6 +184,9 @@ class Annotation(Text):
         # Initialise Text at the xytext position
         super().__init__(x=self.xytext[0], y=self.xytext[1], text=text,
                          **kwargs)
+
+        # xyann is an alias for xytext (upstream compatibility)
+        self.xyann = self.xytext
 
         # arrow_patch: None when no arrowprops, otherwise a Patch placeholder
         if arrowprops is not None:

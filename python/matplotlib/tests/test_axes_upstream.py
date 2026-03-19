@@ -1782,3 +1782,673 @@ def test_set_xy_bound_inverted():
     assert ax.get_xbound() == (0, 10)
     ax.set_ybound(lower=5, upper=-5)
     assert ax.get_ybound() == (-5, 5)
+
+
+# ---------------------------------------------------------------------------
+# Axes facecolor (upstream ~line 5050)
+# ---------------------------------------------------------------------------
+def test_axes_set_facecolor():
+    """Axes.set_facecolor / get_facecolor roundtrip."""
+    fig, ax = plt.subplots()
+    ax.set_facecolor('red')
+    r, g, b, a = ax.get_facecolor()
+    assert r == 1.0
+    assert g == 0.0
+    assert b == 0.0
+    assert a == 1.0
+
+
+def test_axes_default_facecolor():
+    """Default axes facecolor is white."""
+    fig, ax = plt.subplots()
+    r, g, b, a = ax.get_facecolor()
+    assert r == 1.0
+    assert g == 1.0
+    assert b == 1.0
+
+
+def test_axes_facecolor_hex():
+    """Axes.set_facecolor accepts hex strings."""
+    fig, ax = plt.subplots()
+    ax.set_facecolor('#ff8800')
+    r, g, b, a = ax.get_facecolor()
+    assert r == 1.0
+    assert abs(g - 0x88 / 255.0) < 0.01
+    assert b == 0.0
+
+
+def test_axes_facecolor_tuple():
+    """Axes.set_facecolor accepts RGB tuples."""
+    fig, ax = plt.subplots()
+    ax.set_facecolor((0.5, 0.5, 0.5))
+    r, g, b, a = ax.get_facecolor()
+    assert abs(r - 0.5) < 1e-10
+    assert abs(g - 0.5) < 1e-10
+    assert abs(b - 0.5) < 1e-10
+
+
+def test_axes_facecolor_alias():
+    """set_fc / get_fc are aliases."""
+    fig, ax = plt.subplots()
+    ax.set_fc('green')
+    fc = ax.get_fc()
+    assert fc[1] > 0  # green channel
+
+
+def test_axes_facecolor_cleared_on_cla():
+    """cla resets facecolor to white."""
+    fig, ax = plt.subplots()
+    ax.set_facecolor('red')
+    ax.cla()
+    r, g, b, a = ax.get_facecolor()
+    assert r == 1.0 and g == 1.0 and b == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Axes.get_position (upstream ~line 4800)
+# ---------------------------------------------------------------------------
+def test_axes_get_position_subplot():
+    """get_position returns correct bounds for a subplot."""
+    fig, ax = plt.subplots()
+    pos = ax.get_position()
+    assert pos.x0 == 0.0
+    assert pos.y0 == 0.0
+    assert pos.width == 1.0
+    assert pos.height == 1.0
+
+
+def test_axes_get_position_grid():
+    """get_position returns correct bounds for a 2x2 grid."""
+    fig, axes = plt.subplots(2, 2)
+    # Top-left: (2,2,1) -> row=0, col=0
+    pos = axes[0][0].get_position()
+    assert pos.x0 == 0.0
+    assert abs(pos.width - 0.5) < 1e-10
+    assert abs(pos.height - 0.5) < 1e-10
+
+    # Bottom-right: (2,2,4) -> row=1, col=1
+    pos = axes[1][1].get_position()
+    assert abs(pos.x0 - 0.5) < 1e-10
+    assert abs(pos.y0 - 0.0) < 1e-10
+
+
+def test_axes_get_position_has_bounds():
+    """get_position returns an object with bounds attribute."""
+    fig, ax = plt.subplots()
+    pos = ax.get_position()
+    assert hasattr(pos, 'bounds')
+    x0, y0, w, h = pos.bounds
+    assert x0 == pos.x0
+    assert y0 == pos.y0
+
+
+def test_axes_get_position_iter():
+    """get_position result is iterable."""
+    fig, ax = plt.subplots()
+    pos = ax.get_position()
+    x0, y0, w, h = pos
+    assert x0 == 0.0
+
+
+# ---------------------------------------------------------------------------
+# imshow (upstream ~line 7500)
+# ---------------------------------------------------------------------------
+def test_imshow_basic():
+    """imshow returns an AxesImage."""
+    from matplotlib.image import AxesImage
+    fig, ax = plt.subplots()
+    data = np.zeros((2, 2))
+    im = ax.imshow(data)
+    assert isinstance(im, AxesImage)
+
+
+def test_imshow_stores_data():
+    """imshow stores the image data."""
+    fig, ax = plt.subplots()
+    data = np.zeros((2, 3))
+    data[0, 0] = 1; data[0, 1] = 2; data[0, 2] = 3
+    data[1, 0] = 4; data[1, 1] = 5; data[1, 2] = 6
+    im = ax.imshow(data)
+    arr = im.get_array()
+    assert len(arr) == 2
+    assert len(arr[0]) == 3
+    assert arr[0][0] == 1
+    assert arr[1][2] == 6
+
+
+def test_imshow_default_extent():
+    """Default extent for a 3x4 image is (-0.5, 3.5, 2.5, -0.5)."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 4))
+    im = ax.imshow(data)
+    ext = im.get_extent()
+    assert ext == (-0.5, 3.5, 2.5, -0.5)
+
+
+def test_imshow_custom_extent():
+    """Custom extent is stored correctly."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 4))
+    im = ax.imshow(data, extent=[0, 10, 0, 5])
+    ext = im.get_extent()
+    assert ext == (0, 10, 0, 5)
+
+
+def test_imshow_sets_aspect_equal():
+    """imshow sets aspect to 'equal' by default."""
+    fig, ax = plt.subplots()
+    ax.set_aspect('auto')
+    data = np.zeros((3, 3))
+    ax.imshow(data)
+    assert ax.get_aspect() == 'equal'
+
+
+def test_imshow_custom_aspect():
+    """imshow with explicit aspect='auto' keeps auto."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    ax.imshow(data, aspect='auto')
+    assert ax.get_aspect() == 'auto'
+
+
+def test_imshow_in_images_list():
+    """imshow result is stored in ax.images."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    im = ax.imshow(data)
+    assert im in ax.images
+
+
+def test_imshow_in_children():
+    """imshow result appears in get_children."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    im = ax.imshow(data)
+    assert im in ax.get_children()
+
+
+def test_imshow_clim():
+    """set_clim / get_clim on AxesImage."""
+    fig, ax = plt.subplots()
+    data = np.zeros((2, 2))
+    data[0, 0] = 1; data[0, 1] = 2; data[1, 0] = 3; data[1, 1] = 4
+    im = ax.imshow(data)
+    im.set_clim(0, 10)
+    assert im.get_clim() == (0, 10)
+
+
+def test_imshow_clim_tuple():
+    """set_clim accepts a tuple."""
+    fig, ax = plt.subplots()
+    data = np.zeros((2, 2))
+    im = ax.imshow(data)
+    im.set_clim((0, 5))
+    assert im.get_clim() == (0, 5)
+
+
+def test_imshow_auto_clim():
+    """Default clim is derived from data range."""
+    fig, ax = plt.subplots()
+    data = np.zeros((2, 2))
+    data[0, 0] = 1; data[0, 1] = 2; data[1, 0] = 3; data[1, 1] = 4
+    im = ax.imshow(data)
+    vmin, vmax = im.get_clim()
+    assert vmin == 1
+    assert vmax == 4
+
+
+def test_imshow_set_data():
+    """set_data replaces the image data."""
+    fig, ax = plt.subplots()
+    data1 = np.zeros((2, 2))
+    data1[0, 0] = 1; data1[0, 1] = 2; data1[1, 0] = 3; data1[1, 1] = 4
+    im = ax.imshow(data1)
+    data2 = np.zeros((2, 2))
+    data2[0, 0] = 5; data2[0, 1] = 6; data2[1, 0] = 7; data2[1, 1] = 8
+    im.set_data(data2)
+    arr = im.get_array()
+    assert arr[0][0] == 5
+    assert arr[1][1] == 8
+
+
+def test_imshow_alpha():
+    """imshow respects the alpha parameter."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    im = ax.imshow(data, alpha=0.5)
+    assert im.get_alpha() == 0.5
+
+
+def test_imshow_3d_rgb():
+    """imshow handles list-of-lists RGB data."""
+    fig, ax = plt.subplots()
+    # Use plain Python list-of-lists since np.zeros((3,4,3)) may not work
+    data = [[[0, 0, 0] for _ in range(4)] for _ in range(3)]
+    im = ax.imshow(data)
+    assert im.get_array() is not None
+
+
+def test_imshow_cmap():
+    """imshow stores the cmap parameter."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    im = ax.imshow(data, cmap='viridis')
+    assert im.get_cmap() == 'viridis'
+
+
+def test_imshow_norm():
+    """imshow stores the norm parameter."""
+    from matplotlib.colors import Normalize
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    norm = Normalize(0, 1)
+    im = ax.imshow(data, norm=norm)
+    assert im.get_norm() is norm
+
+
+def test_imshow_interpolation():
+    """imshow stores the interpolation parameter."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    im = ax.imshow(data, interpolation='nearest')
+    assert im.get_interpolation() == 'nearest'
+
+
+def test_imshow_cleared_by_cla():
+    """cla clears images."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    ax.imshow(data)
+    assert len(ax.images) == 1
+    ax.cla()
+    assert len(ax.images) == 0
+
+
+def test_imshow_size():
+    """AxesImage.get_size returns (nrows, ncols)."""
+    fig, ax = plt.subplots()
+    data = np.zeros((5, 10))
+    im = ax.imshow(data)
+    assert im.get_size() == (5, 10)
+
+
+def test_pyplot_imshow():
+    """plt.imshow delegates to the current axes."""
+    from matplotlib.image import AxesImage
+    data = np.zeros((3, 3))
+    im = plt.imshow(data)
+    assert isinstance(im, AxesImage)
+
+
+# ---------------------------------------------------------------------------
+# Axes.set_aspect with adjustable and anchor
+# ---------------------------------------------------------------------------
+def test_axes_aspect_adjustable():
+    """set_aspect with adjustable kwarg."""
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal', adjustable='datalim')
+    assert ax.get_adjustable() == 'datalim'
+
+
+def test_axes_aspect_anchor():
+    """set_aspect with anchor kwarg."""
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal', anchor='SW')
+    assert ax.get_anchor() == 'SW'
+
+
+def test_axes_box_aspect():
+    """set_box_aspect / get_box_aspect."""
+    fig, ax = plt.subplots()
+    assert ax.get_box_aspect() is None
+    ax.set_box_aspect(1.0)
+    assert ax.get_box_aspect() == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Axes.set_navigate
+# ---------------------------------------------------------------------------
+def test_axes_navigate():
+    """set_navigate / get_navigate."""
+    fig, ax = plt.subplots()
+    assert ax.get_navigate() is True
+    ax.set_navigate(False)
+    assert ax.get_navigate() is False
+
+
+# ---------------------------------------------------------------------------
+# pcolormesh (smoke tests)
+# ---------------------------------------------------------------------------
+def test_pcolormesh_1arg():
+    """pcolormesh(C) creates a patch."""
+    fig, ax = plt.subplots()
+    data = np.zeros((2, 2))
+    result = ax.pcolormesh(data)
+    assert len(ax.patches) > 0
+
+
+def test_pcolormesh_3arg():
+    """pcolormesh(X, Y, C) creates a patch."""
+    fig, ax = plt.subplots()
+    x = np.array([0, 1, 2])
+    y = np.array([0, 1, 2])
+    c = np.zeros((2, 2))
+    result = ax.pcolormesh(x, y, c)
+    assert len(ax.patches) > 0
+
+
+def test_pyplot_pcolormesh():
+    """plt.pcolormesh delegates to current axes."""
+    data = np.zeros((2, 2))
+    result = plt.pcolormesh(data)
+    assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# contour / contourf stubs
+# ---------------------------------------------------------------------------
+def test_contour_stub():
+    """contour returns a stub object."""
+    fig, ax = plt.subplots()
+    data = np.zeros((2, 2))
+    cs = ax.contour(data)
+    assert hasattr(cs, 'collections')
+
+
+def test_contourf_stub():
+    """contourf returns a stub object."""
+    fig, ax = plt.subplots()
+    data = np.zeros((2, 2))
+    cs = ax.contourf(data)
+    assert hasattr(cs, 'collections')
+
+
+# ---------------------------------------------------------------------------
+# Axes.set_position
+# ---------------------------------------------------------------------------
+def test_axes_set_position():
+    """set_position changes the position."""
+    fig, ax = plt.subplots()
+    ax.set_position([0.1, 0.1, 0.8, 0.8])
+    pos = ax.get_position()
+    assert abs(pos.x0 - 0.1) < 1e-10
+    assert abs(pos.y0 - 0.1) < 1e-10
+    assert abs(pos.width - 0.8) < 1e-10
+    assert abs(pos.height - 0.8) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# Axes.set batch setter for new properties
+# ---------------------------------------------------------------------------
+def test_axes_set_facecolor_via_set():
+    """ax.set(facecolor=...) works through the batch setter."""
+    fig, ax = plt.subplots()
+    ax.set(facecolor='blue')
+    r, g, b, a = ax.get_facecolor()
+    assert b == 1.0
+    assert r == 0.0
+
+
+# ---------------------------------------------------------------------------
+# More upstream-style tests for axes scale methods
+# ---------------------------------------------------------------------------
+def test_get_xscale_default():
+    """Default xscale is 'linear'."""
+    fig, ax = plt.subplots()
+    assert ax.get_xscale() == 'linear'
+    assert ax.get_yscale() == 'linear'
+
+
+def test_set_xscale_log():
+    """set_xscale('log') changes the scale."""
+    fig, ax = plt.subplots()
+    ax.set_xscale('log')
+    assert ax.get_xscale() == 'log'
+    assert ax.get_yscale() == 'linear'
+
+
+def test_set_yscale_log():
+    """set_yscale('log') changes the scale."""
+    fig, ax = plt.subplots()
+    ax.set_yscale('log')
+    assert ax.get_yscale() == 'log'
+    assert ax.get_xscale() == 'linear'
+
+
+# ---------------------------------------------------------------------------
+# Axes.axis() variants
+# ---------------------------------------------------------------------------
+def test_axis_returns_limits():
+    """axis() with no args returns (xmin, xmax, ymin, ymax)."""
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 10)
+    ax.set_ylim(-5, 5)
+    result = ax.axis()
+    assert result == (0, 10, -5, 5)
+
+
+def test_axis_equal():
+    """axis('equal') sets aspect to 'equal'."""
+    fig, ax = plt.subplots()
+    ax.axis('equal')
+    assert ax.get_aspect() == 'equal'
+
+
+def test_axis_square():
+    """axis('square') sets equal aspect and matching limits."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 2])
+    ax.axis('square')
+    assert ax.get_aspect() == 'equal'
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    # Should be the same range
+    assert abs((xlim[1] - xlim[0]) - (ylim[1] - ylim[0])) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# AxesImage visibility
+# ---------------------------------------------------------------------------
+def test_imshow_visibility():
+    """AxesImage respects set_visible."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    im = ax.imshow(data)
+    assert im.get_visible() is True
+    im.set_visible(False)
+    assert im.get_visible() is False
+
+
+def test_imshow_label():
+    """AxesImage accepts label."""
+    fig, ax = plt.subplots()
+    data = np.zeros((3, 3))
+    im = ax.imshow(data, label='my_image')
+    assert im.get_label() == 'my_image'
+
+
+# ---------------------------------------------------------------------------
+# Axes.set_adjustable / get_adjustable
+# ---------------------------------------------------------------------------
+def test_set_adjustable():
+    """set_adjustable / get_adjustable roundtrip."""
+    fig, ax = plt.subplots()
+    ax.set_adjustable('datalim')
+    assert ax.get_adjustable() == 'datalim'
+    ax.set_adjustable('box')
+    assert ax.get_adjustable() == 'box'
+
+
+def test_default_adjustable():
+    """Default adjustable is 'box'."""
+    fig, ax = plt.subplots()
+    assert ax.get_adjustable() == 'box'
+
+
+def test_default_anchor():
+    """Default anchor is 'C'."""
+    fig, ax = plt.subplots()
+    assert ax.get_anchor() == 'C'
+
+
+def test_set_anchor():
+    """set_anchor / get_anchor roundtrip."""
+    fig, ax = plt.subplots()
+    ax.set_anchor('NE')
+    assert ax.get_anchor() == 'NE'
+
+
+# ---------------------------------------------------------------------------
+# Axes twin with scales
+# ---------------------------------------------------------------------------
+def test_twinx_independent_yscale():
+    """twinx creates independent y-scale."""
+    fig, ax = plt.subplots()
+    ax2 = ax.twinx()
+    ax2.set_yscale('log')
+    assert ax.get_yscale() == 'linear'
+    assert ax2.get_yscale() == 'log'
+
+
+def test_twiny_independent_xscale():
+    """twiny creates independent x-scale."""
+    fig, ax = plt.subplots()
+    ax2 = ax.twiny()
+    ax2.set_xscale('log')
+    assert ax.get_xscale() == 'linear'
+    assert ax2.get_xscale() == 'log'
+
+
+# ---------------------------------------------------------------------------
+# Clearing and re-plotting
+# ---------------------------------------------------------------------------
+def test_clear_resets_images():
+    """clear() removes images."""
+    fig, ax = plt.subplots()
+    ax.imshow(np.zeros((3, 3)))
+    assert len(ax.images) == 1
+    ax.clear()
+    assert len(ax.images) == 0
+
+
+def test_cla_resets_all_lists():
+    """cla() empties all artist lists."""
+    fig, ax = plt.subplots()
+    ax.plot([1, 2], [3, 4])
+    ax.scatter([1], [2])
+    ax.bar([1], [2])
+    ax.text(0, 0, 'hello')
+    ax.imshow(np.zeros((3, 3)))
+    ax.cla()
+    assert len(ax.lines) == 0
+    assert len(ax.collections) == 0
+    assert len(ax.patches) == 0
+    assert len(ax.texts) == 0
+    assert len(ax.images) == 0
+    assert len(ax.containers) == 0
+
+
+# ---------------------------------------------------------------------------
+# Plot + scale combos
+# ---------------------------------------------------------------------------
+def test_loglog_sets_both_scales():
+    """loglog sets both x and y scales to log."""
+    fig, ax = plt.subplots()
+    ax.loglog([1, 10, 100], [1, 10, 100])
+    assert ax.get_xscale() == 'log'
+    assert ax.get_yscale() == 'log'
+
+
+def test_semilogx_sets_xscale():
+    """semilogx sets x to log, y stays linear."""
+    fig, ax = plt.subplots()
+    ax.semilogx([1, 10, 100], [1, 2, 3])
+    assert ax.get_xscale() == 'log'
+    assert ax.get_yscale() == 'linear'
+
+
+def test_semilogy_sets_yscale():
+    """semilogy sets y to log, x stays linear."""
+    fig, ax = plt.subplots()
+    ax.semilogy([1, 2, 3], [1, 10, 100])
+    assert ax.get_xscale() == 'linear'
+    assert ax.get_yscale() == 'log'
+
+
+# ---------------------------------------------------------------------------
+# Multiple imshow on same axes
+# ---------------------------------------------------------------------------
+def test_multiple_imshow():
+    """Multiple imshow calls append to images list."""
+    fig, ax = plt.subplots()
+    im1 = ax.imshow(np.zeros((3, 3)))
+    im2 = ax.imshow(np.ones((3, 3)))
+    assert len(ax.images) == 2
+    assert im1 in ax.images
+    assert im2 in ax.images
+
+
+# ---------------------------------------------------------------------------
+# Axes __repr__
+# ---------------------------------------------------------------------------
+def test_axes_repr_empty():
+    """Empty axes repr."""
+    fig, ax = plt.subplots()
+    r = repr(ax)
+    assert '<Axes:' in r
+
+
+def test_axes_repr_with_label():
+    """Axes repr with label."""
+    fig, ax = plt.subplots()
+    ax.set_label('myax')
+    r = repr(ax)
+    assert "label='myax'" in r
+
+
+def test_axes_repr_with_title():
+    """Axes repr with title."""
+    fig, ax = plt.subplots()
+    ax.set_title('My Title')
+    r = repr(ax)
+    assert 'My Title' in r
+
+
+# ---------------------------------------------------------------------------
+# Axes get_children includes all types
+# ---------------------------------------------------------------------------
+def test_get_children_includes_all():
+    """get_children includes lines, patches, texts, collections, images."""
+    fig, ax = plt.subplots()
+    line, = ax.plot([1, 2], [3, 4])
+    pc = ax.scatter([1], [2])
+    txt = ax.text(0, 0, 'hello')
+    im = ax.imshow(np.zeros((3, 3)))
+    children = ax.get_children()
+    assert line in children
+    assert pc in children
+    assert txt in children
+    assert im in children
+
+
+# ---------------------------------------------------------------------------
+# Tick/label visibility after label_outer
+# ---------------------------------------------------------------------------
+def test_label_outer_corner_case():
+    """label_outer hides x/y tick labels for non-outer subplots."""
+    fig, axes = plt.subplots(2, 2)
+    for row in axes:
+        for ax in row:
+            ax.label_outer()
+    # Top-left: not bottom, is left => xlabel hidden, ylabel shown
+    assert axes[0][0]._xlabel_visible is False
+    assert axes[0][0]._ylabel_visible is True
+    # Top-right: not bottom, not left => both hidden
+    assert axes[0][1]._xlabel_visible is False
+    assert axes[0][1]._ylabel_visible is False
+    # Bottom-left: bottom, left => both shown
+    assert axes[1][0]._xlabel_visible is True
+    assert axes[1][0]._ylabel_visible is True
+    # Bottom-right: bottom, not left => xlabel shown, ylabel hidden
+    assert axes[1][1]._xlabel_visible is True
+    assert axes[1][1]._ylabel_visible is False

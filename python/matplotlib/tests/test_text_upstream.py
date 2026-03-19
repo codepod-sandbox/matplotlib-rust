@@ -270,3 +270,143 @@ def test_annotate_axes_integration():
     ann = ax.annotate('note', xy=(0, 0), xytext=(1, 1))
     assert ann in ax.texts
     assert ann.get_text() == 'note'
+
+
+# ===================================================================
+# Text basic properties
+# ===================================================================
+
+def test_text_default_position():
+    """Text default position is (0, 0)."""
+    t = Text()
+    assert t.get_position() == (0, 0)
+
+
+def test_text_set_position():
+    """Text.set_position changes position."""
+    t = Text(0, 0, 'hello')
+    t.set_position((5, 10))
+    assert t.get_position() == (5, 10)
+
+
+def test_text_get_text():
+    """Text.get_text returns the string."""
+    t = Text(0, 0, 'hello world')
+    assert t.get_text() == 'hello world'
+
+
+def test_text_set_text():
+    """Text.set_text changes the string."""
+    t = Text(0, 0, 'old')
+    t.set_text('new')
+    assert t.get_text() == 'new'
+
+
+def test_text_fontsize():
+    """Text fontsize property."""
+    t = Text(0, 0, 'sized', fontsize=14)
+    assert t.get_fontsize() == 14
+
+
+def test_text_set_fontsize():
+    """Text.set_fontsize changes the size."""
+    t = Text()
+    t.set_fontsize(20)
+    assert t.get_fontsize() == 20
+
+
+def test_text_ha():
+    """Text horizontal alignment."""
+    t = Text(0, 0, 'aligned', ha='center')
+    assert t.get_ha() == 'center'
+
+
+def test_text_va():
+    """Text vertical alignment."""
+    t = Text(0, 0, 'aligned', va='top')
+    assert t.get_va() == 'top'
+
+
+def test_text_set_ha():
+    """Text.set_ha changes alignment."""
+    t = Text()
+    t.set_ha('right')
+    assert t.get_ha() == 'right'
+
+
+def test_text_set_va():
+    """Text.set_va changes alignment."""
+    t = Text()
+    t.set_va('bottom')
+    assert t.get_va() == 'bottom'
+
+
+def test_text_visible():
+    """Text visibility."""
+    t = Text()
+    assert t.get_visible() is True
+    t.set_visible(False)
+    assert t.get_visible() is False
+
+
+def test_text_alpha():
+    """Text alpha."""
+    t = Text()
+    assert t.get_alpha() is None
+    t.set_alpha(0.5)
+    assert t.get_alpha() == 0.5
+
+
+def test_text_label():
+    """Text label."""
+    t = Text()
+    t.set_label('my text')
+    assert t.get_label() == 'my text'
+
+
+def test_text_color():
+    """Text color."""
+    t = Text(0, 0, 'colored', color='red')
+    assert t.get_color() == 'red'
+
+
+def test_text_set_color():
+    """Text.set_color changes color."""
+    t = Text()
+    t.set_color('blue')
+    assert t.get_color() == 'blue'
+
+
+# ===================================================================
+# Annotation properties
+# ===================================================================
+
+def test_annotation_xy():
+    """Annotation stores xy."""
+    ann = Annotation('test', xy=(1, 2))
+    assert ann.xy == (1, 2)
+
+
+def test_annotation_xytext():
+    """Annotation stores xytext."""
+    ann = Annotation('test', xy=(1, 2), xytext=(3, 4))
+    assert ann.xyann == (3, 4)
+
+
+def test_annotation_is_text():
+    """Annotation is a subclass of Text."""
+    ann = Annotation('test', xy=(0, 0))
+    assert isinstance(ann, Text)
+
+
+def test_annotation_get_text():
+    """Annotation.get_text works."""
+    ann = Annotation('hello', xy=(0, 0))
+    assert ann.get_text() == 'hello'
+
+
+def test_annotation_set_text():
+    """Annotation.set_text changes text."""
+    ann = Annotation('old', xy=(0, 0))
+    ann.set_text('new')
+    assert ann.get_text() == 'new'
