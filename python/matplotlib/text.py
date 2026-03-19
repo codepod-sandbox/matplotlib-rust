@@ -22,6 +22,16 @@ class Text(Artist):
         # fontweight: accept 'fontweight' or 'weight'
         self._fontweight = kwargs.get('fontweight', kwargs.get('weight', 'normal'))
 
+        # fontfamily: accept 'fontfamily' or 'family'
+        self._fontfamily = kwargs.get('fontfamily', kwargs.get('family', None))
+
+        # fontstyle: accept 'fontstyle' or 'style'
+        self._fontstyle = kwargs.get('fontstyle', kwargs.get('style', 'normal'))
+
+        # fontname alias for fontfamily
+        if 'fontname' in kwargs and self._fontfamily is None:
+            self._fontfamily = kwargs['fontname']
+
         # horizontal alignment: accept 'ha' or 'horizontalalignment'
         self._ha = kwargs.get('ha', kwargs.get('horizontalalignment', 'left'))
 
@@ -60,6 +70,35 @@ class Text(Artist):
         self._fontsize = size
 
     set_size = set_fontsize
+    get_size = get_fontsize
+
+    # --- fontfamily ---
+    def get_fontfamily(self):
+        return self._fontfamily
+
+    def set_fontfamily(self, family):
+        self._fontfamily = family
+
+    get_family = get_fontfamily
+    set_family = set_fontfamily
+
+    def get_fontname(self):
+        """Return the font name (alias for fontfamily)."""
+        return self._fontfamily
+
+    # --- fontstyle ---
+    def get_fontstyle(self):
+        return self._fontstyle
+
+    def set_fontstyle(self, style):
+        if style not in ('normal', 'italic', 'oblique'):
+            raise ValueError(
+                f"fontstyle must be 'normal', 'italic', or 'oblique', "
+                f"got {style!r}")
+        self._fontstyle = style
+
+    get_style = get_fontstyle
+    set_style = set_fontstyle
 
     # --- fontweight ---
     def get_weight(self):
@@ -133,6 +172,51 @@ class Text(Artist):
 
     def set_antialiased(self, aa):
         self._antialiased = aa
+
+    # --- fontvariant ---
+    def get_fontvariant(self):
+        return getattr(self, '_fontvariant', 'normal')
+
+    def set_fontvariant(self, variant):
+        self._fontvariant = variant
+
+    # --- fontstretch ---
+    def get_fontstretch(self):
+        return getattr(self, '_fontstretch', 'normal')
+
+    def set_fontstretch(self, stretch):
+        self._fontstretch = stretch
+
+    def get_stretch(self):
+        return self.get_fontstretch()
+
+    def set_stretch(self, stretch):
+        self.set_fontstretch(stretch)
+
+    # --- wrap ---
+    def get_wrap(self):
+        return getattr(self, '_wrap', False)
+
+    def set_wrap(self, wrap):
+        self._wrap = wrap
+
+    # --- usetex ---
+    def get_usetex(self):
+        return getattr(self, '_usetex', False)
+
+    def set_usetex(self, usetex):
+        self._usetex = usetex
+
+    # --- math_fontfamily ---
+    def get_math_fontfamily(self):
+        return getattr(self, '_math_fontfamily', 'dejavusans')
+
+    def set_math_fontfamily(self, fontfamily):
+        self._math_fontfamily = fontfamily
+
+    # --- repr ---
+    def __repr__(self):
+        return f"Text({self._x}, {self._y}, {self._text!r})"
 
     # --- position ---
     def get_position(self):

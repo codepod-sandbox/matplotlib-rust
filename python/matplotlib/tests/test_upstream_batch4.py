@@ -1,0 +1,409 @@
+"""Upstream-style test batch 4: colormaps, norms, ticker, text extensions.
+
+Tests modeled after upstream matplotlib test patterns but adapted for
+our implementation.
+"""
+
+import math
+import pytest
+from matplotlib.tests._approx import approx
+
+from matplotlib.figure import Figure
+from matplotlib.text import Text, Annotation
+from matplotlib.colors import (
+    Normalize, LogNorm, TwoSlopeNorm, BoundaryNorm,
+    PowerNorm, SymLogNorm, NoNorm,
+    to_rgba, to_hex, to_rgb, is_color_like, same_color,
+)
+from matplotlib.cm import (
+    ListedColormap, LinearSegmentedColormap, get_cmap,
+    ScalarMappable, register_cmap, _colormaps,
+)
+from matplotlib.ticker import (
+    NullLocator, FixedLocator, MaxNLocator, AutoLocator,
+    MultipleLocator, LogLocator, LinearLocator, IndexLocator,
+    NullFormatter, FixedFormatter, FuncFormatter, FormatStrFormatter,
+    StrMethodFormatter, ScalarFormatter, PercentFormatter, LogFormatter,
+)
+from matplotlib.cycler import cycler, Cycler
+
+
+# ===================================================================
+# Colormap upstream-style tests
+# ===================================================================
+
+class TestColormapUpstream:
+    """Tests modeled after upstream test_colors.py colormap tests."""
+
+    def test_colormap_endian(self):
+        """Colormap(0) and Colormap(1) give different colors for non-trivial cmaps."""
+        cmap = get_cmap('viridis')
+        assert cmap(0.0) != cmap(1.0)
+
+    def test_listed_colormap_indexing(self):
+        colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
+        cmap = ListedColormap(colors)
+        assert cmap(0.0)[:3] == approx((1, 0, 0), abs=0.05)
+        assert cmap(1.0)[:3] == approx((0, 0, 1), abs=0.05)
+
+    def test_cmap_bad_color(self):
+        cmap = ListedColormap(['r', 'g', 'b'])
+        cmap.set_bad('yellow')
+        bad = cmap.get_bad()
+        assert bad[0] > 0.9 and bad[1] > 0.9  # yellow
+
+    def test_cmap_under_over(self):
+        cmap = ListedColormap(['r', 'g', 'b'])
+        cmap.set_under('cyan')
+        cmap.set_over('magenta')
+        assert cmap.get_under()[:3] == approx(to_rgba('cyan')[:3], abs=0.05)
+        assert cmap.get_over()[:3] == approx(to_rgba('magenta')[:3], abs=0.05)
+
+    def test_linear_segmented_endpoints(self):
+        cmap = LinearSegmentedColormap.from_list('test', ['black', 'white'])
+        assert cmap(0.0)[:3] == approx((0, 0, 0), abs=0.05)
+        assert cmap(1.0)[:3] == approx((1, 1, 1), abs=0.05)
+
+    def test_linear_segmented_midpoint(self):
+        cmap = LinearSegmentedColormap.from_list('test', ['black', 'white'])
+        mid = cmap(0.5)
+        assert mid[0] == approx(0.5, abs=0.1)
+
+    def test_register_and_retrieve_cmap(self):
+        custom = ListedColormap(['r', 'g', 'b'], name='test_custom_upstream')
+        register_cmap('test_custom_upstream', custom)
+        retrieved = get_cmap('test_custom_upstream')
+        assert retrieved.name == 'test_custom_upstream'
+
+    def test_cmap_none_default(self):
+        assert get_cmap(None).name == 'viridis'
+
+    def test_cmap_invalid_name(self):
+        with pytest.raises(ValueError):
+            get_cmap('this_is_not_a_cmap')
+
+    def test_cmap_reversed_name(self):
+        cmap = get_cmap('hot')
+        rev = cmap.reversed()
+        assert rev.name == 'hot_r'
+
+    def test_cmap_call_with_nan(self):
+        cmap = get_cmap('viridis')
+        result = cmap(float('nan'))
+        assert result == cmap.get_bad()
+
+    def test_cmap_bytes_output(self):
+        cmap = get_cmap('viridis')
+        result = cmap(0.5, bytes=True)
+        assert all(isinstance(c, int) for c in result)
+        assert all(0 <= c <= 255 for c in result)
+
+    def test_listed_cmap_reversed_symmetry(self):
+        colors = ['red', 'green', 'blue']
+        cmap = ListedColormap(colors)
+        rev = cmap.reversed()
+        # First of reversed should be last of original
+        assert cmap(1.0) == rev(0.0)
+
+    def test_get_cmap_with_lut(self):
+        cmap = get_cmap('viridis', lut=10)
+        assert cmap.N == 10
+
+
+# ===================================================================
+# Normalize upstream-style tests
+# ===================================================================
+
+class TestNormalizeUpstream:
+    """Tests modeled after upstream test_colors.py norm tests."""
+
+    def test_normalize_inverse_roundtrip(self):
+        norm = Normalize(0, 10)
+        for val in [0, 2.5, 5, 7.5, 10]:
+            assert norm.inverse(norm(val)) == approx(val)
+
+    def test_lognorm_inverse_roundtrip(self):
+        norm = LogNorm(1, 1000)
+        for val in [1, 10, 100, 1000]:
+            result = norm.inverse(norm(val))
+            assert result == approx(val, rel=0.01)
+
+    def test_twoslope_inverse_roundtrip(self):
+        norm = TwoSlopeNorm(0, vmin=-10, vmax=10)
+        for val in [-10, -5, 0, 5, 10]:
+            result = norm.inverse(norm(val))
+            assert result == approx(val)
+
+    def test_power_norm_inverse_roundtrip(self):
+        norm = PowerNorm(2, vmin=0, vmax=10)
+        for val in [0, 2, 5, 8, 10]:
+            result = norm.inverse(norm(val))
+            assert result == approx(val, abs=0.5)
+
+    def test_symlog_inverse_roundtrip(self):
+        norm = SymLogNorm(1, vmin=-100, vmax=100)
+        for val in [-100, -10, -1, 0, 1, 10, 100]:
+            result = norm.inverse(norm(val))
+            assert result == approx(val, abs=1.0)
+
+    def test_nonorm_passthrough(self):
+        norm = NoNorm()
+        for val in [0, 0.5, 1, 42]:
+            assert norm(val) == approx(float(val))
+
+    def test_normalize_clip(self):
+        norm = Normalize(0, 10, clip=True)
+        assert norm(-5) == approx(0.0)
+        assert norm(15) == approx(1.0)
+
+    def test_normalize_no_clip(self):
+        norm = Normalize(0, 10, clip=False)
+        assert norm(-5) < 0.0
+        assert norm(15) > 1.0
+
+    def test_normalize_autoscale(self):
+        norm = Normalize()
+        norm.autoscale([2, 4, 6, 8])
+        assert norm.vmin == 2
+        assert norm.vmax == 8
+
+    def test_normalize_scaled(self):
+        norm = Normalize()
+        assert not norm.scaled
+        norm.vmin = 0
+        norm.vmax = 1
+        assert norm.scaled
+
+    def test_normalize_eq(self):
+        a = Normalize(0, 1)
+        b = Normalize(0, 1)
+        assert a == b
+
+    def test_normalize_ne(self):
+        a = Normalize(0, 1)
+        b = Normalize(0, 10)
+        assert a != b
+
+    def test_normalize_hash(self):
+        a = Normalize(0, 1)
+        b = Normalize(0, 1)
+        assert hash(a) == hash(b)
+
+
+# ===================================================================
+# ScalarMappable upstream-style tests
+# ===================================================================
+
+class TestScalarMappableUpstream:
+    def test_sm_set_array(self):
+        sm = ScalarMappable(norm=Normalize(), cmap='viridis')
+        sm.set_array([1, 2, 3])
+        assert sm.get_array() == [1, 2, 3]
+
+    def test_sm_autoscale(self):
+        sm = ScalarMappable(norm=Normalize(), cmap='viridis')
+        sm.set_array([10, 20, 30])
+        sm.autoscale()
+        assert sm.norm.vmin == 10
+        assert sm.norm.vmax == 30
+
+    def test_sm_to_rgba_scalar(self):
+        sm = ScalarMappable(norm=Normalize(0, 1), cmap='gray')
+        rgba = sm.to_rgba(0.0)
+        assert len(rgba) == 4
+
+    def test_sm_set_clim(self):
+        sm = ScalarMappable(norm=Normalize())
+        sm.set_clim(0, 100)
+        vmin, vmax = sm.get_clim()
+        assert vmin == 0
+        assert vmax == 100
+
+
+# ===================================================================
+# Ticker upstream-style tests
+# ===================================================================
+
+class TestTickerUpstream:
+    def test_maxnlocator_default(self):
+        loc = MaxNLocator()
+        ticks = loc.tick_values(20, 100)
+        assert len(ticks) >= 2
+        for t in ticks:
+            assert isinstance(t, (int, float))
+
+    def test_maxnlocator_small_range(self):
+        loc = MaxNLocator(nbins=5)
+        ticks = loc.tick_values(0.001, 0.01)
+        assert len(ticks) >= 2
+        assert ticks[0] <= 0.001
+        assert ticks[-1] >= 0.01
+
+    def test_autolocator_is_maxn(self):
+        loc = AutoLocator()
+        assert isinstance(loc, MaxNLocator)
+
+    def test_fixedlocator_returns_fixed(self):
+        loc = FixedLocator([0, 0.5, 1, 1.5, 2])
+        ticks = loc()
+        assert ticks == [0, 0.5, 1, 1.5, 2]
+
+    def test_nulllocator_returns_empty(self):
+        loc = NullLocator()
+        assert loc() == []
+
+    def test_multiplelocator_multiples(self):
+        loc = MultipleLocator(base=0.25)
+        ticks = loc.tick_values(0, 1)
+        assert 0.0 in ticks
+        assert 0.25 in ticks
+        assert 0.5 in ticks
+        assert 0.75 in ticks
+        assert 1.0 in ticks
+
+    def test_loglocator_decades(self):
+        loc = LogLocator()
+        ticks = loc.tick_values(1, 10000)
+        # Should contain powers of 10
+        powers = {1, 10, 100, 1000, 10000}
+        for p in powers:
+            assert any(abs(t - p) < p * 0.1 for t in ticks)
+
+    def test_linearlocator_evenly_spaced(self):
+        loc = LinearLocator(numticks=5)
+        ticks = loc.tick_values(0, 100)
+        assert len(ticks) == 5
+        assert ticks[0] == approx(0)
+        assert ticks[-1] == approx(100)
+
+    def test_funcformatter(self):
+        fmt = FuncFormatter(lambda x, pos: f'${x:.0f}')
+        assert fmt(42) == '$42'
+
+    def test_nullformatter(self):
+        fmt = NullFormatter()
+        assert fmt(42) == ''
+
+    def test_percentformatter_basic(self):
+        fmt = PercentFormatter(xmax=1.0)
+        result = fmt(0.5)
+        assert '50' in result
+
+    def test_scalarformatter_int(self):
+        fmt = ScalarFormatter()
+        assert fmt(10.0) == '10'
+
+    def test_formatstr(self):
+        fmt = FormatStrFormatter('%.3f')
+        assert fmt(math.pi) == '3.142'
+
+
+# ===================================================================
+# Text upstream-style tests
+# ===================================================================
+
+class TestTextUpstreamExtended:
+    def test_text_fontfamily(self):
+        t = Text(0, 0, 'test', fontfamily='serif')
+        assert t.get_fontfamily() == 'serif'
+
+    def test_text_fontstyle_italic(self):
+        t = Text(0, 0, 'test')
+        t.set_fontstyle('italic')
+        assert t.get_fontstyle() == 'italic'
+
+    def test_text_repr_format(self):
+        t = Text(1, 2, 'hello')
+        r = repr(t)
+        assert 'Text(1, 2' in r
+
+    def test_text_set_props(self):
+        t = Text(0, 0, 'test')
+        t.set(fontsize=20, fontweight='bold', fontstyle='italic')
+        assert t.get_fontsize() == 20
+        assert t.get_fontweight() == 'bold'
+        assert t.get_fontstyle() == 'italic'
+
+    def test_text_rotation_vertical(self):
+        t = Text(0, 0, 'test', rotation='vertical')
+        assert t.get_rotation() == 90.0
+
+    def test_text_rotation_horizontal(self):
+        t = Text(0, 0, 'test', rotation='horizontal')
+        assert t.get_rotation() == 0.0
+
+    def test_text_rotation_degrees(self):
+        t = Text(0, 0, 'test', rotation=45)
+        assert t.get_rotation() == 45.0
+
+    def test_text_rotation_negative(self):
+        t = Text(0, 0, 'test', rotation=-90)
+        assert t.get_rotation() == 270.0
+
+    def test_annotation_repr(self):
+        ann = Annotation('note', xy=(1, 2))
+        r = repr(ann)
+        assert 'Text' in r
+
+    def test_text_color_set_get(self):
+        t = Text(0, 0, 'test', color='red')
+        assert t.get_color() == 'red'
+
+    def test_text_position_set_get(self):
+        t = Text(0, 0, 'test')
+        t.set_position((5, 10))
+        assert t.get_position() == (5, 10)
+
+
+# ===================================================================
+# Integration tests
+# ===================================================================
+
+class TestIntegration:
+    """Tests combining multiple features."""
+
+    def test_scalarmappable_with_lognorm(self):
+        sm = ScalarMappable(norm=LogNorm(1, 100), cmap='hot')
+        rgba = sm.to_rgba(10)
+        assert len(rgba) == 4
+
+    def test_scalarmappable_with_listed_cmap(self):
+        cmap = ListedColormap(['red', 'green', 'blue'])
+        sm = ScalarMappable(norm=Normalize(0, 1), cmap=cmap)
+        rgba = sm.to_rgba(0.0)
+        assert rgba[0] > 0.9  # red
+
+    def test_scalarmappable_with_twoslope(self):
+        norm = TwoSlopeNorm(0, vmin=-10, vmax=10)
+        sm = ScalarMappable(norm=norm, cmap='viridis')
+        rgba = sm.to_rgba(0)
+        assert len(rgba) == 4
+
+    def test_figure_axes_with_prop_cycle(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_prop_cycle(color=['red', 'blue'])
+        l1 = ax.plot([1, 2], [3, 4])
+        l2 = ax.plot([1, 2], [5, 6])
+        assert l1[0].get_color() == '#ff0000'
+        assert l2[0].get_color() == '#0000ff'
+
+    def test_axes_text_with_new_props(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_title('Test')
+        assert ax.get_title() == 'Test'
+
+    def test_colormap_with_boundary_norm(self):
+        cmap = ListedColormap(['red', 'green', 'blue'])
+        norm = BoundaryNorm([0, 1, 2, 3], ncolors=3)
+        result = norm(1.5)
+        assert isinstance(result, float)
+
+    def test_maxnlocator_with_various_ranges(self):
+        loc = MaxNLocator(nbins=5)
+        for (lo, hi) in [(0, 1), (0, 100), (-50, 50), (0, 0.001), (1e6, 2e6)]:
+            ticks = loc.tick_values(lo, hi)
+            assert len(ticks) >= 2
+            assert ticks[0] <= lo
+            assert ticks[-1] >= hi

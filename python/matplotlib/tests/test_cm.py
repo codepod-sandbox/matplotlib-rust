@@ -1,0 +1,612 @@
+"""Tests for matplotlib.cm --- colormaps, registry, and ScalarMappable."""
+
+import math
+import pytest
+from matplotlib.tests._approx import approx
+
+from matplotlib.cm import (
+    Colormap,
+    ListedColormap,
+    LinearSegmentedColormap,
+    get_cmap,
+    register_cmap,
+    ColormapRegistry,
+    ScalarMappable,
+    _cmap_registry,
+    _colormaps,
+)
+from matplotlib.colors import Normalize, LogNorm
+
+
+# ===================================================================
+# ListedColormap
+# ===================================================================
+
+class TestListedColormap:
+    def test_basic_creation(self):
+        cmap = ListedColormap(['red', 'green', 'blue'])
+        assert cmap.name == 'from_list'
+        assert cmap.N == 3
+
+    def test_custom_name(self):
+        cmap = ListedColormap(['red', 'blue'], name='my_cmap')
+        assert cmap.name == 'my_cmap'
+
+    def test_custom_N(self):
+        cmap = ListedColormap(['r', 'g', 'b'], N=5)
+        assert cmap.N == 5
+
+    def test_call_scalar(self):
+        cmap = ListedColormap(['red', 'blue'])
+        rgba = cmap(0.0)
+        assert isinstance(rgba, tuple)
+        assert len(rgba) == 4
+
+    def test_call_maps_0_to_first_color(self):
+        cmap = ListedColormap(['red', 'blue'])
+        rgba = cmap(0.0)
+        assert rgba[0] == approx(1.0)  # red channel
+        assert rgba[1] == approx(0.0)
+        assert rgba[2] == approx(0.0)
+
+    def test_call_maps_1_to_last_color(self):
+        cmap = ListedColormap(['red', 'blue'])
+        rgba = cmap(1.0)
+        assert rgba[0] == approx(0.0)
+        assert rgba[1] == approx(0.0)
+        assert rgba[2] == approx(1.0)
+
+    def test_call_list(self):
+        cmap = ListedColormap(['red', 'blue'])
+        result = cmap([0.0, 1.0])
+        assert len(result) == 2
+
+    def test_alpha_override(self):
+        cmap = ListedColormap(['red', 'blue'])
+        rgba = cmap(0.0, alpha=0.5)
+        assert rgba[3] == approx(0.5)
+
+    def test_bytes_mode(self):
+        cmap = ListedColormap(['red', 'blue'])
+        rgba = cmap(0.0, bytes=True)
+        assert rgba[0] == 255  # red
+        assert rgba[1] == 0
+        assert rgba[2] == 0
+        assert rgba[3] == 255
+
+    def test_nan_returns_bad_color(self):
+        cmap = ListedColormap(['red', 'blue'])
+        rgba = cmap(float('nan'))
+        assert rgba == (0.0, 0.0, 0.0, 0.0)  # default bad
+
+    def test_set_bad(self):
+        cmap = ListedColormap(['red', 'blue'])
+        cmap.set_bad('green')
+        rgba = cmap(float('nan'))
+        assert rgba[1] > 0.4  # green channel
+
+    def test_set_under(self):
+        cmap = ListedColormap(['red', 'blue'])
+        cmap.set_under('yellow')
+        rgba = cmap(-0.1)
+        assert rgba[0] == approx(1.0)
+        assert rgba[1] == approx(1.0)
+
+    def test_set_over(self):
+        cmap = ListedColormap(['red', 'blue'])
+        cmap.set_over('green')
+        rgba = cmap(1.1)
+        # green
+        assert rgba[1] > 0.4
+
+    def test_get_bad(self):
+        cmap = ListedColormap(['red', 'blue'])
+        bad = cmap.get_bad()
+        assert len(bad) == 4
+
+    def test_get_under(self):
+        cmap = ListedColormap(['red', 'blue'])
+        cmap.set_under('cyan')
+        under = cmap.get_under()
+        assert len(under) == 4
+
+    def test_get_over(self):
+        cmap = ListedColormap(['red', 'blue'])
+        cmap.set_over('magenta')
+        over = cmap.get_over()
+        assert len(over) == 4
+
+    def test_colors_property(self):
+        cmap = ListedColormap(['red', 'green', 'blue'])
+        colors = cmap.colors
+        assert len(colors) == 3
+
+    def test_reversed(self):
+        cmap = ListedColormap(['red', 'blue'], name='test')
+        rev = cmap.reversed()
+        assert rev.name == 'test_r'
+        # First color of reversed should be blue
+        rgba = rev(0.0)
+        assert rgba[2] > 0.9
+
+    def test_reversed_custom_name(self):
+        cmap = ListedColormap(['red', 'blue'], name='test')
+        rev = cmap.reversed(name='custom_reversed')
+        assert rev.name == 'custom_reversed'
+
+    def test_resampled(self):
+        cmap = ListedColormap(['red', 'green', 'blue'])
+        resampled = cmap.resampled(10)
+        assert resampled.N == 10
+
+    def test_repr(self):
+        cmap = ListedColormap(['red', 'blue'], name='test')
+        r = repr(cmap)
+        assert 'ListedColormap' in r
+        assert 'test' in r
+
+    def test_eq(self):
+        a = ListedColormap(['red', 'blue'], name='test')
+        b = ListedColormap(['red', 'blue'], name='test')
+        assert a == b
+
+    def test_ne_different_name(self):
+        a = ListedColormap(['red', 'blue'], name='a')
+        b = ListedColormap(['red', 'blue'], name='b')
+        assert a != b
+
+    def test_ne_different_N(self):
+        a = ListedColormap(['red', 'blue'], name='a', N=3)
+        b = ListedColormap(['red', 'blue'], name='a', N=5)
+        assert a != b
+
+    def test_single_color(self):
+        cmap = ListedColormap(['red'])
+        rgba = cmap(0.5)
+        assert rgba[0] == approx(1.0)
+
+    def test_hex_colors(self):
+        cmap = ListedColormap(['#ff0000', '#00ff00', '#0000ff'])
+        rgba = cmap(0.0)
+        assert rgba[0] == approx(1.0)
+
+    def test_tuple_colors(self):
+        cmap = ListedColormap([(1, 0, 0), (0, 1, 0), (0, 0, 1)])
+        rgba = cmap(0.0)
+        assert rgba[0] == approx(1.0)
+
+    def test_many_colors(self):
+        colors = [f'#{i:02x}{i:02x}{i:02x}' for i in range(0, 256, 25)]
+        cmap = ListedColormap(colors)
+        assert cmap.N == len(colors)
+
+
+# ===================================================================
+# LinearSegmentedColormap
+# ===================================================================
+
+class TestLinearSegmentedColormap:
+    def test_basic(self):
+        segdata = {
+            'red':   [(0, 0, 0), (1, 1, 1)],
+            'green': [(0, 0, 0), (1, 0, 0)],
+            'blue':  [(0, 0, 0), (1, 0, 0)],
+        }
+        cmap = LinearSegmentedColormap('test', segdata)
+        assert cmap.name == 'test'
+        assert cmap.N == 256
+
+    def test_call_at_0(self):
+        segdata = {
+            'red':   [(0, 0, 0), (1, 1, 1)],
+            'green': [(0, 0, 0), (1, 0, 0)],
+            'blue':  [(0, 0, 0), (1, 0, 0)],
+        }
+        cmap = LinearSegmentedColormap('test', segdata)
+        rgba = cmap(0.0)
+        assert rgba[0] == approx(0.0, abs=0.01)
+
+    def test_call_at_1(self):
+        segdata = {
+            'red':   [(0, 0, 0), (1, 1, 1)],
+            'green': [(0, 0, 0), (1, 0, 0)],
+            'blue':  [(0, 0, 0), (1, 0, 0)],
+        }
+        cmap = LinearSegmentedColormap('test', segdata)
+        rgba = cmap(1.0)
+        assert rgba[0] == approx(1.0, abs=0.01)
+
+    def test_midpoint(self):
+        segdata = {
+            'red':   [(0, 0, 0), (1, 1, 1)],
+            'green': [(0, 0, 0), (1, 1, 1)],
+            'blue':  [(0, 0, 0), (1, 1, 1)],
+        }
+        cmap = LinearSegmentedColormap('gray_ish', segdata)
+        rgba = cmap(0.5)
+        assert rgba[0] == approx(0.5, abs=0.05)
+
+    def test_from_list_basic(self):
+        cmap = LinearSegmentedColormap.from_list(
+            'test', ['red', 'blue'])
+        assert cmap.name == 'test'
+        rgba0 = cmap(0.0)
+        assert rgba0[0] > 0.9  # red
+        rgba1 = cmap(1.0)
+        assert rgba1[2] > 0.9  # blue
+
+    def test_from_list_three_colors(self):
+        cmap = LinearSegmentedColormap.from_list(
+            'rgb', ['red', 'green', 'blue'])
+        rgba = cmap(0.5)
+        assert rgba[1] > 0.3  # should have green in the middle
+
+    def test_from_list_with_values(self):
+        cmap = LinearSegmentedColormap.from_list(
+            'custom', [(0, 'red'), (0.5, 'green'), (1.0, 'blue')])
+        rgba = cmap(0.5)
+        assert rgba[1] > 0.3
+
+    def test_reversed(self):
+        cmap = LinearSegmentedColormap.from_list('test', ['red', 'blue'])
+        rev = cmap.reversed()
+        assert rev.name == 'test_r'
+        rgba = rev(0.0)
+        assert rgba[2] > 0.9  # blue at start after reversing
+
+    def test_resampled(self):
+        cmap = LinearSegmentedColormap.from_list('test', ['red', 'blue'])
+        resampled = cmap.resampled(128)
+        assert resampled.N == 128
+
+    def test_gamma(self):
+        cmap = LinearSegmentedColormap.from_list(
+            'test', ['black', 'white'], gamma=2.0)
+        rgba = cmap(0.5)
+        # With gamma=2, midpoint should map to 0.25 intensity
+        assert rgba[0] < 0.4
+
+    def test_alpha_channel(self):
+        segdata = {
+            'red':   [(0, 1, 1), (1, 0, 0)],
+            'green': [(0, 0, 0), (1, 0, 0)],
+            'blue':  [(0, 0, 0), (1, 1, 1)],
+            'alpha': [(0, 1, 1), (1, 0.5, 0.5)],
+        }
+        cmap = LinearSegmentedColormap('test_alpha', segdata)
+        rgba = cmap(1.0)
+        assert rgba[3] == approx(0.5, abs=0.05)
+
+
+# ===================================================================
+# get_cmap
+# ===================================================================
+
+class TestGetCmap:
+    def test_default_is_viridis(self):
+        cmap = get_cmap()
+        assert cmap.name == 'viridis'
+
+    def test_viridis(self):
+        cmap = get_cmap('viridis')
+        assert cmap.name == 'viridis'
+
+    def test_jet(self):
+        cmap = get_cmap('jet')
+        assert cmap.name == 'jet'
+
+    def test_hot(self):
+        cmap = get_cmap('hot')
+        assert cmap.name == 'hot'
+
+    def test_cool(self):
+        cmap = get_cmap('cool')
+        assert cmap.name == 'cool'
+
+    def test_gray(self):
+        cmap = get_cmap('gray')
+        assert cmap.name == 'gray'
+
+    def test_grey_alias(self):
+        cmap = get_cmap('grey')
+        assert cmap.name == 'gray'
+
+    def test_spring(self):
+        cmap = get_cmap('spring')
+        assert cmap.name == 'spring'
+
+    def test_summer(self):
+        cmap = get_cmap('summer')
+        assert cmap.name == 'summer'
+
+    def test_autumn(self):
+        cmap = get_cmap('autumn')
+        assert cmap.name == 'autumn'
+
+    def test_winter(self):
+        cmap = get_cmap('winter')
+        assert cmap.name == 'winter'
+
+    def test_plasma(self):
+        cmap = get_cmap('plasma')
+        assert cmap.name == 'plasma'
+
+    def test_inferno(self):
+        cmap = get_cmap('inferno')
+        assert cmap.name == 'inferno'
+
+    def test_magma(self):
+        cmap = get_cmap('magma')
+        assert cmap.name == 'magma'
+
+    def test_cividis(self):
+        cmap = get_cmap('cividis')
+        assert cmap.name == 'cividis'
+
+    def test_reversed_builtin(self):
+        cmap = get_cmap('viridis_r')
+        assert cmap.name == 'viridis_r'
+
+    def test_unknown_raises(self):
+        with pytest.raises(ValueError, match='not a known colormap'):
+            get_cmap('nonexistent_cmap')
+
+    def test_pass_cmap_instance(self):
+        orig = get_cmap('viridis')
+        same = get_cmap(orig)
+        assert same is orig
+
+    def test_lut_resamples(self):
+        cmap = get_cmap('viridis', lut=64)
+        assert cmap.N == 64
+
+    def test_lut_with_instance(self):
+        orig = get_cmap('viridis')
+        resampled = get_cmap(orig, lut=32)
+        assert resampled.N == 32
+
+    def test_none_returns_viridis(self):
+        cmap = get_cmap(None)
+        assert cmap.name == 'viridis'
+
+    def test_builtin_reversed_variants(self):
+        for name in ['jet_r', 'hot_r', 'cool_r', 'gray_r']:
+            cmap = get_cmap(name)
+            assert '_r' in cmap.name
+
+
+# ===================================================================
+# register_cmap
+# ===================================================================
+
+class TestRegisterCmap:
+    def test_register(self):
+        cmap = ListedColormap(['red', 'blue'], name='test_reg')
+        register_cmap('test_reg', cmap)
+        retrieved = get_cmap('test_reg')
+        assert retrieved.name == 'test_reg'
+
+    def test_register_uses_name(self):
+        cmap = ListedColormap(['red', 'blue'], name='auto_name')
+        register_cmap(cmap=cmap)
+        retrieved = get_cmap('auto_name')
+        assert retrieved == cmap
+
+    def test_register_none_raises(self):
+        with pytest.raises(ValueError):
+            register_cmap('test', cmap=None)
+
+
+# ===================================================================
+# ColormapRegistry
+# ===================================================================
+
+class TestColormapRegistry:
+    def test_contains(self):
+        assert 'viridis' in _colormaps
+        assert 'nonexistent' not in _colormaps
+
+    def test_getitem(self):
+        cmap = _colormaps['viridis']
+        assert cmap.name == 'viridis'
+
+    def test_iter(self):
+        names = list(_colormaps)
+        assert 'viridis' in names
+        assert 'jet' in names
+
+    def test_len(self):
+        assert len(_colormaps) > 10
+
+    def test_call(self):
+        cmap = _colormaps('viridis')
+        assert cmap.name == 'viridis'
+
+    def test_register(self):
+        custom = ListedColormap(['red', 'blue'], name='reg_test_cm')
+        _colormaps.register(custom)
+        assert 'reg_test_cm' in _colormaps
+
+    def test_register_duplicate_raises(self):
+        custom = ListedColormap(['red'], name='dup_test_cm')
+        _colormaps.register(custom)
+        with pytest.raises(ValueError, match='already registered'):
+            _colormaps.register(custom)
+
+    def test_register_force(self):
+        custom = ListedColormap(['red'], name='force_test_cm')
+        _colormaps.register(custom)
+        custom2 = ListedColormap(['blue'], name='force_test_cm')
+        _colormaps.register(custom2, force=True)
+
+    def test_unregister(self):
+        custom = ListedColormap(['red'], name='unreg_test')
+        _colormaps.register(custom, force=True)
+        _colormaps.unregister('unreg_test')
+        assert 'unreg_test' not in _colormaps
+
+
+# ===================================================================
+# ScalarMappable
+# ===================================================================
+
+class TestScalarMappable:
+    def test_default_cmap(self):
+        sm = ScalarMappable()
+        assert sm.cmap.name == 'viridis'
+
+    def test_custom_cmap_str(self):
+        sm = ScalarMappable(cmap='jet')
+        assert sm.cmap.name == 'jet'
+
+    def test_custom_cmap_instance(self):
+        cmap = get_cmap('hot')
+        sm = ScalarMappable(cmap=cmap)
+        assert sm.cmap.name == 'hot'
+
+    def test_custom_norm(self):
+        norm = Normalize(vmin=0, vmax=10)
+        sm = ScalarMappable(norm=norm)
+        assert sm.norm.vmin == 0
+        assert sm.norm.vmax == 10
+
+    def test_set_norm(self):
+        sm = ScalarMappable()
+        norm = Normalize(0, 100)
+        sm.set_norm(norm)
+        assert sm.norm.vmin == 0
+
+    def test_get_norm(self):
+        norm = Normalize(0, 1)
+        sm = ScalarMappable(norm=norm)
+        assert sm.get_norm() is norm
+
+    def test_set_cmap_string(self):
+        sm = ScalarMappable()
+        sm.set_cmap('jet')
+        assert sm.cmap.name == 'jet'
+
+    def test_get_cmap(self):
+        sm = ScalarMappable(cmap='hot')
+        assert sm.get_cmap().name == 'hot'
+
+    def test_set_array(self):
+        sm = ScalarMappable()
+        sm.set_array([1, 2, 3])
+        assert sm.get_array() == [1, 2, 3]
+
+    def test_set_array_none(self):
+        sm = ScalarMappable()
+        sm.set_array(None)
+        assert sm.get_array() is None
+
+    def test_get_clim(self):
+        norm = Normalize(0, 10)
+        sm = ScalarMappable(norm=norm)
+        assert sm.get_clim() == (0, 10)
+
+    def test_set_clim(self):
+        sm = ScalarMappable(norm=Normalize())
+        sm.set_clim(0, 100)
+        assert sm.get_clim() == (0, 100)
+
+    def test_set_clim_tuple(self):
+        sm = ScalarMappable(norm=Normalize())
+        sm.set_clim((5, 50))
+        assert sm.get_clim() == (5, 50)
+
+    def test_to_rgba(self):
+        sm = ScalarMappable(norm=Normalize(0, 1), cmap='gray')
+        rgba = sm.to_rgba(0.5)
+        assert isinstance(rgba, tuple)
+        assert len(rgba) == 4
+
+    def test_to_rgba_bytes(self):
+        sm = ScalarMappable(norm=Normalize(0, 1), cmap='gray')
+        rgba = sm.to_rgba(0.5, bytes=True)
+        assert isinstance(rgba[0], int)
+
+    def test_autoscale(self):
+        sm = ScalarMappable(norm=Normalize())
+        sm.set_array([10, 20, 30])
+        sm.autoscale()
+        assert sm.norm.vmin == 10
+        assert sm.norm.vmax == 30
+
+    def test_autoscale_None(self):
+        sm = ScalarMappable(norm=Normalize(vmin=5))
+        sm.set_array([10, 20, 30])
+        sm.autoscale_None()
+        assert sm.norm.vmin == 5  # not changed
+        assert sm.norm.vmax == 30  # auto-set
+
+    def test_colorbar_attribute(self):
+        sm = ScalarMappable()
+        assert sm.colorbar is None
+
+    def test_changed(self):
+        sm = ScalarMappable()
+        sm.changed()  # should not raise
+
+    def test_cmap_property_setter(self):
+        sm = ScalarMappable()
+        sm.cmap = 'hot'
+        assert sm.cmap.name == 'hot'
+
+    def test_norm_property_setter_none(self):
+        sm = ScalarMappable()
+        sm.norm = None
+        assert isinstance(sm.norm, Normalize)
+
+
+# ===================================================================
+# Colormap operations
+# ===================================================================
+
+class TestColormapOperations:
+    def test_viridis_endpoints(self):
+        cmap = get_cmap('viridis')
+        rgba0 = cmap(0.0)
+        rgba1 = cmap(1.0)
+        # viridis starts dark purple, ends bright yellow
+        assert rgba0[0] < 0.5  # dark
+        assert rgba1[0] > 0.5  # bright
+
+    def test_gray_cmap(self):
+        cmap = get_cmap('gray')
+        rgba0 = cmap(0.0)
+        assert rgba0[0] == approx(0.0, abs=0.05)
+        assert rgba0[1] == approx(0.0, abs=0.05)
+        rgba1 = cmap(1.0)
+        assert rgba1[0] == approx(1.0, abs=0.05)
+
+    def test_jet_cmap_midpoint(self):
+        cmap = get_cmap('jet')
+        # At midpoint, jet should have high green
+        rgba = cmap(0.5)
+        assert rgba[1] > 0.5
+
+    def test_all_builtins_callable(self):
+        for name in ['viridis', 'jet', 'hot', 'cool', 'gray',
+                      'spring', 'summer', 'autumn', 'winter',
+                      'plasma', 'inferno', 'magma', 'cividis']:
+            cmap = get_cmap(name)
+            rgba = cmap(0.5)
+            assert len(rgba) == 4
+            for c in rgba:
+                assert 0.0 <= c <= 1.0
+
+    def test_all_reversed_callable(self):
+        for name in ['viridis_r', 'jet_r', 'hot_r', 'cool_r', 'gray_r']:
+            cmap = get_cmap(name)
+            rgba = cmap(0.5)
+            assert len(rgba) == 4
+
+    def test_copy(self):
+        cmap = get_cmap('viridis')
+        copied = cmap.copy()
+        assert copied.name == cmap.name
+
+    def test_colormap_eq_not_implemented(self):
+        cmap = get_cmap('viridis')
+        assert cmap != "viridis"  # string != Colormap

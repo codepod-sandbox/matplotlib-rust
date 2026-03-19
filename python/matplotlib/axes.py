@@ -33,6 +33,8 @@ class Axes:
         self._legend = False
         self._color_idx = 0
         self._facecolor = 'white'
+        self._prop_cycle = None  # custom property cycle
+        self._prop_cycle_idx = 0
 
         # Typed artist lists
         self.lines = []
@@ -64,9 +66,64 @@ class Axes:
         self._navigable = True
 
     def _next_color(self):
+        if self._prop_cycle is not None:
+            colors = self._prop_cycle
+            c = colors[self._prop_cycle_idx % len(colors)]
+            self._prop_cycle_idx += 1
+            return c
         c = DEFAULT_CYCLE[self._color_idx % len(DEFAULT_CYCLE)]
         self._color_idx += 1
         return c
+
+    def set_prop_cycle(self, *args, **kwargs):
+        """Set the property cycle for this Axes.
+
+        Parameters
+        ----------
+        *args : cycler or list of colors or None
+            If a single iterable of color strings, use as the color cycle.
+            If None, reset to default.
+        **kwargs : dict
+            If 'color' keyword is given, use that as the color cycle.
+        """
+        if len(args) == 1 and args[0] is None:
+            self._prop_cycle = None
+            self._prop_cycle_idx = 0
+            self._color_idx = 0
+            return
+
+        if 'color' in kwargs:
+            colors = kwargs['color']
+            if isinstance(colors, str):
+                colors = [colors]
+            self._prop_cycle = list(colors)
+            self._prop_cycle_idx = 0
+            return
+
+        if len(args) == 1:
+            arg = args[0]
+            if hasattr(arg, '__iter__') and not isinstance(arg, str):
+                # Could be a cycler or list of colors
+                if hasattr(arg, 'by_key'):
+                    # It's a cycler object
+                    keys = arg.by_key()
+                    if 'color' in keys:
+                        self._prop_cycle = list(keys['color'])
+                    else:
+                        self._prop_cycle = None
+                else:
+                    self._prop_cycle = list(arg)
+                self._prop_cycle_idx = 0
+                return
+
+        if len(args) >= 2:
+            # (key, values) form: set_prop_cycle('color', [...])
+            key = args[0]
+            values = args[1]
+            if key == 'color':
+                self._prop_cycle = list(values)
+                self._prop_cycle_idx = 0
+                return
 
     # ------------------------------------------------------------------
     # Plot types

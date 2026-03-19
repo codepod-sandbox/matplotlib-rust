@@ -871,3 +871,321 @@ class LogNorm(Normalize):
             return [10.0 ** (log_vmin + float(v) * (log_vmax - log_vmin))
                     for v in value]
         return 10.0 ** (log_vmin + float(value) * (log_vmax - log_vmin))
+
+
+class TwoSlopeNorm(Normalize):
+    """Normalization with different rates on each side of a center point.
+
+    Useful for data that is centered around a midpoint (e.g. 0) but
+    has different magnitudes on each side.
+
+    Parameters
+    ----------
+    vcenter : float
+        The data value that maps to 0.5 in the result.
+    vmin : float, optional
+        Data value that maps to 0.0. Must be less than *vcenter*.
+    vmax : float, optional
+        Data value that maps to 1.0. Must be greater than *vcenter*.
+    """
+
+    def __init__(self, vcenter, vmin=None, vmax=None):
+        super().__init__(vmin=vmin, vmax=vmax)
+        if vmin is not None and vmin >= vcenter:
+            raise ValueError("vmin must be less than vcenter")
+        if vmax is not None and vmax <= vcenter:
+            raise ValueError("vmax must be greater than vcenter")
+        self.vcenter = vcenter
+
+    def __call__(self, value, clip=None):
+        if self.vmin is None or self.vmax is None:
+            raise ValueError(
+                "TwoSlopeNorm requires vmin and vmax to be set")
+        vmin, vmax = float(self.vmin), float(self.vmax)
+        vc = float(self.vcenter)
+        if vmin >= vc:
+            raise ValueError("vmin must be less than vcenter")
+        if vmax <= vc:
+            raise ValueError("vmax must be greater than vcenter")
+
+        if isinstance(value, (list, tuple)):
+            return [self._two_slope(v, vmin, vmax, vc) for v in value]
+        return self._two_slope(value, vmin, vmax, vc)
+
+    def _two_slope(self, value, vmin, vmax, vc):
+        value = float(value)
+        if value < vc:
+            return 0.5 * (value - vmin) / (vc - vmin)
+        else:
+            return 0.5 + 0.5 * (value - vc) / (vmax - vc)
+
+    def inverse(self, value):
+        if self.vmin is None or self.vmax is None:
+            raise ValueError(
+                "TwoSlopeNorm requires vmin and vmax to be set")
+        vmin, vmax = float(self.vmin), float(self.vmax)
+        vc = float(self.vcenter)
+        if isinstance(value, (list, tuple)):
+            return [self._inv(v, vmin, vmax, vc) for v in value]
+        return self._inv(value, vmin, vmax, vc)
+
+    def _inv(self, value, vmin, vmax, vc):
+        value = float(value)
+        if value < 0.5:
+            return vmin + value * 2.0 * (vc - vmin)
+        else:
+            return vc + (value - 0.5) * 2.0 * (vmax - vc)
+
+    def autoscale(self, data):
+        data = [float(v) for v in data]
+        self.vmin = min(data)
+        self.vmax = max(data)
+
+    def autoscale_None(self, data):
+        data = [float(v) for v in data]
+        if self.vmin is None:
+            self.vmin = min(data)
+        if self.vmax is None:
+            self.vmax = max(data)
+
+    def __repr__(self):
+        return (f"TwoSlopeNorm(vcenter={self.vcenter!r}, "
+                f"vmin={self.vmin!r}, vmax={self.vmax!r})")
+
+
+class BoundaryNorm(Normalize):
+    """Map values to integers based on discrete boundaries.
+
+    Unlike other norms, this maps data to integers in
+    [0, ncolors - 1].
+
+    Parameters
+    ----------
+    boundaries : list of float
+        Monotonically increasing boundaries.
+    ncolors : int
+        Number of colors in the colormap to use.
+    clip : bool
+        If True, out-of-range values are clipped.
+    extend : str
+        'neither', 'min', 'max', or 'both'. Where to place extra
+        colors for out-of-range values.
+    """
+
+    def __init__(self, boundaries, ncolors, clip=False, extend='neither'):
+        self.boundaries = list(boundaries)
+        self.ncolors = ncolors
+        self.clip = clip
+        self.extend = extend
+        self.vmin = boundaries[0]
+        self.vmax = boundaries[-1]
+        self.N = len(boundaries) - 1  # number of intervals
+        self.Ncmap = ncolors
+
+        # Validate
+        for i in range(len(boundaries) - 1):
+            if boundaries[i] >= boundaries[i + 1]:
+                raise ValueError(
+                    "boundaries must be monotonically increasing")
+
+    def __call__(self, value, clip=None):
+        if clip is None:
+            clip = self.clip
+
+        if isinstance(value, (list, tuple)):
+            return [self._map(v, clip) for v in value]
+        return self._map(value, clip)
+
+    def _map(self, value, clip):
+        value = float(value)
+        # Find which interval value falls in
+        if value < self.boundaries[0]:
+            if clip:
+                return 0.0
+            if self.extend in ('min', 'both'):
+                return -0.5 / self.Ncmap
+            return -1.0
+
+        if value > self.boundaries[-1]:
+            if clip:
+                return float(self.Ncmap - 1) / self.Ncmap
+            if self.extend in ('max', 'both'):
+                return (self.Ncmap + 0.5) / self.Ncmap
+            return 2.0
+
+        # Binary search for interval
+        for i in range(len(self.boundaries) - 1):
+            if self.boundaries[i] <= value < self.boundaries[i + 1]:
+                # Map interval i to [0, 1] range
+                n_intervals = len(self.boundaries) - 1
+                return (i + 0.5) / n_intervals
+            elif value == self.boundaries[-1]:
+                return (len(self.boundaries) - 2 + 0.5) / (len(self.boundaries) - 1)
+
+        return 0.0
+
+    def inverse(self, value):
+        """BoundaryNorm is not invertible."""
+        raise ValueError("BoundaryNorm is not invertible")
+
+    def __repr__(self):
+        return (f"BoundaryNorm(boundaries={self.boundaries!r}, "
+                f"ncolors={self.ncolors})")
+
+
+class PowerNorm(Normalize):
+    """Normalize with a power-law scaling.
+
+    Maps values to [0, 1] via::
+
+        (value - vmin) ** gamma / (vmax - vmin) ** gamma
+
+    Parameters
+    ----------
+    gamma : float
+        Power-law exponent.
+    vmin : float, optional
+    vmax : float, optional
+    clip : bool
+    """
+
+    def __init__(self, gamma, vmin=None, vmax=None, clip=False):
+        super().__init__(vmin=vmin, vmax=vmax, clip=clip)
+        self.gamma = gamma
+
+    def __call__(self, value, clip=None):
+        if clip is None:
+            clip = self.clip
+        if self.vmin is None or self.vmax is None:
+            raise ValueError("PowerNorm requires vmin and vmax to be set")
+        vmin, vmax = float(self.vmin), float(self.vmax)
+
+        if isinstance(value, (list, tuple)):
+            return [self._power_norm(v, vmin, vmax, clip) for v in value]
+        return self._power_norm(value, vmin, vmax, clip)
+
+    def _power_norm(self, value, vmin, vmax, clip):
+        value = float(value)
+        if clip:
+            value = max(vmin, min(vmax, value))
+        if vmax == vmin:
+            return 0.0
+        # Shift to positive range
+        val_shifted = (value - vmin) / (vmax - vmin)
+        # Clamp before raising to power to avoid complex numbers
+        val_shifted = max(0.0, min(1.0, val_shifted))
+        return val_shifted ** self.gamma
+
+    def inverse(self, value):
+        if self.vmin is None or self.vmax is None:
+            raise ValueError("PowerNorm requires vmin and vmax to be set")
+        vmin, vmax = float(self.vmin), float(self.vmax)
+        if isinstance(value, (list, tuple)):
+            return [vmin + float(v) ** (1.0 / self.gamma) * (vmax - vmin)
+                    for v in value]
+        return vmin + float(value) ** (1.0 / self.gamma) * (vmax - vmin)
+
+    def __repr__(self):
+        return (f"PowerNorm(gamma={self.gamma!r}, "
+                f"vmin={self.vmin!r}, vmax={self.vmax!r})")
+
+
+class SymLogNorm(Normalize):
+    """Symmetric log normalization.
+
+    Logarithmic for large values, linear near zero.
+
+    Parameters
+    ----------
+    linthresh : float
+        The range (-linthresh, linthresh) is mapped linearly.
+    linscale : float
+        The number of decades that the linear range covers.
+    base : float
+        Base of the logarithm.
+    vmin : float, optional
+    vmax : float, optional
+    clip : bool
+    """
+
+    def __init__(self, linthresh, linscale=1.0, base=10, vmin=None,
+                 vmax=None, clip=False):
+        super().__init__(vmin=vmin, vmax=vmax, clip=clip)
+        self.linthresh = float(linthresh)
+        self.linscale = float(linscale)
+        self.base = float(base)
+        if linthresh <= 0:
+            raise ValueError("linthresh must be positive")
+
+    def _transform(self, value):
+        """Apply the symlog transform."""
+        sign = 1.0 if value >= 0 else -1.0
+        aval = abs(value)
+        if aval <= self.linthresh:
+            return value * self.linscale / self.linthresh
+        else:
+            log_val = math.log(aval / self.linthresh) / math.log(self.base)
+            return sign * (self.linscale + log_val)
+
+    def __call__(self, value, clip=None):
+        if clip is None:
+            clip = self.clip
+        if self.vmin is None or self.vmax is None:
+            raise ValueError("SymLogNorm requires vmin and vmax to be set")
+        vmin, vmax = float(self.vmin), float(self.vmax)
+
+        if isinstance(value, (list, tuple)):
+            return [self._symlog_norm(v, vmin, vmax, clip) for v in value]
+        return self._symlog_norm(value, vmin, vmax, clip)
+
+    def _symlog_norm(self, value, vmin, vmax, clip):
+        value = float(value)
+        if clip:
+            value = max(vmin, min(vmax, value))
+        t_val = self._transform(value)
+        t_vmin = self._transform(vmin)
+        t_vmax = self._transform(vmax)
+        if t_vmax == t_vmin:
+            return 0.0
+        return (t_val - t_vmin) / (t_vmax - t_vmin)
+
+    def inverse(self, value):
+        if self.vmin is None or self.vmax is None:
+            raise ValueError("SymLogNorm requires vmin and vmax to be set")
+        vmin, vmax = float(self.vmin), float(self.vmax)
+        t_vmin = self._transform(vmin)
+        t_vmax = self._transform(vmax)
+
+        def _inv_transform(t):
+            if abs(t) <= self.linscale:
+                return t * self.linthresh / self.linscale
+            else:
+                sign = 1.0 if t >= 0 else -1.0
+                return sign * self.linthresh * self.base ** (abs(t) - self.linscale)
+
+        if isinstance(value, (list, tuple)):
+            return [_inv_transform(t_vmin + float(v) * (t_vmax - t_vmin))
+                    for v in value]
+        return _inv_transform(t_vmin + float(value) * (t_vmax - t_vmin))
+
+    def __repr__(self):
+        return (f"SymLogNorm(linthresh={self.linthresh!r}, "
+                f"linscale={self.linscale!r}, "
+                f"vmin={self.vmin!r}, vmax={self.vmax!r})")
+
+
+class NoNorm(Normalize):
+    """A norm that does nothing: pass through values unchanged.
+
+    Useful for pre-normalized or integer indexed data.
+    """
+
+    def __call__(self, value, clip=None):
+        if isinstance(value, (list, tuple)):
+            return [float(v) for v in value]
+        return float(value)
+
+    def inverse(self, value):
+        if isinstance(value, (list, tuple)):
+            return [float(v) for v in value]
+        return float(value)
