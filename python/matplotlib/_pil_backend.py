@@ -32,12 +32,44 @@ class RendererPIL(RendererBase):
                 fill=col, width=lw
             )
 
-    def draw_markers(self, xdata, ydata, color, size):
+    def draw_markers(self, xdata, ydata, color, size, marker='o'):
         col = _to_rgb_255(color)
         r = max(1, int(size))
         for i in range(len(xdata)):
             cx, cy = int(xdata[i]), int(ydata[i])
-            self._draw.ellipse([(cx - r, cy - r), (cx + r, cy + r)], fill=col)
+            if marker in ('o', '.'):
+                self._draw.ellipse([(cx - r, cy - r), (cx + r, cy + r)], fill=col)
+            elif marker == 's':
+                pts = [(cx - r, cy - r), (cx + r, cy - r), (cx + r, cy + r), (cx - r, cy + r)]
+                self._draw.polygon(pts, fill=col)
+            elif marker == '^':
+                pts = [(cx, cy - r), (cx - r, cy + r), (cx + r, cy + r)]
+                self._draw.polygon(pts, fill=col)
+            elif marker == 'v':
+                pts = [(cx, cy + r), (cx - r, cy - r), (cx + r, cy - r)]
+                self._draw.polygon(pts, fill=col)
+            elif marker == 'D':
+                pts = [(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)]
+                self._draw.polygon(pts, fill=col)
+            elif marker == '+':
+                hw = max(1, r // 4)
+                pts_v = [(cx - hw, cy - r), (cx + hw, cy - r), (cx + hw, cy + r), (cx - hw, cy + r)]
+                pts_h = [(cx - r, cy - hw), (cx + r, cy - hw), (cx + r, cy + hw), (cx - r, cy + hw)]
+                self._draw.polygon(pts_v, fill=col)
+                self._draw.polygon(pts_h, fill=col)
+            elif marker == 'x':
+                self._draw.line([(cx - r, cy - r), (cx + r, cy + r)], fill=col, width=2)
+                self._draw.line([(cx + r, cy - r), (cx - r, cy + r)], fill=col, width=2)
+            elif marker == '*':
+                hw = max(1, r // 4)
+                pts_v = [(cx - hw, cy - r), (cx + hw, cy - r), (cx + hw, cy + r), (cx - hw, cy + r)]
+                pts_h = [(cx - r, cy - hw), (cx + r, cy - hw), (cx + r, cy + hw), (cx - r, cy + hw)]
+                self._draw.polygon(pts_v, fill=col)
+                self._draw.polygon(pts_h, fill=col)
+                self._draw.line([(cx - r, cy - r), (cx + r, cy + r)], fill=col, width=2)
+                self._draw.line([(cx + r, cy - r), (cx - r, cy + r)], fill=col, width=2)
+            else:
+                self._draw.ellipse([(cx - r, cy - r), (cx + r, cy + r)], fill=col)
 
     def draw_rect(self, x, y, width, height, stroke, fill):
         fill_col = _to_rgb_255(fill) if fill else None
@@ -119,6 +151,37 @@ class RendererPIL(RendererBase):
             _arrowhead(x2, y2, x1, y1)
         if has_start:
             _arrowhead(x1, y1, x2, y2)
+
+    def draw_image(self, x, y, width, height, rgba_array):
+        """Draw an image into the canvas using nearest-neighbor scaling."""
+        rows = len(rgba_array)
+        cols = len(rgba_array[0]) if rows > 0 else 0
+        if rows == 0 or cols == 0:
+            return
+
+        disp_w = max(1, int(width))
+        disp_h = max(1, int(height))
+        ox = int(x)
+        oy = int(y)
+
+        img_w = self._img.width
+        img_h = self._img.height
+
+        # Nearest-neighbor scale from (cols, rows) to (disp_w, disp_h)
+        for dy in range(disp_h):
+            src_row = int(dy * rows / disp_h)
+            if src_row >= rows:
+                src_row = rows - 1
+            row = rgba_array[src_row]
+            for dx in range(disp_w):
+                src_col = int(dx * cols / disp_w)
+                if src_col >= cols:
+                    src_col = cols - 1
+                px = row[src_col]
+                px_x = ox + dx
+                px_y = oy + dy
+                if 0 <= px_x < img_w and 0 <= px_y < img_h:
+                    self._img.putpixel((px_x, px_y), (int(px[0]), int(px[1]), int(px[2])))
 
     def set_clip_rect(self, x, y, width, height):
         # PIL doesn't support clipping natively; store for potential future use

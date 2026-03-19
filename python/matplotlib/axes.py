@@ -100,7 +100,7 @@ class Axes:
 
         return [line]
 
-    def scatter(self, x, y, s=20, c=None, **kwargs):
+    def scatter(self, x, y, s=20, c=None, marker='o', **kwargs):
         """Scatter plot."""
         color = c or kwargs.get('color') or self._next_color()
         color = to_hex(color)
@@ -127,6 +127,7 @@ class Axes:
             sizes=sizes,
             facecolors=[color],
             label=label,
+            marker=marker,
         )
         pc.axes = self
         pc.figure = self.figure
@@ -1564,6 +1565,9 @@ class Axes:
         # Clip for data area
         renderer.set_clip_rect(px, py, pw, ph)
 
+        # Render images (drawn before other artists)
+        self._draw_images(renderer, px, py, pw, ph)
+
         # Collect + sort all artists by zorder
         all_artists = []
         for line in self.lines:
@@ -1655,6 +1659,65 @@ class Axes:
         # Legend
         if self._legend_obj is not None:
             self._legend_obj.draw(renderer, layout)
+
+    def imshow(self, X, cmap=None, vmin=None, vmax=None, origin='upper', aspect='auto'):
+        """Display an image on the axes."""
+        import matplotlib.cm as _cm
+
+        rows = list(X)
+        if not rows:
+            return
+        first_row = list(rows[0])
+        if not first_row:
+            return
+        first_cell = first_row[0]
+        is_scalar = not hasattr(first_cell, '__len__')
+
+        if is_scalar:
+            if cmap is None:
+                cmap = 'viridis'
+            colormap = _cm.get_cmap(cmap)
+            flat_vals = [float(v) for row in rows for v in row]
+            lo = vmin if vmin is not None else min(flat_vals)
+            hi = vmax if vmax is not None else max(flat_vals)
+            rng = (hi - lo) if hi != lo else 1.0
+            rgba_array = []
+            for row in rows:
+                rgba_row = []
+                for v in row:
+                    t = max(0.0, min(1.0, (float(v) - lo) / rng))
+                    rgba = colormap(t)
+                    rgba_row.append((
+                        int(rgba[0] * 255), int(rgba[1] * 255),
+                        int(rgba[2] * 255), int(rgba[3] * 255)
+                    ))
+                rgba_array.append(rgba_row)
+        else:
+            rgba_array = []
+            for row in rows:
+                rgba_row = []
+                for px in row:
+                    px = list(px)
+                    if len(px) == 3:
+                        rgba_row.append((int(px[0]), int(px[1]), int(px[2]), 255))
+                    else:
+                        rgba_row.append((int(px[0]), int(px[1]), int(px[2]), int(px[3])))
+                rgba_array.append(rgba_row)
+
+        if origin == 'lower':
+            rgba_array = list(reversed(rgba_array))
+
+        self._images = getattr(self, '_images', [])
+        self._images.append(rgba_array)
+        self._needs_draw = True
+
+    def _draw_images(self, renderer, plot_x, plot_y, plot_w, plot_h):
+        """Render all pending images onto renderer."""
+        images = getattr(self, '_images', [])
+        if not images:
+            return
+        for rgba_array in images:
+            renderer.draw_image(plot_x, plot_y, plot_w, plot_h, rgba_array)
 
     # ------------------------------------------------------------------
     # Remove

@@ -19,13 +19,14 @@ class PathCollection(Collection):
     """A collection of paths with offsets, used by scatter()."""
 
     def __init__(self, offsets=None, sizes=None, facecolors=None,
-                 edgecolors=None, label=None, **kwargs):
+                 edgecolors=None, label=None, marker='o', **kwargs):
         super().__init__(**kwargs)
 
         self._offsets = list(offsets) if offsets is not None else []
         self._sizes = list(sizes) if sizes is not None else [20.0]
         self._facecolors = list(facecolors) if facecolors is not None else []
         self._edgecolors = list(edgecolors) if edgecolors is not None else []
+        self._marker = marker
 
         if label is not None:
             self.set_label(label)
@@ -68,8 +69,8 @@ class PathCollection(Collection):
         color = to_hex(self._facecolors[0]) if self._facecolors else to_hex('C0')
         s = self._sizes[0] if self._sizes else 20.0
         r = max(1.0, math.sqrt(s) / 2)
-        for pt in self._offsets:
-            cx = layout.sx(pt[0])
-            cy = layout.sy(pt[1])
-            renderer.draw_circle(cx, cy, r, color)
+        marker = self._marker
+        xdata = [layout.sx(pt[0]) for pt in self._offsets]
+        ydata = [layout.sy(pt[1]) for pt in self._offsets]
+        renderer.draw_markers(xdata, ydata, color, r, marker)
 

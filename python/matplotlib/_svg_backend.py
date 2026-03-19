@@ -27,13 +27,85 @@ class RendererSVG(RendererBase):
             f'stroke="{color}" stroke-width="{linewidth}"{dash}{opacity_attr}{clip}/>'
         )
 
-    def draw_markers(self, xdata, ydata, color, size):
+    def draw_markers(self, xdata, ydata, color, size, marker='o'):
         clip = self._clip_attr()
+        r = size
         for i in range(len(xdata)):
-            self._parts.append(
-                f'<circle cx="{xdata[i]:.2f}" cy="{ydata[i]:.2f}" '
-                f'r="{size}" fill="{color}"{clip}/>'
-            )
+            cx, cy = xdata[i], ydata[i]
+            if marker in ('o', '.'):
+                self._parts.append(
+                    f'<circle cx="{cx:.2f}" cy="{cy:.2f}" '
+                    f'r="{r}" fill="{color}"{clip}/>'
+                )
+            elif marker == 's':
+                x0, y0 = cx - r, cy - r
+                side = r * 2
+                self._parts.append(
+                    f'<rect x="{x0:.2f}" y="{y0:.2f}" width="{side:.2f}" height="{side:.2f}" '
+                    f'fill="{color}"{clip}/>'
+                )
+            elif marker == '^':
+                pts = f'{cx:.2f},{cy - r:.2f} {cx - r:.2f},{cy + r:.2f} {cx + r:.2f},{cy + r:.2f}'
+                self._parts.append(
+                    f'<polygon points="{pts}" fill="{color}"{clip}/>'
+                )
+            elif marker == 'v':
+                pts = f'{cx:.2f},{cy + r:.2f} {cx - r:.2f},{cy - r:.2f} {cx + r:.2f},{cy - r:.2f}'
+                self._parts.append(
+                    f'<polygon points="{pts}" fill="{color}"{clip}/>'
+                )
+            elif marker == 'D':
+                pts = f'{cx:.2f},{cy - r:.2f} {cx + r:.2f},{cy:.2f} {cx:.2f},{cy + r:.2f} {cx - r:.2f},{cy:.2f}'
+                self._parts.append(
+                    f'<polygon points="{pts}" fill="{color}"{clip}/>'
+                )
+            elif marker == '+':
+                hw = r * 0.25
+                # vertical bar
+                self._parts.append(
+                    f'<rect x="{cx - hw:.2f}" y="{cy - r:.2f}" width="{hw * 2:.2f}" height="{r * 2:.2f}" '
+                    f'fill="{color}"{clip}/>'
+                )
+                # horizontal bar
+                self._parts.append(
+                    f'<rect x="{cx - r:.2f}" y="{cy - hw:.2f}" width="{r * 2:.2f}" height="{hw * 2:.2f}" '
+                    f'fill="{color}"{clip}/>'
+                )
+            elif marker == 'x':
+                self._parts.append(
+                    f'<line x1="{cx - r:.2f}" y1="{cy - r:.2f}" x2="{cx + r:.2f}" y2="{cy + r:.2f}" '
+                    f'stroke="{color}" stroke-width="1.5"{clip}/>'
+                )
+                self._parts.append(
+                    f'<line x1="{cx + r:.2f}" y1="{cy - r:.2f}" x2="{cx - r:.2f}" y2="{cy + r:.2f}" '
+                    f'stroke="{color}" stroke-width="1.5"{clip}/>'
+                )
+            elif marker == '*':
+                hw = r * 0.25
+                # horizontal bar
+                self._parts.append(
+                    f'<rect x="{cx - r:.2f}" y="{cy - hw:.2f}" width="{r * 2:.2f}" height="{hw * 2:.2f}" '
+                    f'fill="{color}"{clip}/>'
+                )
+                # vertical bar
+                self._parts.append(
+                    f'<rect x="{cx - hw:.2f}" y="{cy - r:.2f}" width="{hw * 2:.2f}" height="{r * 2:.2f}" '
+                    f'fill="{color}"{clip}/>'
+                )
+                # diagonal lines
+                self._parts.append(
+                    f'<line x1="{cx - r:.2f}" y1="{cy - r:.2f}" x2="{cx + r:.2f}" y2="{cy + r:.2f}" '
+                    f'stroke="{color}" stroke-width="1.5"{clip}/>'
+                )
+                self._parts.append(
+                    f'<line x1="{cx + r:.2f}" y1="{cy - r:.2f}" x2="{cx - r:.2f}" y2="{cy + r:.2f}" '
+                    f'stroke="{color}" stroke-width="1.5"{clip}/>'
+                )
+            else:
+                self._parts.append(
+                    f'<circle cx="{cx:.2f}" cy="{cy:.2f}" '
+                    f'r="{r}" fill="{color}"{clip}/>'
+                )
 
     def draw_rect(self, x, y, width, height, stroke, fill):
         fill_attr = fill if fill else "none"
@@ -129,6 +201,47 @@ class RendererSVG(RendererBase):
 
         self._parts.append(
             f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}" {attrs}/>'
+        )
+
+    def draw_image(self, x, y, width, height, rgba_array):
+        """Embed image as base64 PNG data URL."""
+        import base64
+        import struct
+        import zlib
+
+        rows = len(rgba_array)
+        cols = len(rgba_array[0]) if rows > 0 else 0
+        if rows == 0 or cols == 0:
+            return
+
+        # Minimal PNG encoder (no PIL dependency for SVG backend)
+        def _make_png(w, h, pixel_rows):
+            def chunk(name, data):
+                c = name + data
+                return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xFFFFFFFF)
+            header = b'\x89PNG\r\n\x1a\n'
+            ihdr_data = struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)
+            ihdr = chunk(b'IHDR', ihdr_data)
+            raw_data = b''
+            for row in pixel_rows:
+                raw_data += b'\x00'
+                for px in row:
+                    raw_data += bytes([int(px[0]), int(px[1]), int(px[2])])
+            idat = chunk(b'IDAT', zlib.compress(raw_data))
+            iend = chunk(b'IEND', b'')
+            return header + ihdr + idat + iend
+
+        pixel_rows = []
+        for row in rgba_array:
+            pixel_rows.append([(px[0], px[1], px[2]) for px in row])
+
+        png_bytes = _make_png(cols, rows, pixel_rows)
+        b64 = base64.b64encode(png_bytes).decode('ascii')
+        data_url = f'data:image/png;base64,{b64}'
+
+        self._parts.append(
+            f'<image x="{x:.2f}" y="{y:.2f}" width="{width:.2f}" height="{height:.2f}" '
+            f'href="{data_url}" />'
         )
 
     def set_clip_rect(self, x, y, width, height):

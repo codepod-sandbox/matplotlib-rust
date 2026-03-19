@@ -73,7 +73,7 @@ class RendererBase:
     def draw_line(self, xdata, ydata, color, linewidth, linestyle, opacity=1.0):
         raise NotImplementedError
 
-    def draw_markers(self, xdata, ydata, color, size):
+    def draw_markers(self, xdata, ydata, color, size, marker='o'):
         raise NotImplementedError
 
     def draw_rect(self, x, y, width, height, stroke, fill):
@@ -104,6 +104,20 @@ class RendererBase:
             One of '->', '<-', '<->', '-', 'fancy'.
         """
         raise NotImplementedError
+
+    def draw_image(self, x, y, width, height, rgba_array):
+        """Draw an image.
+
+        Parameters
+        ----------
+        x, y : float
+            Top-left corner in display coordinates (y=0 is top of figure).
+        width, height : float
+            Size in display coordinates.
+        rgba_array : list of lists
+            2D list of (R, G, B) or (R, G, B, A) tuples, shape [rows][cols].
+        """
+        pass
 
     def get_result(self):
         raise NotImplementedError
