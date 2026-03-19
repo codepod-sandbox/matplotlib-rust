@@ -212,6 +212,211 @@ class Polygon(Patch):
                               alpha)
 
 
+class Ellipse(Patch):
+    """An ellipse defined by center, width, height, and angle."""
+
+    def __init__(self, xy, width, height, angle=0, **kwargs):
+        self._center = tuple(xy)
+        self._width = width
+        self._height = height
+        self._angle = angle
+        super().__init__(**kwargs)
+
+    def get_center(self):
+        return self._center
+
+    def set_center(self, center):
+        self._center = tuple(center)
+
+    def get_width(self):
+        return self._width
+
+    def set_width(self, width):
+        self._width = width
+
+    def get_height(self):
+        return self._height
+
+    def set_height(self, height):
+        self._height = height
+
+    def get_angle(self):
+        return self._angle
+
+    def set_angle(self, angle):
+        self._angle = angle
+
+
+class Arc(Ellipse):
+    """An elliptical arc, a segment of an ellipse."""
+
+    def __init__(self, xy, width, height, angle=0, theta1=0.0, theta2=360.0,
+                 **kwargs):
+        super().__init__(xy, width, height, angle=angle, **kwargs)
+        self._theta1 = theta1
+        self._theta2 = theta2
+
+    def get_theta1(self):
+        return self._theta1
+
+    def set_theta1(self, theta1):
+        self._theta1 = theta1
+
+    def get_theta2(self):
+        return self._theta2
+
+    def set_theta2(self, theta2):
+        self._theta2 = theta2
+
+
+class FancyBboxPatch(Patch):
+    """A patch with a fancy bounding box."""
+
+    def __init__(self, xy, width, height, boxstyle='round', **kwargs):
+        self._xy = tuple(xy)
+        self._width = width
+        self._height = height
+        self._boxstyle = boxstyle
+        super().__init__(**kwargs)
+
+    def get_x(self):
+        return self._xy[0]
+
+    def get_y(self):
+        return self._xy[1]
+
+    def get_xy(self):
+        return self._xy
+
+    def set_xy(self, xy):
+        self._xy = tuple(xy)
+
+    def get_width(self):
+        return self._width
+
+    def set_width(self, w):
+        self._width = w
+
+    def get_height(self):
+        return self._height
+
+    def set_height(self, h):
+        self._height = h
+
+    def get_boxstyle(self):
+        return self._boxstyle
+
+    def set_boxstyle(self, boxstyle):
+        self._boxstyle = boxstyle
+
+
+class FancyArrowPatch(Patch):
+    """A fancy arrow patch."""
+
+    def __init__(self, posA=None, posB=None, path=None,
+                 arrowstyle='->', connectionstyle=None,
+                 patchA=None, patchB=None,
+                 shrinkA=2, shrinkB=2,
+                 mutation_scale=1, mutation_aspect=None,
+                 **kwargs):
+        self._posA = posA
+        self._posB = posB
+        self._path = path
+        self._arrowstyle = arrowstyle
+        self._connectionstyle = connectionstyle
+        self._patchA = patchA
+        self._patchB = patchB
+        self._shrinkA = shrinkA
+        self._shrinkB = shrinkB
+        self._mutation_scale = mutation_scale
+        self._mutation_aspect = mutation_aspect
+        super().__init__(**kwargs)
+
+    def get_arrowstyle(self):
+        return self._arrowstyle
+
+    def set_arrowstyle(self, arrowstyle):
+        self._arrowstyle = arrowstyle
+
+    def get_connectionstyle(self):
+        return self._connectionstyle
+
+    def set_connectionstyle(self, connectionstyle):
+        self._connectionstyle = connectionstyle
+
+    def get_mutation_scale(self):
+        return self._mutation_scale
+
+    def set_mutation_scale(self, scale):
+        self._mutation_scale = scale
+
+    def set_positions(self, posA, posB):
+        """Set the begin and end positions of the connecting path."""
+        self._posA = posA
+        self._posB = posB
+
+
+class Arrow(Patch):
+    """A simple arrow patch."""
+
+    def __init__(self, x, y, dx, dy, width=1.0, **kwargs):
+        self._x = x
+        self._y = y
+        self._dx = dx
+        self._dy = dy
+        self._arrow_width = width
+        super().__init__(**kwargs)
+
+
+class RegularPolygon(Patch):
+    """A regular polygon with *numVertices* vertices, centered at *xy*."""
+
+    def __init__(self, xy, numVertices, radius=5, orientation=0, **kwargs):
+        self._xy_center = tuple(xy)
+        self._numVertices = numVertices
+        self._radius = radius
+        self._orientation = orientation
+        super().__init__(**kwargs)
+
+    @property
+    def numvertices(self):
+        return self._numVertices
+
+    @property
+    def xy(self):
+        return self._xy_center
+
+    @property
+    def orientation(self):
+        return self._orientation
+
+
+class PathPatch(Patch):
+    """A patch defined by a path."""
+
+    def __init__(self, path, **kwargs):
+        self._path = path
+        super().__init__(**kwargs)
+
+    def get_path(self):
+        return self._path
+
+    def set_path(self, path):
+        self._path = path
+
+
+class ConnectionPatch(FancyArrowPatch):
+    """A patch connecting two points, possibly in different Axes."""
+
+    def __init__(self, xyA, xyB, coordsA, coordsB=None,
+                 axesA=None, axesB=None, **kwargs):
+        self._xyA = xyA
+        self._xyB = xyB
+        self._coordsA = coordsA
+        self._coordsB = coordsB or coordsA
+        super().__init__(posA=xyA, posB=xyB, **kwargs)
+
+
 class Wedge(Patch):
     """A wedge (pie slice) defined by center, radius, and two angles."""
 

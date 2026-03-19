@@ -24,9 +24,14 @@ class GridSpec:
         ax3 = fig.add_subplot(gs[1, :])
     """
 
-    def __init__(self, nrows, ncols, **kwargs):
+    def __init__(self, nrows, ncols, figure=None, **kwargs):
         self.nrows = nrows
         self.ncols = ncols
+        self.figure = figure
+        self._hspace = kwargs.get('hspace', None)
+        self._wspace = kwargs.get('wspace', None)
+        self._width_ratios = kwargs.get('width_ratios', None)
+        self._height_ratios = kwargs.get('height_ratios', None)
 
     def __getitem__(self, key):
         """Return a SubplotSpec for the given grid position.

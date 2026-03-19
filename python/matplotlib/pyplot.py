@@ -673,3 +673,119 @@ def savefig(fname, format=None, dpi=None):
 def show():
     """No-op in sandbox environment."""
     pass
+
+
+def rc(group, **kwargs):
+    """Set rcParams for a group."""
+    import matplotlib
+    matplotlib.rc(group, **kwargs)
+
+
+def rcdefaults():
+    """Restore default rc params."""
+    import matplotlib
+    from matplotlib.rcsetup import _default_params
+    for k, v in _default_params.items():
+        matplotlib.rcParams[k] = v
+
+
+def fill_betweenx(y, x1, x2=0, **kwargs):
+    """Fill between two curves in x-direction."""
+    _ensure()
+    return _current_ax.fill_betweenx(y, x1, x2, **kwargs)
+
+
+def annotate(text, xy, xytext=None, arrowprops=None, **kwargs):
+    """Add annotation to current axes."""
+    _ensure()
+    return _current_ax.annotate(text, xy, xytext=xytext,
+                                arrowprops=arrowprops, **kwargs)
+
+
+def axis(*args, **kwargs):
+    """Set or get axis properties."""
+    _ensure()
+    if args:
+        return _current_ax.axis(args[0])
+    return _current_ax.axis(**kwargs)
+
+
+def twinx():
+    """Create a twin axes sharing the x-axis."""
+    _ensure()
+    return _current_ax.twinx()
+
+
+def twiny():
+    """Create a twin axes sharing the y-axis."""
+    _ensure()
+    return _current_ax.twiny()
+
+
+def xscale(value):
+    """Set x-axis scale."""
+    _ensure()
+    _current_ax.set_xscale(value)
+
+
+def yscale(value):
+    """Set y-axis scale."""
+    _ensure()
+    _current_ax.set_yscale(value)
+
+
+def tight_layout(**kwargs):
+    """No-op tight_layout."""
+    _ensure()
+    _current_fig.tight_layout(**kwargs)
+
+
+def figtext(x, y, s, **kwargs):
+    """Add text to the figure."""
+    _ensure()
+    return _current_fig.text(x, y, s, **kwargs)
+
+
+def subplot_mosaic(mosaic, **kwargs):
+    """Create subplot mosaic (simplified).
+
+    Parameters
+    ----------
+    mosaic : str or list of list
+        The subplot layout.
+
+    Returns
+    -------
+    fig, dict
+        Figure and dictionary mapping labels to Axes.
+    """
+    global _current_fig, _current_ax, _next_num
+
+    if isinstance(mosaic, str):
+        # Parse string like "AB\\nCC"
+        rows = mosaic.strip().split('\n')
+        mosaic = [[ch for ch in row.strip()] for row in rows]
+
+    nrows = len(mosaic)
+    ncols = max(len(row) for row in mosaic) if nrows > 0 else 1
+
+    fig = Figure(figsize=kwargs.get('figsize'), dpi=kwargs.get('dpi', 100))
+    num = _next_num
+    fig.number = num
+    _figures[num] = fig
+    _fig_order.append(num)
+    _next_num = num + 1
+    _current_fig = fig
+
+    # Collect unique labels
+    labels = {}
+    for r, row in enumerate(mosaic):
+        for c, label in enumerate(row):
+            if label == '.' or label == ' ':
+                continue
+            if label not in labels:
+                ax = fig.add_subplot(nrows, ncols, r * ncols + c + 1)
+                labels[label] = ax
+
+    _current_ax = next(iter(labels.values())) if labels else None
+    return fig, labels

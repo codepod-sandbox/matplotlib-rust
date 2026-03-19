@@ -290,6 +290,104 @@ class Figure:
         """No-op placeholder for layout engine compatibility."""
         pass
 
+    def subplots(self, nrows=1, ncols=1, **kwargs):
+        """Add a set of subplots to this figure.
+
+        Returns
+        -------
+        ax or array of ax
+        """
+        sharex = kwargs.pop('sharex', False)
+        sharey = kwargs.pop('sharey', False)
+
+        if nrows == 1 and ncols == 1:
+            ax = self.add_subplot(1, 1, 1)
+            return ax
+
+        all_axes = []
+        axes_list = []
+        for r in range(nrows):
+            row = []
+            for c in range(ncols):
+                ax = self.add_subplot(nrows, ncols, r * ncols + c + 1)
+                row.append(ax)
+                all_axes.append(ax)
+            axes_list.append(row)
+
+        if sharex and len(all_axes) > 1:
+            for ax in all_axes:
+                ax._shared_x = all_axes
+        if sharey and len(all_axes) > 1:
+            for ax in all_axes:
+                ax._shared_y = all_axes
+
+        if nrows == 1:
+            axes_list = axes_list[0]
+        elif ncols == 1:
+            axes_list = [row[0] for row in axes_list]
+
+        return axes_list
+
+    def get_children(self):
+        """Return list of children artists."""
+        children = list(self._axes)
+        children.extend(self.texts)
+        return children
+
+    def get_constrained_layout(self):
+        """Return whether constrained layout is active."""
+        return getattr(self, '_constrained_layout', False)
+
+    def set_constrained_layout(self, constrained):
+        """Set constrained layout."""
+        self._constrained_layout = constrained
+
+    def get_tight_layout(self):
+        """Return whether tight layout is active."""
+        return getattr(self, '_tight_layout', False)
+
+    def set_tight_layout(self, tight):
+        """Set tight layout."""
+        self._tight_layout = tight
+
+    def align_xlabels(self, axs=None):
+        """Align x-axis labels (no-op)."""
+        pass
+
+    def align_ylabels(self, axs=None):
+        """Align y-axis labels (no-op)."""
+        pass
+
+    def align_labels(self, axs=None):
+        """Align axis labels (no-op)."""
+        pass
+
+    def colorbar(self, mappable, ax=None, cax=None, **kwargs):
+        """Add a colorbar (stub that returns a minimal object)."""
+        class _Colorbar:
+            def __init__(self, mappable):
+                self.mappable = mappable
+                self.ax = None
+            def set_label(self, label):
+                pass
+            def remove(self):
+                pass
+        return _Colorbar(mappable)
+
+    def add_gridspec(self, nrows=1, ncols=1, **kwargs):
+        """Add a GridSpec to the figure."""
+        from matplotlib.gridspec import GridSpec
+        gs = GridSpec(nrows, ncols, figure=self, **kwargs)
+        return gs
+
+    def set_layout_engine(self, layout=None, **kwargs):
+        """Set the layout engine (no-op stub)."""
+        self._layout_engine = layout
+
+    def get_layout_engine(self):
+        """Get the layout engine."""
+        return getattr(self, '_layout_engine', None)
+
     # ------------------------------------------------------------------
     # Renderer draw path
     # ------------------------------------------------------------------

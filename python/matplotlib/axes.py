@@ -7,7 +7,7 @@ import math
 from matplotlib.colors import DEFAULT_CYCLE, to_hex, parse_fmt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle, Polygon, Wedge
-from matplotlib.collections import PathCollection
+from matplotlib.collections import PathCollection, LineCollection, Collection
 from matplotlib.container import BarContainer, ErrorbarContainer, StemContainer
 from matplotlib.text import Text, Annotation
 from matplotlib.backend_bases import AxesLayout
@@ -73,36 +73,67 @@ class Axes:
     # ------------------------------------------------------------------
 
     def plot(self, *args, **kwargs):
-        """Line plot.  Accepts ``plot(y)``, ``plot(x, y)``, ``plot(x, y, fmt)``."""
-        x, y, fmt = _parse_plot_args(args)
-        color_fmt, marker, linestyle = parse_fmt(fmt)
-        color = kwargs.get('color') or kwargs.get('c')
-        if color is None:
-            color = color_fmt
-        if color is None:
-            color = self._next_color()
-        color = to_hex(color)
-        label = kwargs.get('label')
-        linewidth = kwargs.get('linewidth', kwargs.get('lw', 1.5))
-        if linestyle is None:
-            linestyle = kwargs.get('linestyle', kwargs.get('ls', '-'))
+        """Line plot.
 
-        # Create Line2D artist
-        line = Line2D(
-            x, y,
-            color=color,
-            linewidth=linewidth,
-            linestyle=linestyle,
-            marker=marker if marker is not None else 'None',
-            label=label,
-        )
-        line.axes = self
-        line.figure = self.figure
+        Accepts:
+        - ``plot(y)``
+        - ``plot(x, y)``
+        - ``plot(x, y, fmt)``
+        - ``plot(x1, y1, fmt1, x2, y2, fmt2, ...)`` (multi-line)
+        - ``plot(x1, y1, x2, y2, ...)``
+        """
+        # Check for multi-group calls
+        groups = _parse_plot_args_multi(args)
 
-        # Store in typed list
-        self.lines.append(line)
+        all_lines = []
+        for x, y, fmt in groups:
+            color_fmt, marker, linestyle = parse_fmt(fmt)
+            color = kwargs.get('color') or kwargs.get('c')
+            if color is None:
+                color = color_fmt
+            if color is None:
+                color = self._next_color()
+            color = to_hex(color)
+            label = kwargs.get('label')
+            linewidth = kwargs.get('linewidth', kwargs.get('lw', 1.5))
+            if linestyle is None:
+                linestyle = kwargs.get('linestyle', kwargs.get('ls', '-'))
+            # Forward extra kwargs
+            mkw = {}
+            for mk in ('markersize', 'ms', 'markeredgecolor', 'mec',
+                        'markerfacecolor', 'mfc', 'markeredgewidth', 'mew',
+                        'markevery', 'fillstyle', 'drawstyle',
+                        'antialiased', 'aa',
+                        'solid_capstyle', 'solid_joinstyle',
+                        'dash_capstyle', 'dash_joinstyle'):
+                if mk in kwargs:
+                    mkw[mk] = kwargs[mk]
 
-        return [line]
+            # Resolve marker: explicit kwarg overrides fmt
+            final_marker = marker
+            if 'marker' in kwargs:
+                final_marker = kwargs['marker']
+            if final_marker is None:
+                final_marker = 'None'
+
+            # Create Line2D artist
+            line = Line2D(
+                x, y,
+                color=color,
+                linewidth=linewidth,
+                linestyle=linestyle,
+                marker=final_marker,
+                label=label,
+                **mkw,
+            )
+            line.axes = self
+            line.figure = self.figure
+
+            # Store in typed list
+            self.lines.append(line)
+            all_lines.append(line)
+
+        return all_lines
 
     def scatter(self, x, y, s=20, c=None, **kwargs):
         """Scatter plot."""
@@ -1360,7 +1391,7 @@ class Axes:
         The artist is placed in the appropriate typed list based on its type.
         """
         from matplotlib.lines import Line2D as _Line2D
-        from matplotlib.collections import PathCollection as _PC
+        from matplotlib.collections import Collection as _Coll
         from matplotlib.text import Text as _Text
 
         artist.axes = self
@@ -1368,7 +1399,7 @@ class Axes:
 
         if isinstance(artist, _Line2D):
             self.lines.append(artist)
-        elif isinstance(artist, _PC):
+        elif isinstance(artist, _Coll):
             self.collections.append(artist)
         elif isinstance(artist, _Text):
             self.texts.append(artist)
@@ -1376,6 +1407,91 @@ class Axes:
             # Default: try patches
             self.patches.append(artist)
         return artist
+
+    def add_line(self, line):
+        """Add a Line2D to the axes."""
+        line.axes = self
+        line.figure = self.figure
+        self.lines.append(line)
+        return line
+
+    def add_patch(self, patch):
+        """Add a Patch to the axes."""
+        patch.axes = self
+        patch.figure = self.figure
+        self.patches.append(patch)
+        return patch
+
+    def add_collection(self, collection, autolim=True):
+        """Add a Collection to the axes."""
+        collection.axes = self
+        collection.figure = self.figure
+        self.collections.append(collection)
+        return collection
+
+    def add_container(self, container):
+        """Add a Container to the axes."""
+        self.containers.append(container)
+        return container
+
+    def add_image(self, image):
+        """Add an AxesImage to the axes."""
+        image.axes = self
+        image.figure = self.figure
+        self.images.append(image)
+        return image
+
+    # --- Getters for typed lists ---
+
+    def get_lines(self):
+        """Return a list of lines in the axes."""
+        return list(self.lines)
+
+    def get_images(self):
+        """Return a list of images in the axes."""
+        return list(self.images)
+
+    # --- relim / autoscale ---
+
+    def relim(self, visible_only=False):
+        """Recompute the auto-limits from data (no-op: limits are always auto-computed)."""
+        # In our implementation, limits are always computed from data.
+        # Clear any manual limits so they get recomputed.
+        pass
+
+    def autoscale(self, enable=True, axis='both', tight=None):
+        """Auto-scale the axes based on data.
+
+        Parameters
+        ----------
+        enable : bool, default True
+        axis : {'both', 'x', 'y'}
+        tight : bool, optional
+        """
+        if enable:
+            if axis in ('both', 'x'):
+                self._xlim = None
+            if axis in ('both', 'y'):
+                self._ylim = None
+
+    def autoscale_view(self, tight=None, scalex=True, scaley=True):
+        """Autoscale the view based on data limits."""
+        if scalex:
+            self._xlim = None
+        if scaley:
+            self._ylim = None
+
+    def can_pan(self):
+        """Return whether the axes can be panned."""
+        return True
+
+    def can_zoom(self):
+        """Return whether the axes can be zoomed."""
+        return True
+
+    def has_data(self):
+        """Return whether the axes has any data."""
+        return bool(self.lines or self.collections or self.patches or self.images)
 
     def _remove_artist(self, artist):
         """Remove an artist from this axes' typed lists."""
@@ -1604,6 +1720,22 @@ class Axes:
     def tick_params(self, **kwargs):
         # No-op compatibility shim.
         return None
+
+    def minorticks_on(self):
+        """Turn on minor ticks (no-op)."""
+        pass
+
+    def minorticks_off(self):
+        """Turn off minor ticks (no-op)."""
+        pass
+
+    def set_visible(self, b):
+        """Set whether the axes is visible."""
+        self._visible = b
+
+    def get_visible(self):
+        """Return whether the axes is visible."""
+        return getattr(self, '_visible', True)
 
     def legend(self, *args, **kwargs):
         if len(args) > 2:
@@ -2295,6 +2427,34 @@ class Axes:
         """Return whether the axes responds to navigation commands."""
         return self._navigate
 
+    def get_navigate_mode(self):
+        """Return the navigation mode."""
+        return getattr(self, '_navigate_mode', None)
+
+    def set_navigate_mode(self, b):
+        """Set the navigation mode."""
+        self._navigate_mode = b
+
+    def format_coord(self, x, y):
+        """Return a format string for the (x, y) coordinate."""
+        return f'x={x:g}, y={y:g}'
+
+    def get_frame_on(self):
+        """Return whether the axes frame is drawn."""
+        return getattr(self, '_frame_on', True)
+
+    def set_frame_on(self, b):
+        """Set whether the axes frame is drawn."""
+        self._frame_on = b
+
+    def get_axisbelow(self):
+        """Return whether axis ticks are below artists."""
+        return getattr(self, '_axisbelow', True)
+
+    def set_axisbelow(self, b):
+        """Set whether axis ticks are below artists."""
+        self._axisbelow = b
+
     # ------------------------------------------------------------------
     # imshow
     # ------------------------------------------------------------------
@@ -2455,6 +2615,38 @@ class Axes:
         children.extend(self.images)
         return children
 
+    def findobj(self, match=None, include_self=True):
+        """Find artist objects matching a criterion.
+
+        Parameters
+        ----------
+        match : None, class, or callable
+            If None, match all artists.
+            If a class, match isinstance.
+            If callable, match where callable returns True.
+        include_self : bool
+            Whether to include self.
+        """
+        result = []
+        if include_self:
+            if match is None:
+                result.append(self)
+            elif isinstance(match, type) and isinstance(self, match):
+                result.append(self)
+            elif callable(match) and not isinstance(match, type) and match(self):
+                result.append(self)
+        for child in self.get_children():
+            if hasattr(child, 'findobj'):
+                result.extend(child.findobj(match, include_self=True))
+            else:
+                if match is None:
+                    result.append(child)
+                elif isinstance(match, type) and isinstance(child, match):
+                    result.append(child)
+                elif callable(match) and not isinstance(match, type) and match(child):
+                    result.append(child)
+        return result
+
 
 # ------------------------------------------------------------------
 # Helpers
@@ -2535,6 +2727,89 @@ def _parse_plot_args(args):
     else:
         x, y = [], []
     return x, y, fmt
+
+
+def _is_data_like(arg):
+    """Return True if arg looks like array data (not a format string)."""
+    if isinstance(arg, str):
+        return False
+    if hasattr(arg, '__iter__'):
+        return True
+    return isinstance(arg, (int, float))
+
+
+def _parse_plot_args_multi(args):
+    """Parse multi-group plot() args: x1,y1,[fmt1,] x2,y2,[fmt2,] ...
+
+    Returns list of (x, y, fmt) tuples.
+    """
+    if len(args) == 0:
+        return [([], [], '')]
+
+    # Quick check: if only 1-3 args and they match simple forms, use old parser
+    if len(args) <= 3:
+        x, y, fmt = _parse_plot_args(args)
+        return [(x, y, fmt)]
+
+    # Multi-group parsing
+    groups = []
+    i = 0
+    remaining = list(args)
+
+    while i < len(remaining):
+        # Try to consume one group: x, y, [fmt]
+        if i >= len(remaining):
+            break
+
+        arg0 = remaining[i]
+
+        # Single array left: plot(y)
+        if i == len(remaining) - 1 and _is_data_like(arg0):
+            y = list(arg0)
+            x = list(range(len(y)))
+            groups.append((x, y, ''))
+            break
+
+        # Two items: could be (y, fmt), (x, y), or start of longer group
+        if i + 1 < len(remaining):
+            arg1 = remaining[i + 1]
+
+            if isinstance(arg1, str):
+                # (y, fmt)
+                y = list(arg0)
+                x = list(range(len(y)))
+                groups.append((x, y, arg1))
+                i += 2
+                continue
+            elif _is_data_like(arg1):
+                # (x, y, ...) — check if next is fmt
+                x = list(arg0)
+                y = list(arg1)
+                if len(x) != len(y):
+                    raise ValueError(
+                        f"x and y must have same first dimension, "
+                        f"but have shapes ({len(x)},) and ({len(y)},)")
+                if i + 2 < len(remaining) and isinstance(remaining[i + 2], str):
+                    fmt = remaining[i + 2]
+                    groups.append((x, y, fmt))
+                    i += 3
+                else:
+                    groups.append((x, y, ''))
+                    i += 2
+                continue
+
+        # Single data item
+        if _is_data_like(arg0):
+            y = list(arg0)
+            x = list(range(len(y)))
+            groups.append((x, y, ''))
+            i += 1
+        else:
+            i += 1
+
+    if not groups:
+        return [([], [], '')]
+    return groups
 
 
 def _auto_bins(data):
