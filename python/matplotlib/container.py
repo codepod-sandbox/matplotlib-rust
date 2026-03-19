@@ -35,8 +35,7 @@ class BarContainer(Container):
         super().__init__(patches)
         self._patches = list(patches)
         self.errorbar = errorbar
-        if label is not None:
-            self.set_label(label)
+        self.set_label(label)
 
     @property
     def patches(self):

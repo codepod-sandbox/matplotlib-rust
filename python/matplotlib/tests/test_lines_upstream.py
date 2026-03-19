@@ -134,3 +134,155 @@ def test_line_aliases():
     assert line.get_markersize() == 12
     line.set_c('green')
     assert line.get_color() == 'green'
+
+
+# ===========================================================================
+# Newly ported upstream tests (2026-03-19)
+# Source: https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/tests/test_lines.py
+# ===========================================================================
+
+import matplotlib.pyplot as plt
+
+
+# ---------------------------------------------------------------------------
+# test_valid_linestyles (upstream)
+# ---------------------------------------------------------------------------
+def test_valid_linestyles():
+    """Upstream: invalid linestyle raises ValueError."""
+    line = Line2D([], [])
+    with pytest.raises(ValueError):
+        line.set_linestyle('aardvark')
+
+
+# ---------------------------------------------------------------------------
+# test_valid_drawstyles (upstream)
+# ---------------------------------------------------------------------------
+def test_valid_drawstyles():
+    """Upstream: invalid drawstyle raises ValueError."""
+    line = Line2D([], [])
+    with pytest.raises(ValueError):
+        line.set_drawstyle('foobar')
+
+
+# ---------------------------------------------------------------------------
+# test_valid_colors (upstream)
+# ---------------------------------------------------------------------------
+def test_valid_colors():
+    """Upstream: invalid color raises ValueError."""
+    line = Line2D([], [])
+    with pytest.raises(ValueError):
+        line.set_color("foobar")
+
+
+# ---------------------------------------------------------------------------
+# test_line_colors (upstream)
+# ---------------------------------------------------------------------------
+def test_line_colors():
+    """Upstream: various valid color specifications."""
+    fig, ax = plt.subplots()
+    ax.plot(range(10), color='none')
+    ax.plot(range(10), color='r')
+    ax.plot(range(10), color='.3')
+    ax.plot(range(10), color=(1, 0, 0, 1))
+    ax.plot(range(10), color=(1, 0, 0))
+
+
+# ---------------------------------------------------------------------------
+# test_linestyle_variants (upstream)
+# ---------------------------------------------------------------------------
+def test_linestyle_variants():
+    """Upstream: all standard linestyle strings work."""
+    fig, ax = plt.subplots()
+    for ls in ["-", "solid", "--", "dashed",
+               "-.", "dashdot", ":", "dotted"]:
+        ax.plot(range(10), linestyle=ls)
+
+
+# ===========================================================================
+# Newly ported upstream tests (2026-03-19, batch 2)
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# test_drawstyle_variants (upstream ~line 97)
+# ---------------------------------------------------------------------------
+def test_drawstyle_variants():
+    """Upstream: all drawstyle variants work in plot."""
+    fig, ax = plt.subplots()
+    dss = ["default", "steps-mid", "steps-pre", "steps-post", "steps"]
+    for ds in dss:
+        line = Line2D(range(10), range(10), drawstyle=ds)
+        assert line.get_drawstyle() == ds
+
+
+# ---------------------------------------------------------------------------
+# Additional Line2D tests
+# ---------------------------------------------------------------------------
+
+def test_line_visibility():
+    """Line2D visibility can be toggled."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.get_visible() is True
+    line.set_visible(False)
+    assert line.get_visible() is False
+
+
+def test_line_zorder():
+    """Line2D zorder can be set."""
+    line = Line2D([0, 1], [0, 1])
+    assert line.zorder == 2
+    line.set_zorder(10)
+    assert line.get_zorder() == 10
+
+
+def test_line_label():
+    """Line2D label can be set/get."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_label('my line')
+    assert line.get_label() == 'my line'
+
+
+def test_line_marker_set():
+    """Line2D marker can be changed after construction."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_marker('o')
+    assert line.get_marker() == 'o'
+
+
+def test_line_markersize_set():
+    """Line2D markersize can be changed via set_ms."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_ms(15)
+    assert line.get_markersize() == 15
+
+
+def test_line_fillstyle_set():
+    """Line2D fillstyle can be set."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_fillstyle('bottom')
+    assert line.get_fillstyle() == 'bottom'
+
+
+def test_line_linewidth_set():
+    """Line2D linewidth can be changed."""
+    line = Line2D([0, 1], [0, 1])
+    line.set_linewidth(3.0)
+    assert line.get_linewidth() == 3.0
+
+
+def test_line_data_get():
+    """Line2D get_data returns (xdata, ydata)."""
+    line = Line2D([1, 2, 3], [4, 5, 6])
+    x, y = line.get_data()
+    assert x == [1, 2, 3]
+    assert y == [4, 5, 6]
+
+
+def test_line_set_xdata_ydata():
+    """Line2D set_xdata / set_ydata update data independently."""
+    line = Line2D([1, 2], [3, 4])
+    line.set_xdata([10, 20])
+    assert line.get_xdata() == [10, 20]
+    assert line.get_ydata() == [3, 4]
+    line.set_ydata([30, 40])
+    assert line.get_ydata() == [30, 40]

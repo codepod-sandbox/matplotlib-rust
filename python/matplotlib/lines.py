@@ -56,6 +56,8 @@ class Line2D(Artist):
         return self._color
 
     def set_color(self, color):
+        # Validate that color is a recognized color spec
+        to_rgba(color)
         self._color = color
 
     set_c = set_color
@@ -70,10 +72,18 @@ class Line2D(Artist):
     set_lw = set_linewidth
 
     # --- linestyle ---
+    _valid_linestyles = {'-', 'solid', '--', 'dashed', '-.', 'dashdot',
+                         ':', 'dotted', 'None', 'none', ''}
+
     def get_linestyle(self):
         return self._linestyle
 
     def set_linestyle(self, ls):
+        if ls not in self._valid_linestyles:
+            raise ValueError(
+                f"'{ls}' is not a valid value for linestyle; supported "
+                f"values are '-', '--', '-.', ':', 'None', 'none', '', "
+                f"'solid', 'dashed', 'dashdot', 'dotted'")
         self._linestyle = ls
 
     set_ls = set_linestyle
@@ -102,10 +112,18 @@ class Line2D(Artist):
         self._fillstyle = fs
 
     # --- drawstyle ---
+    _valid_drawstyles = {'default', 'steps', 'steps-pre', 'steps-mid',
+                         'steps-post'}
+
     def get_drawstyle(self):
         return self._drawstyle
 
     def set_drawstyle(self, ds):
+        if ds not in self._valid_drawstyles:
+            raise ValueError(
+                f"'{ds}' is not a valid value for drawstyle; supported "
+                f"values are 'default', 'steps', 'steps-pre', "
+                f"'steps-mid', 'steps-post'")
         self._drawstyle = ds
 
     # --- draw (new renderer architecture) ---

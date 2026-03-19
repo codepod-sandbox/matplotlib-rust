@@ -58,6 +58,20 @@ class Patch(Artist):
     def set_linewidth(self, w):
         self._linewidth = w
 
+    # --- linestyle ---
+    def get_linestyle(self):
+        return getattr(self, '_linestyle', 'solid')
+
+    def set_linestyle(self, ls):
+        self._linestyle = ls
+
+    # --- antialiased ---
+    def get_antialiased(self):
+        return getattr(self, '_antialiased', True)
+
+    def set_antialiased(self, aa):
+        self._antialiased = aa
+
     def _resolved_facecolor_hex(self):
         fc = self._facecolor
         if isinstance(fc, str) and fc.lower() == 'none':
@@ -178,6 +192,12 @@ class Polygon(Patch):
     def set_xy(self, xy):
         self._xy = [tuple(pt) for pt in xy]
 
+    def get_closed(self):
+        return self._closed
+
+    def set_closed(self, closed):
+        self._closed = closed
+
     def draw(self, renderer, layout):
         if not self.get_visible():
             return
@@ -211,11 +231,31 @@ class Wedge(Patch):
     def get_r(self):
         return self._r
 
+    def set_r(self, r):
+        self._r = r
+
+    def set_radius(self, radius):
+        self._r = radius
+
     def get_theta1(self):
         return self._theta1
 
+    def set_theta1(self, theta1):
+        self._theta1 = theta1
+
     def get_theta2(self):
         return self._theta2
+
+    def set_theta2(self, theta2):
+        self._theta2 = theta2
+
+    def set_width(self, width):
+        """Set the angular width (theta2 - theta1)."""
+        self._theta2 = self._theta1 + width
+
+    def get_width(self):
+        """Get the angular width (theta2 - theta1)."""
+        return self._theta2 - self._theta1
 
     def draw(self, renderer, layout):
         if not self.get_visible():

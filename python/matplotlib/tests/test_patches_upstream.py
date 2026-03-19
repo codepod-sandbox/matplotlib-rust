@@ -160,3 +160,270 @@ def test_patch_visible_alpha():
     assert p.get_alpha() is None
     p.set_alpha(0.7)
     assert p.get_alpha() == 0.7
+
+
+# ===========================================================================
+# Newly ported upstream tests (2026-03-19)
+# Source: https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/tests/test_patches.py
+# ===========================================================================
+
+from datetime import datetime, timedelta
+from matplotlib.patches import Wedge
+
+
+# ---------------------------------------------------------------------------
+# test_datetime_rectangle (upstream)
+# ---------------------------------------------------------------------------
+def test_datetime_rectangle():
+    """Upstream: Rectangle accepts datetime/timedelta dimensions."""
+    start = datetime(2017, 1, 1, 0, 0, 0)
+    delta = timedelta(seconds=16)
+    patch = Rectangle((start, 0), delta, 1)
+    assert patch.get_width() == delta
+    assert patch.get_height() == 1
+
+
+# ---------------------------------------------------------------------------
+# test_wedge_basic (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_wedge_basic():
+    """Test Wedge creation and property access."""
+    w = Wedge((0.5, 0.5), 1.0, 30, 120, facecolor='red')
+    assert w.get_center() == (0.5, 0.5)
+    assert w.get_r() == 1.0
+    assert w.get_theta1() == 30
+    assert w.get_theta2() == 120
+
+
+# ---------------------------------------------------------------------------
+# test_polygon_set_xy (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_polygon_set_xy():
+    """Test Polygon vertex manipulation."""
+    from matplotlib.patches import Polygon
+    verts = [(0, 0), (1, 0), (1, 1)]
+    p = Polygon(verts)
+    assert len(p.get_xy()) == 3
+    new_verts = [(0, 0), (2, 0), (2, 2), (0, 2)]
+    p.set_xy(new_verts)
+    assert len(p.get_xy()) == 4
+
+
+# ---------------------------------------------------------------------------
+# test_circle_properties (upstream-inspired extension)
+# ---------------------------------------------------------------------------
+def test_circle_set_center():
+    """Test Circle set_center/get_center."""
+    from matplotlib.patches import Circle
+    c = Circle((1, 2), 3)
+    assert c.get_center() == (1, 2)
+    c.set_center((5, 6))
+    assert c.get_center() == (5, 6)
+    c.set_radius(10)
+    assert c.get_radius() == 10
+
+
+# ===========================================================================
+# Third batch of ported upstream tests (2026-03-19)
+# New features: Patch linestyle/antialiased, Polygon closed, Wedge setters
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# test_patch_linestyle (upstream test_default_linestyle + test_patch_custom_linestyle)
+# ---------------------------------------------------------------------------
+def test_patch_linestyle():
+    """Upstream: Patch linestyle get/set."""
+    p = Patch()
+    assert p.get_linestyle() == 'solid'  # default
+    p.set_linestyle('dashed')
+    assert p.get_linestyle() == 'dashed'
+
+
+# ---------------------------------------------------------------------------
+# test_patch_antialiased (upstream test_default_antialiased)
+# ---------------------------------------------------------------------------
+def test_patch_antialiased():
+    """Upstream: Patch antialiased get/set."""
+    p = Patch()
+    assert p.get_antialiased() is True  # default
+    p.set_antialiased(False)
+    assert p.get_antialiased() is False
+
+
+# ---------------------------------------------------------------------------
+# test_polygon_closed (upstream test_Polygon_close)
+# ---------------------------------------------------------------------------
+def test_polygon_closed():
+    """Upstream: test_Polygon_close — closed property round-trip."""
+    from matplotlib.patches import Polygon
+    verts = [(0, 0), (1, 0), (1, 1)]
+    p = Polygon(verts, closed=True)
+    assert p.get_closed() is True
+    p.set_closed(False)
+    assert p.get_closed() is False
+    p.set_closed(True)
+    assert p.get_closed() is True
+
+
+# ---------------------------------------------------------------------------
+# test_wedge_movement (upstream test_wedge_movement)
+# ---------------------------------------------------------------------------
+def test_wedge_movement():
+    """Upstream: test_wedge_movement — Wedge setters work."""
+    w = Wedge((0, 0), 1.0, 0, 90)
+
+    w.set_center((1, 1))
+    assert w.get_center() == (1, 1)
+
+    w.set_radius(2.0)
+    assert w.get_r() == 2.0
+
+    w.set_theta1(45)
+    assert w.get_theta1() == 45
+
+    w.set_theta2(135)
+    assert w.get_theta2() == 135
+
+
+# ---------------------------------------------------------------------------
+# test_wedge_width (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_wedge_width():
+    """Wedge set_width/get_width angular width."""
+    w = Wedge((0, 0), 1.0, 30, 120)
+    assert w.get_width() == 90
+    w.set_width(45)
+    assert w.get_theta2() == 75  # 30 + 45
+
+
+# ---------------------------------------------------------------------------
+# test_add_artist_patch (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_add_artist_patch():
+    """Adding a Patch via add_artist puts it in ax.patches."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    w = Wedge((0.5, 0.5), 0.3, 0, 180, facecolor='blue')
+    ax.add_artist(w)
+    assert w in ax.patches
+    assert w.axes is ax
+
+
+# ===========================================================================
+# Newly ported upstream tests (2026-03-19, batch 2)
+# ===========================================================================
+
+
+def test_rectangle_xy_roundtrip():
+    """Rectangle get_xy / set_xy round-trip."""
+    r = Rectangle((1, 2), 3, 4)
+    assert r.get_xy() == (1, 2)
+    r.set_xy((5, 6))
+    assert r.get_xy() == (5, 6)
+
+
+def test_rectangle_width_height_roundtrip():
+    """Rectangle get_width/height / set_width/height."""
+    r = Rectangle((0, 0), 10, 20)
+    assert r.get_width() == 10
+    assert r.get_height() == 20
+    r.set_width(30)
+    r.set_height(40)
+    assert r.get_width() == 30
+    assert r.get_height() == 40
+
+
+def test_patch_facecolor_roundtrip():
+    """Patch set_facecolor / get_facecolor round-trip."""
+    p = Patch(facecolor='red')
+    assert p.get_facecolor()[:3] == (1, 0, 0)
+    p.set_facecolor('blue')
+    assert p.get_facecolor()[:3] == (0, 0, 1)
+
+
+def test_patch_edgecolor_roundtrip():
+    """Patch set_edgecolor / get_edgecolor round-trip."""
+    p = Patch(edgecolor='green')
+    fc = p.get_edgecolor()[:3]
+    # green ~ (0, 0.5, 0) approximately
+    assert fc[1] > 0
+
+
+def test_patch_alpha_roundtrip():
+    """Patch set_alpha / get_alpha."""
+    p = Patch()
+    p.set_alpha(0.5)
+    assert p.get_alpha() == 0.5
+
+
+def test_patch_visibility():
+    """Patch visibility can be toggled."""
+    p = Patch()
+    assert p.get_visible() is True
+    p.set_visible(False)
+    assert p.get_visible() is False
+
+
+def test_patch_zorder():
+    """Patch default zorder is 1."""
+    p = Patch()
+    assert p.get_zorder() == 1
+
+
+def test_circle_radius_roundtrip():
+    """Circle set_radius / get_radius."""
+    c = Circle((0, 0), 5)
+    assert c.get_radius() == 5
+    c.set_radius(10)
+    assert c.get_radius() == 10
+
+
+def test_polygon_xy_roundtrip():
+    """Polygon get_xy / set_xy."""
+    from matplotlib.patches import Polygon
+    verts = [(0, 0), (1, 0), (1, 1)]
+    p = Polygon(verts)
+    xy = p.get_xy()
+    assert len(xy) >= 3
+
+
+def test_wedge_angles():
+    """Wedge theta1/theta2 accessors."""
+    w = Wedge((0, 0), 1.0, 45, 135)
+    assert w.get_theta1() == 45
+    assert w.get_theta2() == 135
+
+
+def test_wedge_center_radius():
+    """Wedge center and r accessors."""
+    w = Wedge((1, 2), 3.0, 0, 90)
+    assert w.get_center() == (1, 2)
+    assert w.get_r() == 3.0
+
+
+def test_rectangle_from_bar():
+    """Rectangles created by bar() have correct geometry."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    bc = ax.bar([1, 2], [3, 4], width=0.5)
+    r0 = bc[0]
+    # bar at x=1, width=0.5 => xy = (0.75, 0)
+    assert abs(r0.get_xy()[0] - 0.75) < 1e-10
+    assert r0.get_xy()[1] == 0
+    assert abs(r0.get_width() - 0.5) < 1e-10
+    assert r0.get_height() == 3
+
+
+def test_patch_label():
+    """Patch label can be set/get."""
+    p = Patch()
+    p.set_label('my patch')
+    assert p.get_label() == 'my patch'
+
+
+def test_rectangle_corners_standard():
+    """Standard positive-dimension rectangle corners."""
+    r = Rectangle((0, 0), 5, 3)
+    corners = r.get_corners()
+    assert corners == [(0, 0), (5, 0), (5, 3), (0, 3)]

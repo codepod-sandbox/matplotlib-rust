@@ -461,10 +461,58 @@ def axvline(x=0, **kwargs):
     return _current_ax.axvline(x, **kwargs)
 
 
+def axhspan(ymin, ymax, xmin=0, xmax=1, **kwargs):
+    """Add a horizontal span — delegates to current axes."""
+    _ensure()
+    return _current_ax.axhspan(ymin, ymax, xmin=xmin, xmax=xmax, **kwargs)
+
+
+def axvspan(xmin, xmax, ymin=0, ymax=1, **kwargs):
+    """Add a vertical span — delegates to current axes."""
+    _ensure()
+    return _current_ax.axvspan(xmin, xmax, ymin=ymin, ymax=ymax, **kwargs)
+
+
 def text(x, y, s, **kwargs):
     """Add text to the current axes."""
     _ensure()
     return _current_ax.text(x, y, s, **kwargs)
+
+
+def hlines(y, xmin, xmax, **kwargs):
+    """Horizontal lines — delegates to current axes."""
+    _ensure()
+    return _current_ax.hlines(y, xmin, xmax, **kwargs)
+
+
+def vlines(x, ymin, ymax, **kwargs):
+    """Vertical lines — delegates to current axes."""
+    _ensure()
+    return _current_ax.vlines(x, ymin, ymax, **kwargs)
+
+
+def loglog(*args, **kwargs):
+    """Log-log plot — delegates to current axes."""
+    _ensure()
+    return _current_ax.loglog(*args, **kwargs)
+
+
+def semilogx(*args, **kwargs):
+    """Semi-log x plot — delegates to current axes."""
+    _ensure()
+    return _current_ax.semilogx(*args, **kwargs)
+
+
+def semilogy(*args, **kwargs):
+    """Semi-log y plot — delegates to current axes."""
+    _ensure()
+    return _current_ax.semilogy(*args, **kwargs)
+
+
+def margins(*args, **kwargs):
+    """Set or get margins — delegates to current axes."""
+    _ensure()
+    return _current_ax.margins(*args, **kwargs)
 
 
 def step(x, y, where='pre', **kwargs):

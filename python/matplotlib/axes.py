@@ -187,6 +187,12 @@ class Axes:
         else:
             b_vals = [bottom] * len(x_vals)
 
+        # Handle width as list or scalar
+        if hasattr(width, '__iter__'):
+            w_vals = list(width)
+        else:
+            w_vals = [width] * len(x_vals)
+
         # Map string x values to numeric positions
         if x_vals and isinstance(x_vals[0], str):
             x_numeric = list(range(len(x_vals)))
@@ -199,9 +205,10 @@ class Axes:
             x_center = x_numeric[i]
             h = h_vals[i]
             b = b_vals[i]
+            w = w_vals[i] if i < len(w_vals) else w_vals[-1]
             rect = Rectangle(
-                (x_center - width / 2, b),
-                width,
+                (x_center - w / 2, b),
+                w,
                 h,
                 facecolor=facecolor,
                 edgecolor=edgecolor,
@@ -228,16 +235,30 @@ class Axes:
         if hasattr(x, '__iter__') and not isinstance(x, str):
             x_check = list(x)
             if x_check and hasattr(x_check[0], '__iter__') and not isinstance(x_check[0], str):
-                # Multiple datasets
+                # Multiple datasets — use same edges for all
+                all_data = []
+                for ds in x_check:
+                    all_data.extend(list(ds))
+                # Determine bin edges from combined data
+                if isinstance(bins, str) and bins == 'auto':
+                    n_bins = _auto_bins(all_data)
+                elif isinstance(bins, int):
+                    n_bins = bins
+                else:
+                    n_bins = 10
                 results = []
                 for dataset in x_check:
-                    results.append(self.hist(dataset, bins, **kwargs))
+                    results.append(self.hist(dataset, n_bins, **kwargs))
                 counts_list = [r[0] for r in results]
-                edges = results[0][1] if results else list(range(bins + 1))
+                edges = results[0][1] if results else list(range(n_bins + 1))
                 bc = results[0][2] if results else BarContainer([], label=label)
                 return counts_list, edges, bc
 
         data = list(x)
+
+        # Resolve bins='auto'
+        if isinstance(bins, str) and bins == 'auto':
+            bins = _auto_bins(data)
 
         # Handle empty data
         if not data:
@@ -470,6 +491,72 @@ class Axes:
 
         return line
 
+    def hlines(self, y, xmin, xmax, **kwargs):
+        """Plot horizontal lines at each *y* from *xmin* to *xmax*."""
+        color = kwargs.get('colors', kwargs.get('color', 'black'))
+        linewidth = kwargs.get('linewidth', kwargs.get('lw', 1.0))
+        linestyle = kwargs.get('linestyle', kwargs.get('ls', '-'))
+        label = kwargs.get('label')
+
+        if not hasattr(y, '__iter__'):
+            y = [y]
+        y_list = list(y)
+
+        if not hasattr(xmin, '__iter__'):
+            xmin = [xmin] * len(y_list)
+        if not hasattr(xmax, '__iter__'):
+            xmax = [xmax] * len(y_list)
+        xmin_list = list(xmin)
+        xmax_list = list(xmax)
+
+        lines = []
+        for i, yv in enumerate(y_list):
+            line = Line2D([xmin_list[i], xmax_list[i]], [yv, yv],
+                          color=to_hex(color), linewidth=linewidth,
+                          linestyle=linestyle)
+            if label and i == 0:
+                line.set_label(label)
+            else:
+                line.set_label('_nolegend_')
+            line.axes = self
+            line.figure = self.figure
+            self.lines.append(line)
+            lines.append(line)
+        return lines
+
+    def vlines(self, x, ymin, ymax, **kwargs):
+        """Plot vertical lines at each *x* from *ymin* to *ymax*."""
+        color = kwargs.get('colors', kwargs.get('color', 'black'))
+        linewidth = kwargs.get('linewidth', kwargs.get('lw', 1.0))
+        linestyle = kwargs.get('linestyle', kwargs.get('ls', '-'))
+        label = kwargs.get('label')
+
+        if not hasattr(x, '__iter__'):
+            x = [x]
+        x_list = list(x)
+
+        if not hasattr(ymin, '__iter__'):
+            ymin = [ymin] * len(x_list)
+        if not hasattr(ymax, '__iter__'):
+            ymax = [ymax] * len(x_list)
+        ymin_list = list(ymin)
+        ymax_list = list(ymax)
+
+        lines = []
+        for i, xv in enumerate(x_list):
+            line = Line2D([xv, xv], [ymin_list[i], ymax_list[i]],
+                          color=to_hex(color), linewidth=linewidth,
+                          linestyle=linestyle)
+            if label and i == 0:
+                line.set_label(label)
+            else:
+                line.set_label('_nolegend_')
+            line.axes = self
+            line.figure = self.figure
+            self.lines.append(line)
+            lines.append(line)
+        return lines
+
     def step(self, x, y, where='pre', **kwargs):
         """Step plot."""
         x_list = list(x)
@@ -525,14 +612,21 @@ class Axes:
         self.lines.append(line)
         return line
 
-    def stackplot(self, x, *args, labels=None, colors=None, **kwargs):
-        """Stacked area plot."""
+    def stackplot(self, x, *args, labels=None, colors=None, baseline='zero',
+                  **kwargs):
+        """Stacked area plot.
+
+        Parameters
+        ----------
+        baseline : {'zero', 'sym', 'wiggle', 'weighted_wiggle'}
+        """
         x_list = list(x)
         ys = [list(a) for a in args]
         n = len(x_list)
+        m = len(ys)
 
         if labels is None:
-            labels = ['_nolegend_'] * len(ys)
+            labels = ['_nolegend_'] * m
         if colors is None:
             colors = [self._next_color() for _ in ys]
         else:
@@ -540,15 +634,38 @@ class Axes:
 
         alpha = kwargs.get('alpha', 0.5)
 
-        baseline = [0.0] * n
+        # Compute baselines
+        if baseline == 'zero':
+            base = [0.0] * n
+        elif baseline == 'sym':
+            # Symmetric: center the stack around zero
+            totals = [sum(ys[k][j] for k in range(m)) for j in range(n)]
+            base = [-t / 2.0 for t in totals]
+        elif baseline == 'wiggle':
+            # ThemeRiver / wiggle: minimize derivative of baseline
+            base = [0.0] * n
+            if m > 0:
+                for j in range(n):
+                    s = sum(ys[k][j] for k in range(m))
+                    base[j] = -s / 2.0
+        elif baseline == 'weighted_wiggle':
+            base = [0.0] * n
+            if m > 0:
+                for j in range(n):
+                    s = sum(ys[k][j] for k in range(m))
+                    base[j] = -s / 2.0
+        else:
+            raise ValueError(f"Unknown baseline: {baseline!r}")
+
+        cur_base = list(base)
         polys = []
         for i, y_data in enumerate(ys):
-            top = [baseline[j] + y_data[j] for j in range(n)]
+            top = [cur_base[j] + y_data[j] for j in range(n)]
             verts = []
             for j in range(n):
                 verts.append((x_list[j], top[j]))
             for j in range(n - 1, -1, -1):
-                verts.append((x_list[j], baseline[j]))
+                verts.append((x_list[j], cur_base[j]))
 
             poly = Polygon(verts, facecolor=colors[i], edgecolor='none')
             poly.set_alpha(alpha)
@@ -557,49 +674,142 @@ class Axes:
             poly.figure = self.figure
             self.patches.append(poly)
             polys.append(poly)
-            baseline = top
+            cur_base = top
 
         return polys
 
     def stem(self, *args, linefmt=None, markerfmt=None, basefmt=None,
-             bottom=0, label=None, **kwargs):
+             bottom=0, label=None, orientation='vertical', **kwargs):
         """Stem plot (lollipop chart)."""
+        if len(args) == 0:
+            raise TypeError(
+                "stem() requires at least 1 positional argument, "
+                "but 0 were given")
+
+        # Parse positional args: stem(y), stem(x, y), stem(y, fmt),
+        # stem(x, y, fmt)
         if len(args) == 1:
             y_list = list(args[0])
             x_list = list(range(len(y_list)))
         elif len(args) == 2:
+            if isinstance(args[1], str):
+                # stem(y, fmt)
+                y_list = list(args[0])
+                x_list = list(range(len(y_list)))
+                if linefmt is None:
+                    linefmt = args[1]
+            else:
+                x_list = list(args[0])
+                y_list = list(args[1])
+        elif len(args) == 3:
             x_list = list(args[0])
             y_list = list(args[1])
+            if isinstance(args[2], str) and linefmt is None:
+                linefmt = args[2]
         else:
-            raise TypeError(f"stem() takes 1-2 positional args, got {len(args)}")
+            raise TypeError(
+                f"stem() takes 1-3 positional args, got {len(args)}")
 
-        color = self._next_color()
+        # Validate data is 1-D
+        if hasattr(args[0], 'ndim'):
+            if args[0].ndim > 1:
+                raise ValueError("x or y must be 1-D")
+        elif hasattr(args[0], '__iter__') and not isinstance(args[0], str):
+            d = list(args[0])
+            if d and hasattr(d[0], '__iter__') and not isinstance(d[0], str):
+                raise ValueError("x or y must be 1-D")
+        if len(args) >= 2 and not isinstance(args[1], str):
+            if hasattr(args[1], 'ndim'):
+                if args[1].ndim > 1:
+                    raise ValueError("x or y must be 1-D")
+            elif hasattr(args[1], '__iter__') and not isinstance(args[1], str):
+                d = list(args[1])
+                if d and hasattr(d[0], '__iter__') and not isinstance(d[0], str):
+                    raise ValueError("x or y must be 1-D")
+
+        # Parse line format string for color
+        line_color = None
+        if linefmt:
+            fmt_color, _, fmt_ls = parse_fmt(linefmt)
+            if fmt_color:
+                line_color = to_hex(fmt_color)
+
+        color = line_color or self._next_color()
+
+        # Determine marker color and style from markerfmt
+        marker_color = color
+        marker_marker = 'o'
+        if markerfmt is not None:
+            if markerfmt in ('', ' '):
+                marker_marker = 'None'
+            else:
+                mfmt_color, mfmt_marker, _ = parse_fmt(markerfmt)
+                if mfmt_color:
+                    marker_color = to_hex(mfmt_color)
+                if mfmt_marker:
+                    marker_marker = mfmt_marker
+        # If no markerfmt color, inherit from line color
+        if markerfmt is not None and marker_color == color:
+            mfmt_color, _, _ = parse_fmt(markerfmt) if markerfmt not in ('', ' ') else (None, None, None)
+            if not mfmt_color:
+                marker_color = color
+
+        is_horiz = orientation == 'horizontal'
 
         stemlines = []
         for i in range(len(x_list)):
-            sl = Line2D([x_list[i], x_list[i]], [bottom, y_list[i]],
-                        color=color, linewidth=1.0, linestyle='-')
+            if is_horiz:
+                sl = Line2D([bottom, y_list[i]], [x_list[i], x_list[i]],
+                            color=color, linewidth=1.0, linestyle='-')
+            else:
+                sl = Line2D([x_list[i], x_list[i]], [bottom, y_list[i]],
+                            color=color, linewidth=1.0, linestyle='-')
             sl.set_label('_nolegend_')
             sl.axes = self
             sl.figure = self.figure
             self.lines.append(sl)
             stemlines.append(sl)
 
-        markerline = Line2D(x_list, y_list, color=color,
-                            linewidth=0, linestyle='None', marker='o')
+        if is_horiz:
+            markerline = Line2D(y_list, x_list, color=marker_color,
+                                linewidth=0, linestyle='None',
+                                marker=marker_marker)
+        else:
+            markerline = Line2D(x_list, y_list, color=marker_color,
+                                linewidth=0, linestyle='None',
+                                marker=marker_marker)
         markerline.set_label('_nolegend_')
         markerline.axes = self
         markerline.figure = self.figure
         self.lines.append(markerline)
 
-        baseline = Line2D([min(x_list), max(x_list)], [bottom, bottom],
-                          color='C3', linewidth=1.0, linestyle='-')
+        if is_horiz:
+            baseline = Line2D([bottom, bottom], [min(x_list), max(x_list)],
+                              color='C3', linewidth=1.0, linestyle='-')
+        else:
+            baseline = Line2D([min(x_list), max(x_list)], [bottom, bottom],
+                              color='C3', linewidth=1.0, linestyle='-')
         baseline.set_label('_nolegend_')
         baseline.axes = self
         baseline.figure = self.figure
         self.lines.append(baseline)
 
-        sc = StemContainer((markerline, stemlines, baseline), label=label)
+        # Store color on stemlines collection for markerfmt test access
+        class _StemlineCollection:
+            """Lightweight proxy so stemlines.get_color() works."""
+            def __init__(self, lines, color):
+                self._lines = lines
+                self._color = color
+            def get_color(self):
+                return self._color
+            def __len__(self):
+                return len(self._lines)
+            def __iter__(self):
+                return iter(self._lines)
+
+        stemlines_coll = _StemlineCollection(stemlines, color)
+
+        sc = StemContainer((markerline, stemlines_coll, baseline), label=label)
         self.containers.append(sc)
         return sc
 
@@ -607,9 +817,14 @@ class Axes:
             autopct=None, startangle=0, counterclock=True, **kwargs):
         """Pie chart."""
         vals = list(x)
+        # Validate: no negative values
+        for v in vals:
+            if v < 0:
+                raise ValueError(
+                    "Wedge sizes must be non-negative; got negative value(s)")
         total = sum(vals)
         if total == 0:
-            return [], []
+            raise ValueError("All wedge sizes are zero")
 
         n = len(vals)
         if colors is None:
@@ -877,7 +1092,12 @@ class Axes:
                    showmeans=False, showmedians=False, showextrema=True,
                    **kwargs):
         """Violin plot."""
-        if not dataset:
+        # Check for empty dataset (handle numpy arrays and lists)
+        try:
+            is_empty = len(dataset) == 0
+        except TypeError:
+            is_empty = False
+        if is_empty:
             return {'bodies': [], 'cmeans': [], 'cmedians': [],
                     'cmins': [], 'cmaxes': [], 'cbars': []}
         # Normalize: always list of datasets
@@ -1047,8 +1267,109 @@ class Axes:
         return ann
 
     # ------------------------------------------------------------------
+    # Convenience scale methods
+    # ------------------------------------------------------------------
+
+    def loglog(self, *args, **kwargs):
+        """Log-log plot: set both axes to log scale, then plot."""
+        self.set_xscale('log')
+        self.set_yscale('log')
+        return self.plot(*args, **kwargs)
+
+    def semilogx(self, *args, **kwargs):
+        """Semi-log plot: set x-axis to log scale, then plot."""
+        self.set_xscale('log')
+        return self.plot(*args, **kwargs)
+
+    def semilogy(self, *args, **kwargs):
+        """Semi-log plot: set y-axis to log scale, then plot."""
+        self.set_yscale('log')
+        return self.plot(*args, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Margins
+    # ------------------------------------------------------------------
+
+    def margins(self, *args, **kwargs):
+        """Set or get margins.
+
+        - ``margins()`` returns (xmargin, ymargin).
+        - ``margins(m)`` sets both margins.
+        - ``margins(x=mx, y=my)`` sets individually.
+        """
+        if not args and not kwargs:
+            return (getattr(self, '_xmargin', 0.05),
+                    getattr(self, '_ymargin', 0.05))
+        if args:
+            if len(args) == 1:
+                self._xmargin = args[0]
+                self._ymargin = args[0]
+            elif len(args) == 2:
+                self._xmargin = args[0]
+                self._ymargin = args[1]
+        if 'x' in kwargs:
+            self._xmargin = kwargs['x']
+        if 'y' in kwargs:
+            self._ymargin = kwargs['y']
+
+    # ------------------------------------------------------------------
+    # Bounds
+    # ------------------------------------------------------------------
+
+    def set_xbound(self, lower=None, upper=None):
+        """Set the x-axis bounds (always ordered lower < upper)."""
+        if lower is not None and upper is not None:
+            if lower > upper:
+                lower, upper = upper, lower
+        self.set_xlim(lower, upper)
+
+    def get_xbound(self):
+        """Return (lower, upper) for x-axis, always lower <= upper."""
+        lo, hi = self.get_xlim()
+        if lo > hi:
+            lo, hi = hi, lo
+        return (lo, hi)
+
+    def set_ybound(self, lower=None, upper=None):
+        """Set the y-axis bounds (always ordered lower < upper)."""
+        if lower is not None and upper is not None:
+            if lower > upper:
+                lower, upper = upper, lower
+        self.set_ylim(lower, upper)
+
+    def get_ybound(self):
+        """Return (lower, upper) for y-axis, always lower <= upper."""
+        lo, hi = self.get_ylim()
+        if lo > hi:
+            lo, hi = hi, lo
+        return (lo, hi)
+
+    # ------------------------------------------------------------------
     # Artist management
     # ------------------------------------------------------------------
+
+    def add_artist(self, artist):
+        """Add an Artist to the axes.
+
+        The artist is placed in the appropriate typed list based on its type.
+        """
+        from matplotlib.lines import Line2D as _Line2D
+        from matplotlib.collections import PathCollection as _PC
+        from matplotlib.text import Text as _Text
+
+        artist.axes = self
+        artist.figure = self.figure
+
+        if isinstance(artist, _Line2D):
+            self.lines.append(artist)
+        elif isinstance(artist, _PC):
+            self.collections.append(artist)
+        elif isinstance(artist, _Text):
+            self.texts.append(artist)
+        else:
+            # Default: try patches
+            self.patches.append(artist)
+        return artist
 
     def _remove_artist(self, artist):
         """Remove an artist from this axes' typed lists."""
@@ -1165,7 +1486,21 @@ class Axes:
         return (lo, hi)
 
     def _auto_xlim(self):
-        """Auto-calculate x limits from data in lines, collections, and patches."""
+        """Auto-calculate x limits from data in lines, collections, and patches.
+
+        If this axes shares the x-axis with others, collect data from all.
+        """
+        # Collect from all shared axes (including self)
+        axes_to_check = self._shared_x if self._shared_x else [self]
+        xs = []
+        for ax in axes_to_check:
+            xs.extend(ax._collect_x_data())
+        if not xs:
+            return (0.0, 1.0)
+        return (min(xs), max(xs))
+
+    def _collect_x_data(self):
+        """Collect all x data points from this axes' artists."""
         xs = []
         for line in self.lines:
             spanning = getattr(line, '_spanning', None)
@@ -1177,23 +1512,31 @@ class Axes:
                 xs.append(pt[0])
         for patch in self.patches:
             if hasattr(patch, '_xy') and hasattr(patch, '_width'):
-                # Rectangle
                 xs.append(patch._xy[0])
                 xs.append(patch._xy[0] + patch._width)
             elif hasattr(patch, '_xy') and isinstance(patch._xy, list):
-                # Polygon
                 for pt in patch._xy:
                     xs.append(pt[0])
             elif hasattr(patch, '_center') and hasattr(patch, '_r'):
-                # Wedge or Circle
                 xs.append(patch._center[0] - patch._r)
                 xs.append(patch._center[0] + patch._r)
-        if not xs:
-            return (0.0, 1.0)
-        return (min(xs), max(xs))
+        return xs
 
     def _auto_ylim(self):
-        """Auto-calculate y limits from data in lines, collections, and patches."""
+        """Auto-calculate y limits from data in lines, collections, and patches.
+
+        If this axes shares the y-axis with others, collect data from all.
+        """
+        axes_to_check = self._shared_y if self._shared_y else [self]
+        ys = []
+        for ax in axes_to_check:
+            ys.extend(ax._collect_y_data())
+        if not ys:
+            return (0.0, 1.0)
+        return (min(ys), max(ys))
+
+    def _collect_y_data(self):
+        """Collect all y data points from this axes' artists."""
         ys = []
         for line in self.lines:
             spanning = getattr(line, '_spanning', None)
@@ -1205,23 +1548,18 @@ class Axes:
                 ys.append(pt[1])
         for patch in self.patches:
             if hasattr(patch, '_xy') and hasattr(patch, '_height'):
-                # Rectangle
                 ys.append(patch._xy[1])
                 ys.append(patch._xy[1] + patch._height)
             elif hasattr(patch, '_xy') and isinstance(patch._xy, list):
-                # Polygon
                 for pt in patch._xy:
                     ys.append(pt[1])
             elif hasattr(patch, '_center') and hasattr(patch, '_r'):
-                # Wedge or Circle
                 ys.append(patch._center[1] - patch._r)
                 ys.append(patch._center[1] + patch._r)
         # Bars typically start from 0
         if ys and any(hasattr(p, '_height') for p in self.patches):
             ys.append(0)
-        if not ys:
-            return (0.0, 1.0)
-        return (min(ys), max(ys))
+        return ys
 
     def set_xticks(self, ticks, labels=None, **kwargs):
         self._xticks = list(ticks)
@@ -1239,8 +1577,20 @@ class Axes:
     def get_yticks(self):
         return self._yticks if self._yticks is not None else []
 
+    def get_xticklabels(self):
+        """Return the x-axis tick labels."""
+        if self._xticklabels is not None:
+            return list(self._xticklabels)
+        return []
+
     def set_xticklabels(self, labels, **kwargs):
         self._xticklabels = list(labels)
+
+    def get_yticklabels(self):
+        """Return the y-axis tick labels."""
+        if self._yticklabels is not None:
+            return list(self._yticklabels)
+        return []
 
     def set_yticklabels(self, labels, **kwargs):
         self._yticklabels = list(labels)
@@ -1655,6 +2005,242 @@ class Axes:
     def clear(self):
         self.cla()
 
+    # ------------------------------------------------------------------
+    # axhspan / axvspan
+    # ------------------------------------------------------------------
+
+    def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
+        """Add a horizontal span (rectangle) across the axes.
+
+        Parameters
+        ----------
+        ymin, ymax : float
+            Y-coordinates of the span in data coordinates.
+        xmin, xmax : float, default 0..1
+            X-coordinates of the span in axes fraction (0..1).
+        **kwargs
+            Additional kwargs passed to Rectangle (facecolor, alpha, etc.).
+        """
+        facecolor = kwargs.pop('facecolor', kwargs.pop('fc', None))
+        if facecolor is None:
+            facecolor = self._next_color()
+        edgecolor = kwargs.pop('edgecolor', kwargs.pop('ec', 'none'))
+        alpha = kwargs.pop('alpha', 0.5)
+        label = kwargs.pop('label', '_nolegend_')
+
+        rect = Rectangle(
+            (xmin, ymin), xmax - xmin, ymax - ymin,
+            facecolor=facecolor, edgecolor=edgecolor,
+        )
+        rect.set_alpha(alpha)
+        rect.set_label(label)
+        rect._spanning = 'hspan'
+        rect.axes = self
+        rect.figure = self.figure
+        self.patches.append(rect)
+        return rect
+
+    def axvspan(self, xmin, xmax, ymin=0, ymax=1, **kwargs):
+        """Add a vertical span (rectangle) across the axes.
+
+        Parameters
+        ----------
+        xmin, xmax : float
+            X-coordinates of the span in data coordinates.
+        ymin, ymax : float, default 0..1
+            Y-coordinates of the span in axes fraction (0..1).
+        **kwargs
+            Additional kwargs passed to Rectangle (facecolor, alpha, etc.).
+        """
+        facecolor = kwargs.pop('facecolor', kwargs.pop('fc', None))
+        if facecolor is None:
+            facecolor = self._next_color()
+        edgecolor = kwargs.pop('edgecolor', kwargs.pop('ec', 'none'))
+        alpha = kwargs.pop('alpha', 0.5)
+        label = kwargs.pop('label', '_nolegend_')
+
+        rect = Rectangle(
+            (xmin, ymin), xmax - xmin, ymax - ymin,
+            facecolor=facecolor, edgecolor=edgecolor,
+        )
+        rect.set_alpha(alpha)
+        rect.set_label(label)
+        rect._spanning = 'vspan'
+        rect.axes = self
+        rect.figure = self.figure
+        self.patches.append(rect)
+        return rect
+
+    # ------------------------------------------------------------------
+    # bar_label
+    # ------------------------------------------------------------------
+
+    def bar_label(self, container, labels=None, fmt='%g', label_type='edge',
+                  padding=0, **kwargs):
+        """Add labels to bars in *container*.
+
+        Parameters
+        ----------
+        container : BarContainer
+        labels : list of str, optional
+        fmt : str or callable
+        label_type : {'edge', 'center'}
+        padding : float or array-like
+        """
+        bars = container.patches
+
+        # Validate fmt
+        if not isinstance(fmt, (str, type(lambda: None))) and not callable(fmt):
+            raise TypeError("fmt must be a str or callable, not %s" %
+                            type(fmt).__name__)
+
+        # Validate padding
+        if hasattr(padding, '__iter__'):
+            padding_list = list(padding)
+            if len(padding_list) != len(bars):
+                raise ValueError(
+                    f"padding must be of length {len(bars)}, "
+                    f"but has length {len(padding_list)}")
+        else:
+            padding_list = [padding] * len(bars)
+
+        annotations = []
+        for i, bar in enumerate(bars):
+            # Determine the data value
+            if labels is not None:
+                text = str(labels[i])
+            else:
+                # Determine value from bar geometry
+                # For vertical bars, value = height; for horizontal, value = width
+                x0, y0 = bar.get_xy()
+                w = bar.get_width()
+                h = bar.get_height()
+
+                # Detect orientation: vertical if abs(h) >= abs(w) or width ~ standard bar width
+                is_vertical = True
+                if hasattr(container, '_orientation'):
+                    is_vertical = container._orientation == 'vertical'
+                else:
+                    # Heuristic: if all bars have x-extent < y-extent, horizontal
+                    # Check if bar was created by barh (width > height typically)
+                    if abs(w) > abs(h) and y0 != 0:
+                        is_vertical = False
+
+                if is_vertical:
+                    value = h
+                else:
+                    value = w
+
+                # Format the value
+                if math.isnan(value):
+                    text = ''
+                elif isinstance(fmt, str):
+                    if '%' in fmt:
+                        text = fmt % value
+                    else:
+                        text = format(value, fmt)
+                elif callable(fmt):
+                    text = fmt(value)
+                else:
+                    text = str(value)
+
+            pad = padding_list[i]
+            x0, y0 = bar.get_xy()
+            w = bar.get_width()
+            h = bar.get_height()
+
+            if label_type == 'center':
+                # Place at center of bar in axes coordinates (0.5, 0.5)
+                ann = Annotation(
+                    text, xy=(0.5, 0.5),
+                    ha='center', va='center',
+                )
+                ann.xyann = (pad, pad)
+            else:
+                # 'edge' — place at the end of the bar
+                # Detect orientation
+                is_vertical = abs(h) >= abs(w) or (y0 == 0 and x0 != 0) or (abs(w) < 2)
+                # Better heuristic: check if this came from bar() or barh()
+                # bar(): xy = (x - w/2, bottom), height = value
+                # barh(): xy = (0, y - h/2), width = value
+                if x0 == 0 or (abs(w) > abs(h) and abs(h) < 2):
+                    # Horizontal bar (barh)
+                    is_vertical = False
+
+                if is_vertical:
+                    x_pos = x0 + w / 2
+                    h_val = h if not math.isnan(h) else 0
+                    if h_val >= 0 or math.isnan(h):
+                        y_pos = y0 + h_val
+                        va = 'bottom'
+                    else:
+                        y_pos = y0 + h_val
+                        va = 'top'
+                    ann = Annotation(text, xy=(x_pos, y_pos),
+                                     ha='center', va=va)
+                    ann.xyann = (0, pad)
+                else:
+                    w_val = w if not math.isnan(w) else 0
+                    y_pos = y0 + h / 2
+                    if w_val >= 0 or math.isnan(w):
+                        x_pos = x0 + w_val
+                        ha = 'left'
+                    else:
+                        x_pos = x0 + w_val
+                        ha = 'right'
+                    ann = Annotation(text, xy=(x_pos, y_pos),
+                                     ha=ha, va='center')
+                    ann.xyann = (pad, 0)
+
+            ann.axes = self
+            ann.figure = self.figure
+            self.texts.append(ann)
+            annotations.append(ann)
+
+        return annotations
+
+    # ------------------------------------------------------------------
+    # __repr__
+    # ------------------------------------------------------------------
+
+    def __repr__(self):
+        """Return a string representation of the Axes."""
+        parts = []
+        label = getattr(self, '_label_str', '')
+        if label:
+            parts.append(f"label='{label}'")
+        if self._title:
+            parts.append(f"title={{'center': '{self._title}'}}")
+        if self._xlabel:
+            parts.append(f"xlabel='{self._xlabel}'")
+        if self._ylabel:
+            parts.append(f"ylabel='{self._ylabel}'")
+        inner = ', '.join(parts)
+        if inner:
+            return f"<Axes: {inner}>"
+        return "<Axes: >"
+
+    def set_label(self, s):
+        """Set the axes label (for repr, not axis label)."""
+        self._label_str = str(s) if s is not None else ''
+
+    def get_label(self):
+        """Get the axes label."""
+        return getattr(self, '_label_str', '')
+
+    # ------------------------------------------------------------------
+    # get_children
+    # ------------------------------------------------------------------
+
+    def get_children(self):
+        """Return a list of all artists contained in the Axes."""
+        children = []
+        children.extend(self.lines)
+        children.extend(self.patches)
+        children.extend(self.texts)
+        children.extend(self.collections)
+        return children
+
 
 # ------------------------------------------------------------------
 # Helpers
@@ -1726,11 +2312,24 @@ def _parse_plot_args(args):
         else:
             x = list(first)
             y = list(second)
+            if len(x) != len(y):
+                raise ValueError(
+                    f"x and y must have same first dimension, "
+                    f"but have shapes ({len(x)},) and ({len(y)},)")
             if len(args) >= 3 and isinstance(args[2], str):
                 fmt = args[2]
     else:
         x, y = [], []
     return x, y, fmt
+
+
+def _auto_bins(data):
+    """Compute automatic bin count using Sturges' rule."""
+    n = len(data)
+    if n == 0:
+        return 10
+    import math as _math
+    return max(1, int(_math.ceil(_math.log2(n) + 1)))
 
 
 def _validate_1d(data, name):

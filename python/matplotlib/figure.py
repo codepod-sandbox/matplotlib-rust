@@ -266,6 +266,26 @@ class Figure:
         """Clear the figure (alias for :meth:`clear`)."""
         self.clear()
 
+    def legend(self, *args, **kwargs):
+        """Add a legend to the figure.
+
+        Collects legend handles/labels from all axes and stores them.
+        """
+        self._has_legend = True
+        # Collect from all axes
+        handles = []
+        labels = []
+        seen = set()
+        for ax in self._axes:
+            h, l = ax.get_legend_handles_labels()
+            for hi, li in zip(h, l):
+                if li not in seen:
+                    handles.append(hi)
+                    labels.append(li)
+                    seen.add(li)
+        self._legend_handles = handles
+        self._legend_labels = labels
+
     def draw_without_rendering(self):
         """No-op placeholder for layout engine compatibility."""
         pass

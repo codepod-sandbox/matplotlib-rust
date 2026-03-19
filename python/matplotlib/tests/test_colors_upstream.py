@@ -315,3 +315,167 @@ def test_cn():
     # CN wraps around the cycle
     assert mcolors.to_hex("C10") == '#1f77b4'
     assert mcolors.to_hex("C11") == '#ff7f0e'
+
+
+# ===========================================================================
+# Newly ported upstream tests (2026-03-19)
+# Source: https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/tests/test_colors.py
+# ===========================================================================
+
+import copy
+
+
+# ---------------------------------------------------------------------------
+# test_Normalize (upstream)
+# ---------------------------------------------------------------------------
+def test_Normalize():
+    """Upstream: basic Normalize forward and inverse."""
+    norm = mcolors.Normalize(vmin=0, vmax=10)
+    assert norm(0) == 0.0
+    assert norm(10) == 1.0
+    assert norm(5) == 0.5
+    assert norm.inverse(0.0) == 0.0
+    assert norm.inverse(1.0) == 10.0
+    assert norm.inverse(0.5) == 5.0
+
+
+# ---------------------------------------------------------------------------
+# test_LogNorm (upstream)
+# ---------------------------------------------------------------------------
+def test_LogNorm():
+    """Upstream: LogNorm with clip=True."""
+    ln = mcolors.LogNorm(clip=True, vmin=1, vmax=5)
+    result = ln([1, 6])
+    assert result[0] == 0.0
+    assert result[1] == 1.0
+
+
+# ---------------------------------------------------------------------------
+# test_LogNorm_inverse (upstream)
+# ---------------------------------------------------------------------------
+def test_LogNorm_inverse():
+    """Upstream: LogNorm inverse round-trip."""
+    norm = mcolors.LogNorm(vmin=0.1, vmax=10)
+    fwd = norm([0.5, 0.4])
+    inv = norm.inverse(fwd)
+    assert abs(inv[0] - 0.5) < 1e-3
+    assert abs(inv[1] - 0.4) < 1e-3
+
+
+# ---------------------------------------------------------------------------
+# test_norm_deepcopy (upstream)
+# ---------------------------------------------------------------------------
+def test_norm_deepcopy():
+    """Upstream: deepcopy preserves vmin/vmax."""
+    norm = mcolors.Normalize(vmin=0.0002, vmax=1.0)
+    norm2 = copy.deepcopy(norm)
+    assert norm2.vmin == norm.vmin
+    assert norm2.vmax == norm.vmax
+
+
+# ---------------------------------------------------------------------------
+# test_norm_autoscale (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_norm_autoscale():
+    """Normalize.autoscale sets vmin/vmax from data."""
+    norm = mcolors.Normalize()
+    norm.autoscale([1, 2, 3, 4, 5])
+    assert norm.vmin == 1
+    assert norm.vmax == 5
+    assert norm(3) == 0.5
+
+
+# ===========================================================================
+# Newly ported upstream tests (2026-03-19, batch 2)
+# ===========================================================================
+
+
+def test_to_hex_roundtrip():
+    """to_hex and to_rgba are inverses for named colors."""
+    for name in ['red', 'green', 'blue', 'white', 'black']:
+        rgba = mcolors.to_rgba(name)
+        hexval = mcolors.to_hex(rgba)
+        rgba2 = mcolors.to_rgba(hexval)
+        for a, b in zip(rgba, rgba2):
+            assert abs(a - b) < 0.01
+
+
+def test_same_color_hex():
+    """same_color works with hex strings."""
+    assert mcolors.same_color('#ff0000', 'red')
+    assert mcolors.same_color('#00ff00', 'lime')
+    assert not mcolors.same_color('#ff0000', 'blue')
+
+
+def test_normalize_clip():
+    """Normalize clips values outside [vmin, vmax] to [0, 1]."""
+    norm = mcolors.Normalize(vmin=0, vmax=10, clip=True)
+    assert norm(-5) == 0.0
+    assert norm(15) == 1.0
+    assert norm(5) == 0.5
+
+
+def test_normalize_no_clip():
+    """Normalize without clip allows values outside [0, 1]."""
+    norm = mcolors.Normalize(vmin=0, vmax=10, clip=False)
+    assert norm(5) == 0.5
+    # Without clip, out-of-range values may extend beyond 0-1
+    val = norm(-5)
+    assert val < 0
+
+
+def test_to_rgba_tuple_input():
+    """to_rgba accepts (r, g, b) and (r, g, b, a) tuples."""
+    assert mcolors.to_rgba((1, 0, 0)) == (1.0, 0.0, 0.0, 1.0)
+    assert mcolors.to_rgba((0, 1, 0, 0.5)) == (0.0, 1.0, 0.0, 0.5)
+
+
+def test_to_rgba_with_alpha():
+    """to_rgba with explicit alpha parameter."""
+    assert mcolors.to_rgba('red', alpha=0.5) == (1.0, 0.0, 0.0, 0.5)
+
+
+def test_to_hex_with_alpha():
+    """to_hex with keep_alpha=True includes alpha channel."""
+    h = mcolors.to_hex((1, 0, 0, 0.5), keep_alpha=True)
+    assert h == '#ff000080'
+
+
+def test_is_color_like_valid():
+    """is_color_like returns True for valid colors."""
+    assert is_color_like('red')
+    assert is_color_like('#ff0000')
+    assert is_color_like((1, 0, 0))
+    assert is_color_like((1, 0, 0, 1))
+    assert is_color_like('C0')
+    assert is_color_like('0.5')
+
+
+def test_is_color_like_invalid():
+    """is_color_like returns False for invalid inputs."""
+    assert not is_color_like('not_a_color')
+    assert not is_color_like((1, 0))  # too few elements
+    assert not is_color_like(42)
+
+
+def test_normalize_inverse():
+    """Normalize.inverse reverses the mapping."""
+    norm = mcolors.Normalize(vmin=0, vmax=10)
+    assert norm(5) == 0.5
+    assert norm.inverse(0.5) == 5.0
+    assert norm.inverse(0.0) == 0.0
+    assert norm.inverse(1.0) == 10.0
+
+
+def test_lognorm_basic():
+    """LogNorm maps logarithmically."""
+    ln = mcolors.LogNorm(vmin=1, vmax=100)
+    # log(10)/log(100) = 0.5
+    assert abs(ln(10) - 0.5) < 1e-10
+
+
+def test_normalize_vmin_vmax():
+    """Normalize stores vmin/vmax correctly."""
+    norm = mcolors.Normalize(vmin=-10, vmax=10)
+    assert norm.vmin == -10
+    assert norm.vmax == 10

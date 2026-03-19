@@ -1,6 +1,7 @@
 """matplotlib.text --- Text and Annotation artists."""
 
 from matplotlib.artist import Artist
+from matplotlib.colors import to_rgba
 from matplotlib.patches import Patch
 
 
@@ -30,6 +31,12 @@ class Text(Artist):
         # rotation
         rotation = kwargs.get('rotation', None)
         self.set_rotation(rotation)
+
+        # color validation
+        color = kwargs.get('color')
+        if color is not None:
+            to_rgba(color)  # raises ValueError if invalid
+        self._color = color
 
         # antialiased
         if 'antialiased' in kwargs:

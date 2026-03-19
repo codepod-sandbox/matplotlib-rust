@@ -100,3 +100,173 @@ def test_va_for_angle():
     for angle in angles:
         alignment = text_instance._va_for_angle(angle)
         assert alignment in ['center', 'top', 'baseline']
+
+
+# ===========================================================================
+# Newly ported upstream tests (2026-03-19)
+# Source: https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/tests/test_text.py
+# ===========================================================================
+
+import matplotlib.pyplot as plt
+
+
+# ---------------------------------------------------------------------------
+# test_invalid_color (upstream)
+# ---------------------------------------------------------------------------
+def test_invalid_color():
+    """Upstream: invalid color raises ValueError."""
+    with pytest.raises(ValueError):
+        plt.text(0.5, 0.5, "foo", color="foobar")
+
+
+# ---------------------------------------------------------------------------
+# test_text_set_position (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_text_set_position():
+    """Test Text.set_position / get_position round-trip."""
+    t = Text(1, 2, "hello")
+    assert t.get_position() == (1, 2)
+    t.set_position((3, 4))
+    assert t.get_position() == (3, 4)
+
+
+# ---------------------------------------------------------------------------
+# test_text_fontsize (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_text_fontsize():
+    """Test fontsize get/set."""
+    t = Text(0, 0, "hello", fontsize=20)
+    assert t.get_fontsize() == 20
+    t.set_fontsize(14)
+    assert t.get_fontsize() == 14
+
+
+# ---------------------------------------------------------------------------
+# test_text_fontweight (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_text_fontweight():
+    """Test fontweight get/set."""
+    t = Text(0, 0, "hello", fontweight='bold')
+    assert t.get_fontweight() == 'bold'
+    t.set_fontweight('normal')
+    assert t.get_fontweight() == 'normal'
+
+
+# ---------------------------------------------------------------------------
+# test_text_alignment (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_text_alignment():
+    """Test horizontal and vertical alignment."""
+    t = Text(0, 0, "hello", ha='center', va='top')
+    assert t.get_horizontalalignment() == 'center'
+    assert t.get_verticalalignment() == 'top'
+    t.set_ha('right')
+    t.set_va('bottom')
+    assert t.get_horizontalalignment() == 'right'
+    assert t.get_verticalalignment() == 'bottom'
+
+
+# ---------------------------------------------------------------------------
+# test_annotation_basic (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_annotation_basic():
+    """Test Annotation creation and properties."""
+    from matplotlib.text import Annotation
+    ann = Annotation("test", xy=(1, 2), xytext=(3, 4))
+    assert ann.xy == (1, 2)
+    assert ann.xytext == (3, 4)
+    assert ann.get_text() == "test"
+
+
+# ---------------------------------------------------------------------------
+# test_annotation_default_xytext (upstream-inspired)
+# ---------------------------------------------------------------------------
+def test_annotation_default_xytext():
+    """Annotation defaults xytext to xy if not given."""
+    from matplotlib.text import Annotation
+    ann = Annotation("test", xy=(5, 6))
+    assert ann.xytext == (5, 6)
+
+
+# ===========================================================================
+# Newly ported upstream tests (2026-03-19, batch 2)
+# ===========================================================================
+
+
+def test_text_constructor_kwargs():
+    """Text constructor accepts common keyword arguments."""
+    from matplotlib.text import Text
+    t = Text(1.0, 2.0, 'hello', fontsize=14, fontweight='bold',
+             ha='center', va='top', rotation=45, color='red')
+    assert t.get_text() == 'hello'
+    assert t.get_fontsize() == 14
+    assert t.get_fontweight() == 'bold'
+    assert t.get_horizontalalignment() == 'center'
+    assert t.get_verticalalignment() == 'top'
+    assert t.get_rotation() == 45.0
+
+
+def test_text_set_text():
+    """Text.set_text updates the text string."""
+    from matplotlib.text import Text
+    t = Text(0, 0, 'original')
+    assert t.get_text() == 'original'
+    t.set_text('updated')
+    assert t.get_text() == 'updated'
+
+
+def test_text_position_roundtrip():
+    """Text position can be set and retrieved."""
+    from matplotlib.text import Text
+    t = Text(1, 2, 'pos test')
+    assert t.get_position() == (1, 2)
+    t.set_position((3, 4))
+    assert t.get_position() == (3, 4)
+
+
+def test_text_visibility():
+    """Text visibility can be toggled."""
+    from matplotlib.text import Text
+    t = Text(0, 0, 'vis test')
+    assert t.get_visible() is True
+    t.set_visible(False)
+    assert t.get_visible() is False
+
+
+def test_text_zorder():
+    """Text has default zorder of 3."""
+    from matplotlib.text import Text
+    t = Text(0, 0, 'z test')
+    assert t.get_zorder() == 3
+
+
+def test_annotation_with_arrow():
+    """Annotation with arrowprops creates an arrow_patch."""
+    from matplotlib.text import Annotation
+    ann = Annotation("arr", xy=(0, 0), xytext=(1, 1), arrowprops={})
+    assert ann.arrow_patch is not None
+
+
+def test_annotation_without_arrow():
+    """Annotation without arrowprops has arrow_patch=None."""
+    from matplotlib.text import Annotation
+    ann = Annotation("no arr", xy=(0, 0), xytext=(1, 1))
+    assert ann.arrow_patch is None
+
+
+def test_text_axes_integration():
+    """Text added via ax.text is in ax.texts."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    t = ax.text(0.5, 0.5, 'integrated')
+    assert t in ax.texts
+    assert t.get_text() == 'integrated'
+
+
+def test_annotate_axes_integration():
+    """Annotation added via ax.annotate is in ax.texts."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ann = ax.annotate('note', xy=(0, 0), xytext=(1, 1))
+    assert ann in ax.texts
+    assert ann.get_text() == 'note'
