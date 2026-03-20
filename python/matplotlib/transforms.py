@@ -243,6 +243,15 @@ class Bbox(BboxBase):
         return (self.x0 == 0 and self.y0 == 0 and
                 self.x1 == 1 and self.y1 == 1)
 
+    def is_empty(self):
+        """Return whether this bbox has zero area."""
+        return self.width == 0 or self.height == 0
+
+    @property
+    def size(self):
+        """Return (width, height)."""
+        return (self.width, self.height)
+
     def count_contains(self, vertices):
         """Count how many of *vertices* are inside the bbox."""
         return sum(1 for v in vertices if self.contains(v[0], v[1]))

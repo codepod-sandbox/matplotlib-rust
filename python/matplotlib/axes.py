@@ -16,6 +16,323 @@ from matplotlib.backend_bases import AxesLayout
 from matplotlib._svg_backend import _nice_ticks, _fmt_tick, _esc
 
 
+class Tick:
+    """Minimal tick object for compatibility."""
+    def __init__(self, loc=0, label_text=''):
+        self._loc = loc
+        self._label_text = label_text
+        self._visible = True
+        self.gridline = _GridLine()
+        self.label1 = _TickLabel(label_text)
+        self.label2 = _TickLabel(label_text)
+        self.tick1line = _TickLine()
+        self.tick2line = _TickLine()
+
+    def get_loc(self):
+        return self._loc
+
+    def get_visible(self):
+        return self._visible
+
+    def set_visible(self, b):
+        self._visible = b
+
+    def get_label(self):
+        return self.label1.get_text()
+
+
+class _GridLine:
+    """Minimal gridline stub."""
+    def __init__(self):
+        self._visible = False
+
+    def get_visible(self):
+        return self._visible
+
+    def set_visible(self, b):
+        self._visible = b
+
+
+class _TickLabel:
+    """Minimal tick label stub."""
+    def __init__(self, text=''):
+        self._text = str(text)
+        self._fontsize = 10
+        self._color = 'black'
+
+    def get_text(self):
+        return self._text
+
+    def set_text(self, t):
+        self._text = str(t)
+
+    def get_fontsize(self):
+        return self._fontsize
+
+    def set_fontsize(self, s):
+        self._fontsize = s
+
+    def get_color(self):
+        return self._color
+
+    def set_color(self, c):
+        self._color = c
+
+    def get_visible(self):
+        return True
+
+    def set_visible(self, b):
+        pass
+
+
+class _TickLine:
+    """Minimal tick line stub."""
+    def __init__(self):
+        self._color = 'black'
+        self._visible = True
+
+    def get_color(self):
+        return self._color
+
+    def set_color(self, c):
+        self._color = c
+
+    def get_visible(self):
+        return self._visible
+
+    def set_visible(self, b):
+        self._visible = b
+
+
+class _OffsetText:
+    """Minimal offset text stub."""
+    def __init__(self):
+        self._text = ''
+        self._visible = True
+        self._color = 'black'
+
+    def get_text(self):
+        return self._text
+
+    def set_text(self, t):
+        self._text = str(t)
+
+    def get_visible(self):
+        return self._visible
+
+    def set_visible(self, b):
+        self._visible = b
+
+    def get_color(self):
+        return self._color
+
+    def set_color(self, c):
+        self._color = c
+
+
+class Axis:
+    """Base class for XAxis/YAxis objects."""
+
+    def __init__(self, axes, *, pickradius=15):
+        self.axes = axes
+        self.figure = axes.figure if axes else None
+        self._major_locator = None
+        self._minor_locator = None
+        self._major_formatter = None
+        self._minor_formatter = None
+        self._visible = True
+        self._label = _TickLabel('')
+        self.label = self._label
+        self.offsetText = _OffsetText()
+        self.majorTicks = []
+        self.minorTicks = []
+        self._tick_params = {}
+        self.isDefault_majfmt = True
+        self.isDefault_minfmt = True
+        self.isDefault_majloc = True
+        self.isDefault_minloc = True
+        self.pickradius = pickradius
+
+    def get_major_locator(self):
+        return self._major_locator
+
+    def set_major_locator(self, locator):
+        self._major_locator = locator
+        self.isDefault_majloc = False
+
+    def get_minor_locator(self):
+        return self._minor_locator
+
+    def set_minor_locator(self, locator):
+        self._minor_locator = locator
+        self.isDefault_minloc = False
+
+    def get_major_formatter(self):
+        return self._major_formatter
+
+    def set_major_formatter(self, formatter):
+        if callable(formatter) and not hasattr(formatter, 'set_locs'):
+            from matplotlib.ticker import FuncFormatter
+            formatter = FuncFormatter(formatter)
+        self._major_formatter = formatter
+        self.isDefault_majfmt = False
+
+    def get_minor_formatter(self):
+        return self._minor_formatter
+
+    def set_minor_formatter(self, formatter):
+        if callable(formatter) and not hasattr(formatter, 'set_locs'):
+            from matplotlib.ticker import FuncFormatter
+            formatter = FuncFormatter(formatter)
+        self._minor_formatter = formatter
+        self.isDefault_minfmt = False
+
+    def get_visible(self):
+        return self._visible
+
+    def set_visible(self, b):
+        self._visible = b
+
+    def get_label(self):
+        return self._label
+
+    def get_label_text(self):
+        return self._label.get_text()
+
+    def set_label_text(self, text, **kwargs):
+        self._label.set_text(text)
+        return self._label
+
+    def get_offset_text(self):
+        return self.offsetText
+
+    def set_ticks_position(self, position):
+        self._ticks_position = position
+
+    def get_ticks_position(self):
+        return getattr(self, '_ticks_position', 'default')
+
+    def tick_top(self):
+        self._ticks_position = 'top'
+
+    def tick_bottom(self):
+        self._ticks_position = 'bottom'
+
+    def tick_left(self):
+        self._ticks_position = 'left'
+
+    def tick_right(self):
+        self._ticks_position = 'right'
+
+    def set_tick_params(self, which='major', **kwargs):
+        self._tick_params.update(kwargs)
+
+    def get_tick_params(self, which='major'):
+        return dict(self._tick_params)
+
+    def get_major_ticks(self):
+        return list(self.majorTicks)
+
+    def get_minor_ticks(self):
+        return list(self.minorTicks)
+
+    def get_ticklocs(self):
+        return [t.get_loc() for t in self.majorTicks]
+
+    def get_ticklabels(self, minor=False):
+        ticks = self.minorTicks if minor else self.majorTicks
+        return [t.label1 for t in ticks]
+
+    def set_ticks(self, ticks, labels=None, minor=False, **kwargs):
+        tick_list = []
+        for i, t in enumerate(ticks):
+            lbl = str(labels[i]) if labels and i < len(labels) else str(t)
+            tick_list.append(Tick(t, lbl))
+        if minor:
+            self.minorTicks = tick_list
+        else:
+            self.majorTicks = tick_list
+
+    def set_ticklabels(self, labels, minor=False, **kwargs):
+        ticks = self.minorTicks if minor else self.majorTicks
+        for i, t in enumerate(ticks):
+            if i < len(labels):
+                lbl = labels[i]
+                if hasattr(lbl, 'get_text'):
+                    lbl = lbl.get_text()
+                t.label1.set_text(str(lbl))
+                t.label2.set_text(str(lbl))
+
+    def get_scale(self):
+        return 'linear'
+
+    def get_inverted(self):
+        return False
+
+    def set_inverted(self, b):
+        pass
+
+    def is_inverted(self):
+        return self.get_inverted()
+
+    def _update_ticks(self):
+        return self.majorTicks + self.minorTicks
+
+    def get_pickradius(self):
+        return self.pickradius
+
+    def set_pickradius(self, pr):
+        self.pickradius = pr
+
+
+class XAxis(Axis):
+    """X-axis object."""
+    axis_name = 'x'
+
+    def get_scale(self):
+        return self.axes.get_xscale() if self.axes else 'linear'
+
+    def get_inverted(self):
+        return self.axes._x_inverted if self.axes else False
+
+    def set_inverted(self, b):
+        if self.axes:
+            self.axes._x_inverted = b
+
+    def get_label_text(self):
+        return self.axes.get_xlabel() if self.axes else ''
+
+    def set_label_text(self, text, **kwargs):
+        if self.axes:
+            self.axes.set_xlabel(text)
+        self._label.set_text(text)
+        return self._label
+
+
+class YAxis(Axis):
+    """Y-axis object."""
+    axis_name = 'y'
+
+    def get_scale(self):
+        return self.axes.get_yscale() if self.axes else 'linear'
+
+    def get_inverted(self):
+        return self.axes._y_inverted if self.axes else False
+
+    def set_inverted(self, b):
+        if self.axes:
+            self.axes._y_inverted = b
+
+    def get_label_text(self):
+        return self.axes.get_ylabel() if self.axes else ''
+
+    def set_label_text(self, text, **kwargs):
+        if self.axes:
+            self.axes.set_ylabel(text)
+        self._label.set_text(text)
+        return self._label
+
+
 class Axes:
     """A single set of axes in a Figure."""
 
@@ -66,6 +383,21 @@ class Axes:
         # Navigate state (for interactive backends)
         self._navigate = True
         self._navigable = True
+
+        # XAxis / YAxis objects
+        self.xaxis = XAxis(self)
+        self.yaxis = YAxis(self)
+
+        # Autoscale state
+        self._autoscalex_on = True
+        self._autoscaley_on = True
+
+        # Stale flag
+        self.stale = True
+
+        # dataLim / viewLim (minimal Bbox-like)
+        self.dataLim = _SimpleBbox(0, 0, 1, 1)
+        self.viewLim = _SimpleBbox(0, 0, 1, 1)
 
     def _next_color(self):
         if self._prop_cycle is not None:
@@ -1072,6 +1404,14 @@ class Axes:
             autopct=None, startangle=0, counterclock=True, **kwargs):
         """Pie chart."""
         vals = list(x)
+        n = len(vals)
+
+        # Validate: no non-finite values
+        for v in vals:
+            if math.isnan(v) or math.isinf(v):
+                raise ValueError(
+                    "Wedge sizes must be finite numbers")
+
         # Validate: no negative values
         for v in vals:
             if v < 0:
@@ -1081,7 +1421,14 @@ class Axes:
         if total == 0:
             raise ValueError("All wedge sizes are zero")
 
-        n = len(vals)
+        # Validate labels and explode lengths
+        if labels is not None and len(labels) != n:
+            raise ValueError(
+                f"'labels' must have length {n}, got {len(labels)}")
+        if explode is not None and len(explode) != n:
+            raise ValueError(
+                f"'explode' must have length {n}, got {len(explode)}")
+
         if colors is None:
             colors = [DEFAULT_CYCLE[i % len(DEFAULT_CYCLE)] for i in range(n)]
         if labels is None:
@@ -1555,17 +1902,75 @@ class Axes:
         if not args and not kwargs:
             return (getattr(self, '_xmargin', 0.05),
                     getattr(self, '_ymargin', 0.05))
+
+        # Validate: cannot pass both positional and keyword
+        if args and kwargs:
+            if len(args) > 0 and ('x' in kwargs or 'y' in kwargs):
+                raise TypeError("Cannot pass both positional and keyword "
+                                "arguments for margins.")
+
         if args:
             if len(args) == 1:
+                m = args[0]
+                if m is not None and m < -0.5:
+                    raise ValueError("margin must be greater than -0.5, "
+                                     f"not {m}")
                 self._xmargin = args[0]
                 self._ymargin = args[0]
             elif len(args) == 2:
+                for m in args:
+                    if m is not None and m < -0.5:
+                        raise ValueError("margin must be greater than -0.5, "
+                                         f"not {m}")
                 self._xmargin = args[0]
                 self._ymargin = args[1]
+            else:
+                raise TypeError("margins takes at most 2 positional arguments")
         if 'x' in kwargs:
-            self._xmargin = kwargs['x']
+            m = kwargs['x']
+            if m is not None and m < -0.5:
+                raise ValueError("margin must be greater than -0.5, "
+                                 f"not {m}")
+            self._xmargin = m
         if 'y' in kwargs:
-            self._ymargin = kwargs['y']
+            m = kwargs['y']
+            if m is not None and m < -0.5:
+                raise ValueError("margin must be greater than -0.5, "
+                                 f"not {m}")
+            self._ymargin = m
+
+    def get_xmargin(self):
+        """Return the x-margin."""
+        return getattr(self, '_xmargin', 0.05)
+
+    def get_ymargin(self):
+        """Return the y-margin."""
+        return getattr(self, '_ymargin', 0.05)
+
+    def get_autoscalex_on(self):
+        """Return whether autoscaling is on for the x-axis."""
+        return self._autoscalex_on
+
+    def set_autoscalex_on(self, b):
+        """Set whether autoscaling is on for the x-axis."""
+        self._autoscalex_on = b
+
+    def get_autoscaley_on(self):
+        """Return whether autoscaling is on for the y-axis."""
+        return self._autoscaley_on
+
+    def set_autoscaley_on(self, b):
+        """Set whether autoscaling is on for the y-axis."""
+        self._autoscaley_on = b
+
+    def get_autoscale_on(self):
+        """Return whether autoscaling for both axes is on."""
+        return self._autoscalex_on and self._autoscaley_on
+
+    def set_autoscale_on(self, b):
+        """Set autoscaling on both axes."""
+        self._autoscalex_on = b
+        self._autoscaley_on = b
 
     # ------------------------------------------------------------------
     # Bounds
@@ -1573,10 +1978,17 @@ class Axes:
 
     def set_xbound(self, lower=None, upper=None):
         """Set the x-axis bounds (always ordered lower < upper)."""
-        if lower is not None and upper is not None:
-            if lower > upper:
-                lower, upper = upper, lower
-        self.set_xlim(lower, upper)
+        old_lo, old_hi = self.get_xbound()
+        if lower is None:
+            lower = old_lo
+        if upper is None:
+            upper = old_hi
+        if lower > upper:
+            lower, upper = upper, lower
+        if self._x_inverted:
+            self.set_xlim(upper, lower)
+        else:
+            self.set_xlim(lower, upper)
 
     def get_xbound(self):
         """Return (lower, upper) for x-axis, always lower <= upper."""
@@ -1587,10 +1999,17 @@ class Axes:
 
     def set_ybound(self, lower=None, upper=None):
         """Set the y-axis bounds (always ordered lower < upper)."""
-        if lower is not None and upper is not None:
-            if lower > upper:
-                lower, upper = upper, lower
-        self.set_ylim(lower, upper)
+        old_lo, old_hi = self.get_ybound()
+        if lower is None:
+            lower = old_lo
+        if upper is None:
+            upper = old_hi
+        if lower > upper:
+            lower, upper = upper, lower
+        if self._y_inverted:
+            self.set_ylim(upper, lower)
+        else:
+            self.set_ylim(lower, upper)
 
     def get_ybound(self):
         """Return (lower, upper) for y-axis, always lower <= upper."""
@@ -1751,40 +2170,57 @@ class Axes:
     # Labels / config
     # ------------------------------------------------------------------
 
-    def set_title(self, s):
+    def set_title(self, s, **kwargs):
         self._title = s
+        # Store title object for position queries
+        if not hasattr(self, 'title'):
+            self.title = type('_Title', (), {
+                'get_position': lambda self_: (0.5, 1.0),
+                'set_position': lambda self_, p: None,
+                'get_text': lambda self_: self_._text,
+                '_text': s,
+            })()
+        self.title._text = s
+        return self.title
 
     def get_title(self):
         return self._title
 
-    def set_xlabel(self, s):
+    def set_xlabel(self, s, **kwargs):
         self._xlabel = s
 
     def get_xlabel(self):
         return self._xlabel
 
-    def set_ylabel(self, s):
+    def set_ylabel(self, s, **kwargs):
         self._ylabel = s
 
     def get_ylabel(self):
         return self._ylabel
 
-    def set_xlim(self, left=None, right=None, _propagating=False):
+    def set_xlim(self, left=None, right=None, *, emit=True, auto=None, _propagating=False):
+        # Handle tuple/list input
+        if left is not None and right is None and hasattr(left, '__len__'):
+            left, right = left
         # Validate: reject NaN or Inf
         for val, name in [(left, 'left'), (right, 'right')]:
             if val is not None:
-                if math.isnan(val):
+                fval = float(val)
+                if math.isnan(fval):
                     raise ValueError(
                         f"Axis limits cannot be NaN: {name}={val}")
-                if math.isinf(val):
+                if math.isinf(fval):
                     raise ValueError(
                         f"Axis limits cannot be Inf: {name}={val}")
         self._xlim = (left, right)
+        if auto is not None:
+            self._autoscalex_on = auto
         # Propagate to shared axes
         if not _propagating:
             for other in self._shared_x:
                 if other is not self:
                     other.set_xlim(left, right, _propagating=True)
+        return (left, right)
 
     def get_xlim(self):
         if self._xlim is not None and self._xlim[0] is not None and self._xlim[1] is not None:
@@ -1798,20 +2234,27 @@ class Axes:
             return (hi, lo)
         return (lo, hi)
 
-    def set_ylim(self, bottom=None, top=None, _propagating=False):
+    def set_ylim(self, bottom=None, top=None, *, emit=True, auto=None, _propagating=False):
+        # Handle tuple/list input
+        if bottom is not None and top is None and hasattr(bottom, '__len__'):
+            bottom, top = bottom
         for val, name in [(bottom, 'bottom'), (top, 'top')]:
             if val is not None:
-                if math.isnan(val):
+                fval = float(val)
+                if math.isnan(fval):
                     raise ValueError(
                         f"Axis limits cannot be NaN: {name}={val}")
-                if math.isinf(val):
+                if math.isinf(fval):
                     raise ValueError(
                         f"Axis limits cannot be Inf: {name}={val}")
         self._ylim = (bottom, top)
+        if auto is not None:
+            self._autoscaley_on = auto
         if not _propagating:
             for other in self._shared_y:
                 if other is not self:
                     other.set_ylim(bottom, top, _propagating=True)
+        return (bottom, top)
 
     def get_ylim(self):
         if self._ylim is not None and self._ylim[0] is not None and self._ylim[1] is not None:
@@ -2055,11 +2498,11 @@ class Axes:
     # Scale
     # ------------------------------------------------------------------
 
-    def set_xscale(self, scale):
+    def set_xscale(self, scale, **kwargs):
         """Set the x-axis scale (e.g. 'linear', 'log')."""
         self._xscale = scale
 
-    def set_yscale(self, scale):
+    def set_yscale(self, scale, **kwargs):
         """Set the y-axis scale (e.g. 'linear', 'log')."""
         self._yscale = scale
 
@@ -2077,6 +2520,11 @@ class Axes:
 
     def set_aspect(self, aspect, adjustable=None, anchor=None, share=False):
         """Set the axes aspect ratio."""
+        if aspect != 'auto' and aspect != 'equal':
+            aspect = float(aspect)
+            if aspect <= 0 or not math.isfinite(aspect):
+                raise ValueError("aspect must be finite and positive, "
+                                 f"not {aspect}")
         self._aspect = aspect
         if adjustable is not None:
             self._adjustable = adjustable
@@ -2455,6 +2903,12 @@ class Axes:
         self._ylabel_visible = True
         # Reset tick params
         self._tick_params = {'x': {}, 'y': {}}
+        # Reset axis objects
+        self.xaxis = XAxis(self)
+        self.yaxis = YAxis(self)
+        # Reset autoscale
+        self._autoscalex_on = True
+        self._autoscaley_on = True
 
     def clear(self):
         self.cla()
@@ -3134,6 +3588,32 @@ def _validate_1d(data, name):
                 f"'{name}' must be 1D, but appears to be 2D")
 
 
+class _SimpleBbox:
+    """Minimal Bbox-like for dataLim/viewLim."""
+
+    def __init__(self, x0, y0, x1, y1):
+        self.x0 = x0
+        self.y0 = y0
+        self.x1 = x1
+        self.y1 = y1
+
+    @property
+    def width(self):
+        return self.x1 - self.x0
+
+    @property
+    def height(self):
+        return self.y1 - self.y0
+
+    @property
+    def bounds(self):
+        return (self.x0, self.y0, self.width, self.height)
+
+    def __repr__(self):
+        return (f"Bbox([[{self.x0}, {self.y0}], "
+                f"[{self.x1}, {self.y1}]])")
+
+
 class _BboxLike:
     """Lightweight Bbox stand-in returned by Axes.get_position()."""
 
@@ -3147,6 +3627,7 @@ class _BboxLike:
         self.bounds = (x0, y0, width, height)
         self.p0 = (x0, y0)
         self.p1 = (x0 + width, y0 + height)
+        self.extents = (x0, y0, x0 + width, y0 + height)
 
     def __iter__(self):
         return iter(self.bounds)

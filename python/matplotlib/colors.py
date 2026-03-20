@@ -898,15 +898,29 @@ class TwoSlopeNorm(Normalize):
         self.vcenter = vcenter
 
     def __call__(self, value, clip=None):
+        # Auto-scale if needed
+        if isinstance(value, (list, tuple)):
+            data = [float(v) for v in value]
+        else:
+            data = [float(value)]
+
+        if self.vmin is None or self.vmax is None:
+            self.autoscale_None(data)
+
         if self.vmin is None or self.vmax is None:
             raise ValueError(
                 "TwoSlopeNorm requires vmin and vmax to be set")
+
         vmin, vmax = float(self.vmin), float(self.vmax)
         vc = float(self.vcenter)
+
+        # Ensure vmin < vcenter < vmax, adjusting symmetrically if needed
         if vmin >= vc:
-            raise ValueError("vmin must be less than vcenter")
+            vmin = vc - (vmax - vc)
+            self.vmin = vmin
         if vmax <= vc:
-            raise ValueError("vmax must be greater than vcenter")
+            vmax = vc + (vc - vmin)
+            self.vmax = vmax
 
         if isinstance(value, (list, tuple)):
             return [self._two_slope(v, vmin, vmax, vc) for v in value]

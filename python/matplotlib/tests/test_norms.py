@@ -89,10 +89,15 @@ class TestTwoSlopeNorm:
         assert norm.vmin == -2  # unchanged
         assert norm.vmax == 3
 
-    def test_requires_vmin_vmax(self):
+    def test_autoscale_on_call(self):
+        """TwoSlopeNorm autoscales vmin/vmax on call if not set."""
         norm = TwoSlopeNorm(vcenter=0)
-        with pytest.raises(ValueError):
-            norm(5)
+        result = norm(5)
+        assert norm.vmin is not None
+        assert norm.vmax is not None
+        # inverse requires vmin/vmax to be set
+        inv = norm.inverse(result)
+        assert abs(inv - 5) < 1e-6
 
     def test_positive_vcenter(self):
         norm = TwoSlopeNorm(vcenter=5, vmin=0, vmax=20)

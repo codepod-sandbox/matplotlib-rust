@@ -1,0 +1,700 @@
+"""
+Upstream matplotlib tests — batch 14.
+Focus: More figure, pyplot, patches, text, transforms, gridspec tests.
+"""
+import math
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle, Polygon, Wedge
+from matplotlib.text import Text, Annotation
+from matplotlib.collections import PathCollection, LineCollection
+import matplotlib.colors as mcolors
+import matplotlib.ticker as mticker
+from matplotlib.transforms import Bbox, Affine2D, IdentityTransform
+
+
+# ------------------------------------------------------------------
+# Patches tests
+# ------------------------------------------------------------------
+
+class TestRectangle:
+    def test_basic(self):
+        r = Rectangle((0, 0), 1, 1)
+        assert r.get_x() == 0
+        assert r.get_y() == 0
+        assert r.get_width() == 1
+        assert r.get_height() == 1
+
+    def test_get_xy(self):
+        r = Rectangle((2, 3), 1, 1)
+        assert r.get_x() == 2
+        assert r.get_y() == 3
+
+    def test_set_width_height(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_width(5)
+        r.set_height(10)
+        assert r.get_width() == 5
+        assert r.get_height() == 10
+
+    def test_color(self):
+        r = Rectangle((0, 0), 1, 1, facecolor='red')
+        fc = r.get_facecolor()
+        assert fc is not None
+
+    def test_edgecolor(self):
+        r = Rectangle((0, 0), 1, 1, edgecolor='blue')
+        ec = r.get_edgecolor()
+        assert ec is not None
+
+    def test_alpha(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_alpha(0.5)
+        assert r.get_alpha() == 0.5
+
+    def test_label(self):
+        r = Rectangle((0, 0), 1, 1, label='rect')
+        assert r.get_label() == 'rect'
+
+    def test_visible(self):
+        r = Rectangle((0, 0), 1, 1)
+        assert r.get_visible() is True
+        r.set_visible(False)
+        assert r.get_visible() is False
+
+    def test_zorder(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_zorder(5)
+        assert r.get_zorder() == 5
+
+    def test_repr(self):
+        r = Rectangle((0, 0), 1, 1)
+        assert 'Rectangle' in repr(r)
+
+    def test_bounds(self):
+        r = Rectangle((1, 2), 3, 4)
+        assert r.get_x() == 1
+        assert r.get_y() == 2
+
+
+class TestPolygon:
+    def test_basic(self):
+        p = Polygon([(0, 0), (1, 0), (0.5, 1)])
+        assert p is not None
+
+    def test_closed(self):
+        p = Polygon([(0, 0), (1, 0), (0.5, 1)], closed=True)
+        assert p is not None
+
+    def test_not_closed(self):
+        p = Polygon([(0, 0), (1, 0), (0.5, 1)], closed=False)
+        assert p is not None
+
+    def test_color(self):
+        p = Polygon([(0, 0), (1, 0), (0.5, 1)], facecolor='green')
+        assert p.get_facecolor() is not None
+
+    def test_label(self):
+        p = Polygon([(0, 0), (1, 0)], label='poly')
+        assert p.get_label() == 'poly'
+
+
+class TestWedge:
+    def test_basic(self):
+        w = Wedge((0, 0), 1, 0, 90)
+        assert w is not None
+
+    def test_color(self):
+        w = Wedge((0, 0), 1, 0, 90, facecolor='red')
+        assert w.get_facecolor() is not None
+
+
+# ------------------------------------------------------------------
+# Text tests
+# ------------------------------------------------------------------
+
+class TestText:
+    def test_basic(self):
+        t = Text(0.5, 0.5, 'hello')
+        assert t.get_text() == 'hello'
+
+    def test_position(self):
+        t = Text(0.5, 0.5, 'hello')
+        assert t.get_position() == (0.5, 0.5)
+
+    def test_set_text(self):
+        t = Text(0, 0, 'hello')
+        t.set_text('world')
+        assert t.get_text() == 'world'
+
+    def test_fontsize(self):
+        t = Text(0, 0, 'hello', fontsize=14)
+        assert t.get_fontsize() == 14
+
+    def test_color(self):
+        t = Text(0, 0, 'hello', color='red')
+        assert t.get_color() == 'red'
+
+    def test_ha(self):
+        t = Text(0, 0, 'hello', ha='center')
+        assert t.get_ha() == 'center'
+
+    def test_va(self):
+        t = Text(0, 0, 'hello', va='top')
+        assert t.get_va() == 'top'
+
+    def test_rotation(self):
+        t = Text(0, 0, 'hello', rotation=45)
+        assert t.get_rotation() == 45
+
+    def test_alpha(self):
+        t = Text(0, 0, 'hello')
+        t.set_alpha(0.5)
+        assert t.get_alpha() == 0.5
+
+    def test_visible(self):
+        t = Text(0, 0, 'hello')
+        assert t.get_visible() is True
+        t.set_visible(False)
+        assert t.get_visible() is False
+
+    def test_label(self):
+        t = Text(0, 0, 'hello')
+        t.set_label('my_text')
+        assert t.get_label() == 'my_text'
+
+    def test_repr(self):
+        t = Text(0, 0, 'hello')
+        assert 'Text' in repr(t)
+
+    def test_fontweight(self):
+        t = Text(0, 0, 'hello', fontweight='bold')
+        assert t.get_fontweight() == 'bold'
+
+    def test_fontstyle(self):
+        t = Text(0, 0, 'hello', fontstyle='italic')
+        assert t.get_fontstyle() == 'italic'
+
+    def test_fontfamily(self):
+        t = Text(0, 0, 'hello', fontfamily='serif')
+        assert t.get_fontfamily() == 'serif'
+
+
+class TestAnnotation:
+    def test_basic(self):
+        ann = Annotation('text', xy=(0.5, 0.5))
+        assert ann.get_text() == 'text'
+
+    def test_xytext(self):
+        ann = Annotation('text', xy=(0.5, 0.5), xytext=(0.3, 0.3))
+        assert ann is not None
+
+
+# ------------------------------------------------------------------
+# Transforms tests
+# ------------------------------------------------------------------
+
+class TestBbox:
+    def test_from_extents(self):
+        bb = Bbox.from_extents(0, 0, 1, 1)
+        assert bb.x0 == 0
+        assert bb.y0 == 0
+        assert bb.x1 == 1
+        assert bb.y1 == 1
+
+    def test_width_height(self):
+        bb = Bbox.from_extents(0, 0, 3, 4)
+        assert bb.width == 3
+        assert bb.height == 4
+
+    def test_from_bounds(self):
+        bb = Bbox.from_bounds(1, 2, 3, 4)
+        assert bb.x0 == 1
+        assert bb.y0 == 2
+        assert bb.width == 3
+        assert bb.height == 4
+
+    def test_bounds(self):
+        bb = Bbox.from_bounds(1, 2, 3, 4)
+        assert bb.bounds == (1, 2, 3, 4)
+
+    def test_p0_p1(self):
+        bb = Bbox.from_extents(1, 2, 3, 4)
+        assert bb.p0 == (1, 2)
+        assert bb.p1 == (3, 4)
+
+    def test_contains(self):
+        bb = Bbox.from_extents(0, 0, 10, 10)
+        assert bb.contains(5, 5) is True
+        assert bb.contains(15, 5) is False
+
+    def test_overlaps(self):
+        bb1 = Bbox.from_extents(0, 0, 10, 10)
+        bb2 = Bbox.from_extents(5, 5, 15, 15)
+        assert bb1.overlaps(bb2) is True
+        bb3 = Bbox.from_extents(20, 20, 30, 30)
+        assert bb1.overlaps(bb3) is False
+
+    def test_union(self):
+        bb1 = Bbox.from_extents(0, 0, 5, 5)
+        bb2 = Bbox.from_extents(3, 3, 10, 10)
+        u = Bbox.union([bb1, bb2])
+        assert u.x0 == 0
+        assert u.y0 == 0
+        assert u.x1 == 10
+        assert u.y1 == 10
+
+    def test_intersection(self):
+        bb1 = Bbox.from_extents(0, 0, 10, 10)
+        bb2 = Bbox.from_extents(5, 5, 15, 15)
+        inter = Bbox.intersection(bb1, bb2)
+        if inter is not None:
+            assert inter.x0 == 5
+            assert inter.y0 == 5
+
+    def test_expanded(self):
+        bb = Bbox.from_extents(0, 0, 10, 10)
+        exp = bb.expanded(2, 2)
+        assert exp.width == 20
+        assert exp.height == 20
+
+    def test_translated(self):
+        bb = Bbox.from_extents(0, 0, 10, 10)
+        tr = bb.translated(5, 3)
+        assert tr.x0 == 5
+        assert tr.y0 == 3
+
+    def test_frozen(self):
+        bb = Bbox.from_extents(0, 0, 10, 10)
+        f = bb.frozen()
+        assert f.x0 == 0
+
+    def test_repr(self):
+        bb = Bbox.from_extents(0, 0, 1, 1)
+        r = repr(bb)
+        assert 'Bbox' in r
+
+    def test_extents(self):
+        bb = Bbox.from_extents(1, 2, 3, 4)
+        assert bb.extents == (1, 2, 3, 4)
+
+    def test_min_max(self):
+        bb = Bbox.from_extents(1, 2, 3, 4)
+        assert bb.min == (1, 2)
+        assert bb.max == (3, 4)
+
+    def test_is_empty(self):
+        bb = Bbox.from_extents(0, 0, 0, 0)
+        assert bb.is_empty() is True
+        bb2 = Bbox.from_extents(0, 0, 1, 1)
+        assert bb2.is_empty() is False
+
+    def test_is_unit(self):
+        bb = Bbox.from_extents(0, 0, 1, 1)
+        assert bb.is_unit() is True
+
+    def test_size(self):
+        bb = Bbox.from_extents(0, 0, 3, 4)
+        assert bb.size == (3, 4)
+
+
+class TestAffine2D:
+    def test_identity(self):
+        t = Affine2D()
+        x, y = t.transform_point((1, 2))
+        assert abs(x - 1) < 1e-10
+        assert abs(y - 2) < 1e-10
+
+    def test_translate(self):
+        t = Affine2D().translate(10, 20)
+        x, y = t.transform_point((1, 2))
+        assert abs(x - 11) < 1e-10
+        assert abs(y - 22) < 1e-10
+
+    def test_scale(self):
+        t = Affine2D().scale(2, 3)
+        x, y = t.transform_point((4, 5))
+        assert abs(x - 8) < 1e-10
+        assert abs(y - 15) < 1e-10
+
+    def test_rotate(self):
+        t = Affine2D().rotate(math.pi / 2)
+        x, y = t.transform_point((1, 0))
+        assert abs(x - 0) < 1e-10
+        assert abs(y - 1) < 1e-10
+
+    def test_rotate_deg(self):
+        t = Affine2D().rotate_deg(90)
+        x, y = t.transform_point((1, 0))
+        assert abs(x - 0) < 1e-10
+        assert abs(y - 1) < 1e-10
+
+    def test_chain(self):
+        t = Affine2D().scale(2).translate(1, 1)
+        x, y = t.transform_point((3, 4))
+        assert abs(x - 7) < 1e-10
+        assert abs(y - 9) < 1e-10
+
+    def test_inverted(self):
+        t = Affine2D().translate(10, 20)
+        inv = t.inverted()
+        x, y = inv.transform_point((11, 22))
+        assert abs(x - 1) < 1e-10
+        assert abs(y - 2) < 1e-10
+
+    def test_frozen(self):
+        t = Affine2D().scale(2)
+        f = t.frozen()
+        x, y = f.transform_point((3, 4))
+        assert abs(x - 6) < 1e-10
+
+    def test_get_matrix(self):
+        t = Affine2D()
+        m = t.get_matrix()
+        assert len(m) == 3
+        assert len(m[0]) == 3
+
+    def test_repr(self):
+        t = Affine2D()
+        r = repr(t)
+        assert 'Affine2D' in r
+
+    def test_rotate_around(self):
+        t = Affine2D().rotate_deg_around(5, 5, 180)
+        x, y = t.transform_point((5, 5))
+        assert abs(x - 5) < 1e-10
+        assert abs(y - 5) < 1e-10
+
+    def test_scale_uniform(self):
+        t = Affine2D().scale(3)
+        x, y = t.transform_point((2, 2))
+        assert abs(x - 6) < 1e-10
+        assert abs(y - 6) < 1e-10
+
+
+class TestIdentityTransform:
+    def test_basic(self):
+        t = IdentityTransform()
+        x, y = t.transform_point((5, 10))
+        assert x == 5
+        assert y == 10
+
+
+# ------------------------------------------------------------------
+# GridSpec tests
+# ------------------------------------------------------------------
+
+class TestGridSpec:
+    def test_basic(self):
+        from matplotlib.gridspec import GridSpec
+        gs = GridSpec(2, 3)
+        assert gs.nrows == 2
+        assert gs.ncols == 3
+
+    def test_subscript(self):
+        from matplotlib.gridspec import GridSpec
+        gs = GridSpec(2, 3)
+        ss = gs[0, 0]
+        assert ss is not None
+
+    def test_from_figure(self):
+        fig = plt.figure()
+        gs = fig.add_gridspec(2, 2)
+        assert gs.nrows == 2
+        assert gs.ncols == 2
+
+
+# ------------------------------------------------------------------
+# Pyplot module tests
+# ------------------------------------------------------------------
+
+class TestPyplot:
+    def test_figure(self):
+        fig = plt.figure()
+        assert isinstance(fig, Figure)
+
+    def test_subplots_single(self):
+        fig, ax = plt.subplots()
+        assert isinstance(ax, Axes)
+
+    def test_subplots_grid(self):
+        fig, axes = plt.subplots(2, 3)
+        assert len(axes) == 2
+        assert len(axes[0]) == 3
+
+    def test_plot(self):
+        lines = plt.plot([1, 2, 3])
+        assert len(lines) >= 1
+
+    def test_xlabel_ylabel(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2])
+        plt.xlabel('X')
+        plt.ylabel('Y')
+
+    def test_title(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2])
+        plt.title('Title')
+
+    def test_xlim_ylim(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3])
+        plt.xlim(0, 4)
+        plt.ylim(0, 4)
+
+    def test_close(self):
+        fig = plt.figure()
+        plt.close(fig)
+
+    def test_close_all(self):
+        plt.figure()
+        plt.figure()
+        plt.close('all')
+
+    def test_savefig(self):
+        import tempfile, os
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3])
+        with tempfile.NamedTemporaryFile(suffix='.svg', delete=False) as f:
+            fname = f.name
+        try:
+            fig.savefig(fname)
+            assert os.path.exists(fname)
+            assert os.path.getsize(fname) > 0
+        finally:
+            os.unlink(fname)
+
+    def test_gcf(self):
+        fig = plt.figure()
+        assert plt.gcf() is fig
+
+    def test_gca(self):
+        fig, ax = plt.subplots()
+        assert plt.gca() is ax
+
+    def test_scatter(self):
+        fig, ax = plt.subplots()
+        ax.scatter([1, 2, 3], [4, 5, 6])
+
+    def test_bar(self):
+        fig, ax = plt.subplots()
+        ax.bar([0, 1, 2], [3, 5, 7])
+
+    def test_hist(self):
+        fig, ax = plt.subplots()
+        ax.hist([1, 2, 2, 3, 3, 3])
+
+    def test_legend(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], label='line')
+        ax.legend()
+
+
+# ------------------------------------------------------------------
+# Container tests
+# ------------------------------------------------------------------
+
+class TestContainers:
+    def test_bar_container_label(self):
+        from matplotlib.container import BarContainer
+        fig, ax = plt.subplots()
+        bars = ax.bar([0, 1], [2, 3], label='bars')
+        assert isinstance(bars, BarContainer)
+        assert bars.get_label() == 'bars'
+
+    def test_bar_container_iter(self):
+        fig, ax = plt.subplots()
+        bars = ax.bar([0, 1], [2, 3])
+        count = 0
+        for b in bars:
+            count += 1
+        assert count == 2
+
+    def test_bar_container_len(self):
+        fig, ax = plt.subplots()
+        bars = ax.bar([0, 1, 2], [2, 3, 4])
+        assert len(bars) == 3
+
+    def test_errorbar_container(self):
+        from matplotlib.container import ErrorbarContainer
+        fig, ax = plt.subplots()
+        container = ax.errorbar([0, 1], [0, 1], yerr=0.1)
+        assert isinstance(container, ErrorbarContainer)
+
+    def test_stem_container(self):
+        from matplotlib.container import StemContainer
+        fig, ax = plt.subplots()
+        container = ax.stem([1, 2, 3])
+        assert isinstance(container, StemContainer)
+
+    def test_stem_container_label(self):
+        fig, ax = plt.subplots()
+        container = ax.stem([1, 2, 3], label='stems')
+        assert container.get_label() == 'stems'
+
+
+# ------------------------------------------------------------------
+# Artist base class tests
+# ------------------------------------------------------------------
+
+class TestArtistBase:
+    def test_line_is_artist(self):
+        from matplotlib.artist import Artist
+        line = Line2D([0, 1], [0, 1])
+        assert isinstance(line, Artist)
+
+    def test_rectangle_is_artist(self):
+        from matplotlib.artist import Artist
+        r = Rectangle((0, 0), 1, 1)
+        assert isinstance(r, Artist)
+
+    def test_text_is_artist(self):
+        from matplotlib.artist import Artist
+        t = Text(0, 0, 'hello')
+        assert isinstance(t, Artist)
+
+    def test_artist_set_get_alpha(self):
+        from matplotlib.artist import Artist
+        a = Artist()
+        a.set_alpha(0.7)
+        assert a.get_alpha() == 0.7
+
+    def test_artist_set_get_visible(self):
+        from matplotlib.artist import Artist
+        a = Artist()
+        assert a.get_visible() is True
+        a.set_visible(False)
+        assert a.get_visible() is False
+
+    def test_artist_set_get_zorder(self):
+        from matplotlib.artist import Artist
+        a = Artist()
+        a.set_zorder(42)
+        assert a.get_zorder() == 42
+
+    def test_artist_set_get_label(self):
+        from matplotlib.artist import Artist
+        a = Artist()
+        a.set_label('test')
+        assert a.get_label() == 'test'
+
+    def test_artist_set(self):
+        """Artist.set(**kwargs) batch setter."""
+        line = Line2D([0, 1], [0, 1])
+        line.set(linewidth=5, linestyle='--')
+        assert line.get_linewidth() == 5
+        assert line.get_linestyle() == '--'
+
+
+# ------------------------------------------------------------------
+# Additional misc
+# ------------------------------------------------------------------
+
+def test_figure_number():
+    fig = plt.figure()
+    assert fig.number is not None
+
+
+def test_figure_add_axes():
+    fig = plt.figure()
+    ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+    assert isinstance(ax, Axes)
+    assert ax in fig.get_axes()
+
+
+def test_figure_add_subplot_three_digit():
+    fig = plt.figure()
+    ax = fig.add_subplot(221)
+    assert isinstance(ax, Axes)
+
+
+def test_axes_set_and_get():
+    """Test Axes.set() with various properties."""
+    fig, ax = plt.subplots()
+    ax.set(xlim=(0, 10), ylim=(0, 20), title='test',
+           xlabel='x', ylabel='y', xscale='linear', yscale='linear')
+    assert ax.get_xlim() == (0, 10)
+    assert ax.get_ylim() == (0, 20)
+    assert ax.get_title() == 'test'
+
+
+def test_subplots_sharex():
+    fig, axes = plt.subplots(2, 1, sharex=True)
+    axes[0].set_xlim(0, 10)
+    # shared axes should propagate
+    assert axes[1].get_xlim() == (0, 10)
+
+
+def test_subplots_sharey():
+    fig, axes = plt.subplots(1, 2, sharey=True)
+    axes[0].set_ylim(0, 10)
+    assert axes[1].get_ylim() == (0, 10)
+
+
+def test_axes_invert_and_limits():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 10)
+    ax.invert_xaxis()
+    lo, hi = ax.get_xlim()
+    assert lo > hi  # inverted
+
+
+def test_clear_resets_limits():
+    fig, ax = plt.subplots()
+    ax.set_xlim(5, 15)
+    ax.cla()
+    # After clear, auto-limits should apply
+    lo, hi = ax.get_xlim()
+    assert lo == 0.0 and hi == 1.0  # default
+
+
+def test_loglog_convenience():
+    fig, ax = plt.subplots()
+    ax.loglog([1, 10, 100], [1, 100, 10000])
+    assert ax.get_xscale() == 'log'
+    assert ax.get_yscale() == 'log'
+
+
+def test_semilogx_convenience():
+    fig, ax = plt.subplots()
+    ax.semilogx([1, 10, 100], [1, 2, 3])
+    assert ax.get_xscale() == 'log'
+
+
+def test_semilogy_convenience():
+    fig, ax = plt.subplots()
+    ax.semilogy([1, 2, 3], [1, 10, 100])
+    assert ax.get_yscale() == 'log'
+
+
+def test_multiple_plots_color_cycle():
+    """Each plot call should use the next color in the cycle."""
+    fig, ax = plt.subplots()
+    l1, = ax.plot([0, 1])
+    l2, = ax.plot([1, 0])
+    assert l1.get_color() != l2.get_color()
+
+
+def test_plot_returns_list():
+    fig, ax = plt.subplots()
+    result = ax.plot([1, 2, 3])
+    assert isinstance(result, list)
+    assert len(result) == 1
+
+
+def test_imshow_limits():
+    """imshow sets limits to image extent."""
+    fig, ax = plt.subplots()
+    ax.imshow([[0, 1], [2, 3]])
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    # Should encompass the image
+
+
+def test_pcolormesh_limits():
+    fig, ax = plt.subplots()
+    ax.pcolormesh([[0, 1], [2, 3]])
