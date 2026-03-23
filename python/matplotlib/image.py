@@ -106,9 +106,68 @@ class AxesImage(Artist):
     def set_interpolation(self, interpolation):
         self._interpolation = interpolation
 
-    # --- draw (no-op for now; SVG/PIL backends don't render images) ---
     def draw(self, renderer, layout):
         if not self.get_visible():
             return
-        # Image rendering is a no-op in this implementation
-        pass
+        if self._data is None:
+            return
+
+        import matplotlib.cm as _cm
+
+        rows = self._data
+        if not rows:
+            return
+
+        first_row = rows[0] if rows else []
+        if not first_row:
+            return
+        first_cell = first_row[0] if first_row else None
+        is_scalar = first_cell is not None and not hasattr(first_cell, '__len__')
+
+        if is_scalar:
+            cmap_name = self._cmap if self._cmap else 'viridis'
+            colormap = _cm.get_cmap(cmap_name)
+            vmin, vmax = self.get_clim()
+            rng = (vmax - vmin) if vmax != vmin else 1.0
+            rgba_array = []
+            for row in rows:
+                rgba_row = []
+                for v in row:
+                    t = max(0.0, min(1.0, (float(v) - vmin) / rng))
+                    rgba = colormap(t)
+                    rgba_row.append((
+                        int(rgba[0] * 255), int(rgba[1] * 255),
+                        int(rgba[2] * 255), int(rgba[3] * 255)
+                    ))
+                rgba_array.append(rgba_row)
+        else:
+            rgba_array = []
+            for row in rows:
+                rgba_row = []
+                for px in row:
+                    px = list(px)
+                    if len(px) == 3:
+                        rgba_row.append((int(px[0]), int(px[1]), int(px[2]), 255))
+                    else:
+                        rgba_row.append((int(px[0]), int(px[1]), int(px[2]), int(px[3])))
+                rgba_array.append(rgba_row)
+
+        # Map image extent to pixel coordinates
+        if self._extent is not None and layout is not None:
+            x0, x1, y0, y1 = self._extent
+            px0 = layout.sx(x0)
+            px1 = layout.sx(x1)
+            py0 = layout.sy(y0)
+            py1 = layout.sy(y1)
+            img_x = min(px0, px1)
+            img_y = min(py0, py1)
+            img_w = abs(px1 - px0)
+            img_h = abs(py1 - py0)
+        else:
+            # Fill the plot area
+            img_x = layout.plot_x if layout else 0
+            img_y = layout.plot_y if layout else 0
+            img_w = layout.plot_w if layout else renderer.width
+            img_h = layout.plot_h if layout else renderer.height
+
+        renderer.draw_image(img_x, img_y, img_w, img_h, rgba_array)

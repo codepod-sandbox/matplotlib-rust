@@ -1262,40 +1262,67 @@ class TwoSlopeNorm(Normalize):
     def __init__(self, vcenter, vmin=None, vmax=None):
         super().__init__(vmin=vmin, vmax=vmax)
         self.vcenter = float(vcenter)
+        if vmin is not None and float(vmin) >= float(vcenter):
+            raise ValueError("vmin must be less than vcenter")
+        if vmax is not None and float(vmax) <= float(vcenter):
+            raise ValueError("vmax must be greater than vcenter")
+
+    def _map_value(self, v, vmin, vmax, vc):
+        import math
+        if math.isnan(v):
+            return float('nan')
+        if v <= vc:
+            return 0.5 * (v - vmin) / (vc - vmin) if vc != vmin else 0.5
+        else:
+            return 0.5 + 0.5 * (v - vc) / (vmax - vc) if vmax != vc else 0.5
 
     def __call__(self, value, clip=None):
-        import numpy as np
+        import math
+        # Autoscale vmin/vmax from the value if not set
+        if self.vmin is None or self.vmax is None:
+            if isinstance(value, (list, tuple)):
+                flat = [float(v) for v in value]
+            else:
+                flat = [float(value)]
+            data_min = min(flat)
+            data_max = max(flat)
+            if self.vmin is None:
+                self.vmin = min(data_min, self.vcenter - 1e-10)
+            if self.vmax is None:
+                self.vmax = max(data_max, self.vcenter + 1e-10)
+
+        vmin = float(self.vmin)
+        vmax = float(self.vmax)
+        vc = self.vcenter
+
+        if isinstance(value, (list, tuple)):
+            result = [self._map_value(float(v), vmin, vmax, vc) for v in value]
+            if self.clip:
+                result = [max(0.0, min(1.0, r)) for r in result]
+            return result
+
+        result = self._map_value(float(value), vmin, vmax, vc)
+        if self.clip and not math.isnan(result):
+            result = max(0.0, min(1.0, result))
+        return result
+
+    def inverse(self, value):
         if self.vmin is None or self.vmax is None:
             raise ValueError("TwoSlopeNorm requires vmin and vmax")
         vmin = float(self.vmin)
         vmax = float(self.vmax)
         vc = self.vcenter
 
-        scalar = not hasattr(value, '__len__') and not hasattr(value, 'shape')
-        arr = np.asarray(value, dtype=float)
-        flat = arr.flatten().tolist()
-        result = []
-        for v in flat:
-            if np.isnan(v):
-                result.append(float('nan'))
-            elif v <= vc:
-                # Map [vmin, vcenter] -> [0, 0.5]
-                if vc == vmin:
-                    result.append(0.5)
-                else:
-                    result.append(0.5 * (v - vmin) / (vc - vmin))
+        def _inv(v):
+            v = float(v)
+            if v <= 0.5:
+                return vmin + 2 * v * (vc - vmin)
             else:
-                # Map [vcenter, vmax] -> [0.5, 1.0]
-                if vmax == vc:
-                    result.append(0.5)
-                else:
-                    result.append(0.5 + 0.5 * (v - vc) / (vmax - vc))
-        out = np.array(result, dtype=float)
-        if self.clip:
-            out = np.clip(out, 0.0, 1.0)
-        if scalar:
-            return float(out.tolist()[0])
-        return out.reshape(arr.shape)
+                return vc + 2 * (v - 0.5) * (vmax - vc)
+
+        if isinstance(value, (list, tuple)):
+            return [_inv(v) for v in value]
+        return _inv(value)
 
 
 class CenteredNorm(Normalize):

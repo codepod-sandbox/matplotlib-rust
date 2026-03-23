@@ -440,6 +440,8 @@ class Axes:
         # XAxis / YAxis objects
         self.xaxis = XAxis(self)
         self.yaxis = YAxis(self)
+        self.xaxis.set_scale(self._xscale_obj)
+        self.yaxis.set_scale(self._yscale_obj)
 
         # Autoscale state
         self._autoscalex_on = True
@@ -2854,6 +2856,8 @@ class Axes:
 
         # Collect + sort all artists by zorder
         all_artists = []
+        for img in self.images:
+            all_artists.append(img)
         for line in self.lines:
             all_artists.append(line)
         for patch in self.patches:
@@ -3056,6 +3060,8 @@ class Axes:
         # Reset axis objects
         self.xaxis = XAxis(self)
         self.yaxis = YAxis(self)
+        self.xaxis.set_scale(self._xscale_obj)
+        self.yaxis.set_scale(self._yscale_obj)
         # Reset autoscale
         self._autoscalex_on = True
         self._autoscaley_on = True
