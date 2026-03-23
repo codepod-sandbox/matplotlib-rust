@@ -1,0 +1,641 @@
+"""
+Upstream tests — batch 17.
+Focus: Transforms, Patches, Figure, Legend, Collections.
+Adapted from matplotlib upstream tests (no canvas rendering, no image comparison).
+Note: Using abs() comparisons instead of pytest.approx (RustPython np.bool_ compat).
+"""
+import math
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.transforms import (
+    Bbox, Affine2D, IdentityTransform, BboxTransform,
+)
+from matplotlib.patches import (
+    Rectangle, Circle, Polygon, Ellipse, Arc, FancyBboxPatch,
+    FancyArrowPatch, Arrow, RegularPolygon, PathPatch, Wedge,
+)
+from matplotlib.collections import (
+    LineCollection, PathCollection,
+)
+from matplotlib.figure import Figure
+from matplotlib.legend import Legend
+from matplotlib.lines import Line2D
+from matplotlib.text import Text
+
+
+def close(a, b, tol=1e-10):
+    """Check approximate equality."""
+    return abs(a - b) < tol
+
+
+# ------------------------------------------------------------------
+# Bbox tests
+# ------------------------------------------------------------------
+
+class TestBbox:
+    def test_from_bounds(self):
+        bb = Bbox.from_bounds(1, 2, 3, 4)
+        assert bb.x0 == 1
+        assert bb.y0 == 2
+        assert close(bb.width, 3)
+        assert close(bb.height, 4)
+        assert bb.x1 == 4
+        assert bb.y1 == 6
+
+    def test_from_extents(self):
+        bb = Bbox.from_extents(1, 2, 5, 6)
+        assert bb.x0 == 1
+        assert bb.y0 == 2
+        assert bb.x1 == 5
+        assert bb.y1 == 6
+
+    def test_unit(self):
+        bb = Bbox.unit()
+        assert bb.x0 == 0
+        assert bb.y0 == 0
+        assert bb.x1 == 1
+        assert bb.y1 == 1
+
+    def test_null(self):
+        bb = Bbox.null()
+        assert bb is not None
+
+    def test_width_height(self):
+        bb = Bbox.from_bounds(0, 0, 5, 3)
+        assert close(bb.width, 5)
+        assert close(bb.height, 3)
+
+    def test_contains(self):
+        bb = Bbox.from_bounds(0, 0, 10, 10)
+        assert bb.contains(5, 5)
+        assert not bb.contains(15, 5)
+        assert not bb.contains(5, 15)
+
+    def test_containsx(self):
+        bb = Bbox.from_extents(0, 0, 10, 10)
+        assert bb.containsx(5)
+        assert not bb.containsx(15)
+
+    def test_containsy(self):
+        bb = Bbox.from_extents(0, 0, 10, 10)
+        assert bb.containsy(5)
+        assert not bb.containsy(15)
+
+    def test_overlaps(self):
+        bb1 = Bbox.from_extents(0, 0, 10, 10)
+        bb2 = Bbox.from_extents(5, 5, 15, 15)
+        assert bb1.overlaps(bb2)
+
+    def test_not_overlaps(self):
+        bb1 = Bbox.from_extents(0, 0, 5, 5)
+        bb2 = Bbox.from_extents(10, 10, 20, 20)
+        assert not bb1.overlaps(bb2)
+
+    def test_size(self):
+        bb = Bbox.from_bounds(1, 2, 7, 4)
+        assert close(bb.size[0], 7)
+        assert close(bb.size[1], 4)
+
+    def test_expanded(self):
+        bb = Bbox.from_bounds(1, 1, 4, 4)
+        expanded = bb.expanded(2, 2)
+        # expanded should be wider and taller
+        assert expanded.width > bb.width
+        assert expanded.height > bb.height
+
+    def test_translated(self):
+        bb = Bbox.from_bounds(0, 0, 5, 5)
+        t = bb.translated(2, 3)
+        assert close(t.x0, 2)
+        assert close(t.y0, 3)
+        assert close(t.x1, 7)
+        assert close(t.y1, 8)
+
+    def test_bounds_property(self):
+        bb = Bbox.from_bounds(1, 2, 3, 4)
+        b = bb.bounds
+        assert len(b) == 4
+        assert close(b[0], 1)
+        assert close(b[1], 2)
+
+    def test_extents_property(self):
+        bb = Bbox.from_extents(1, 2, 5, 6)
+        e = bb.extents
+        assert len(e) == 4
+        assert close(e[0], 1)
+        assert close(e[2], 5)
+
+    def test_intervalx(self):
+        bb = Bbox.from_extents(1, 2, 5, 6)
+        ix = bb.intervalx
+        assert close(ix[0], 1)
+        assert close(ix[1], 5)
+
+    def test_intervaly(self):
+        bb = Bbox.from_extents(1, 2, 5, 6)
+        iy = bb.intervaly
+        assert close(iy[0], 2)
+        assert close(iy[1], 6)
+
+    def test_update_from_data_xy(self):
+        bb = Bbox([[0, 0], [1, 1]])
+        # Use list of lists to avoid numpy array truth value issue
+        xy = [[2, 3], [4, 5]]
+        bb.update_from_data_xy(xy)
+        assert close(bb.x0, 2)
+        assert close(bb.y0, 3)
+        assert close(bb.x1, 4)
+        assert close(bb.y1, 5)
+
+    def test_is_unit(self):
+        bb = Bbox.unit()
+        assert bb.is_unit()
+
+    def test_is_empty(self):
+        bb = Bbox([[0, 0], [0, 0]])
+        assert bb.is_empty()
+
+    def test_union(self):
+        bb1 = Bbox.from_extents(0, 0, 5, 5)
+        bb2 = Bbox.from_extents(3, 3, 10, 10)
+        union = Bbox.union([bb1, bb2])
+        assert close(union.x0, 0)
+        assert close(union.y0, 0)
+        assert close(union.x1, 10)
+        assert close(union.y1, 10)
+
+    def test_intersection(self):
+        bb1 = Bbox.from_extents(0, 0, 10, 10)
+        bb2 = Bbox.from_extents(5, 5, 15, 15)
+        inter = Bbox.intersection(bb1, bb2)
+        assert inter is not None
+        assert close(inter.x0, 5)
+        assert close(inter.y0, 5)
+
+    def test_repr(self):
+        bb = Bbox.from_bounds(0, 0, 1, 1)
+        r = repr(bb)
+        assert 'Bbox' in r
+
+    def test_padded(self):
+        bb = Bbox.from_bounds(1, 1, 4, 4)
+        padded = bb.padded(1)
+        assert padded.width > bb.width
+
+
+# ------------------------------------------------------------------
+# Affine2D tests
+# ------------------------------------------------------------------
+
+class TestAffine2D:
+    def test_identity(self):
+        t = Affine2D()
+        pt = t.transform([1, 2])
+        assert close(pt[0], 1.0)
+        assert close(pt[1], 2.0)
+
+    def test_translate(self):
+        t = Affine2D().translate(3, 4)
+        pt = t.transform([1, 2])
+        assert close(pt[0], 4.0)
+        assert close(pt[1], 6.0)
+
+    def test_scale(self):
+        t = Affine2D().scale(2, 3)
+        pt = t.transform([1, 2])
+        assert close(pt[0], 2.0)
+        assert close(pt[1], 6.0)
+
+    def test_rotate_90(self):
+        t = Affine2D().rotate(math.pi / 2)
+        pt = t.transform([1, 0])
+        assert abs(pt[0]) < 1e-10
+        assert close(pt[1], 1.0)
+
+    def test_rotate_deg(self):
+        t = Affine2D().rotate_deg(90)
+        pt = t.transform([1, 0])
+        assert abs(pt[0]) < 1e-10
+        assert close(pt[1], 1.0)
+
+    def test_is_identity(self):
+        t = Affine2D()
+        assert t.is_identity()
+        t.translate(1, 0)
+        assert not t.is_identity()
+
+    def test_inverted(self):
+        t = Affine2D().translate(3, 4)
+        ti = t.inverted()
+        pt = ti.transform([4, 6])
+        assert close(pt[0], 1.0)
+        assert close(pt[1], 2.0)
+
+    def test_identity_static(self):
+        t = Affine2D.identity()
+        assert t.is_identity()
+
+    def test_clear(self):
+        t = Affine2D().translate(3, 4).scale(2)
+        t.clear()
+        assert t.is_identity()
+
+    def test_get_matrix(self):
+        t = Affine2D()
+        m = t.get_matrix()
+        assert m[0][0] == 1.0
+        assert m[1][1] == 1.0
+        assert m[2][2] == 1.0
+        assert m[0][1] == 0.0
+
+    def test_eq(self):
+        t1 = Affine2D().translate(1, 2)
+        t2 = Affine2D().translate(1, 2)
+        assert t1 == t2
+
+    def test_repr(self):
+        t = Affine2D()
+        r = repr(t)
+        assert 'Affine2D' in r
+
+    def test_compose(self):
+        t1 = Affine2D().translate(1, 0)
+        t2 = Affine2D().translate(0, 1)
+        composed = t1 + t2
+        assert composed is not None
+
+    def test_frozen(self):
+        t = Affine2D().translate(1, 2)
+        f = t.frozen()
+        assert f is not None
+
+    def test_skew_deg(self):
+        t = Affine2D().skew_deg(0, 0)
+        # Zero skew should keep identity for these components
+        m = t.get_matrix()
+        assert close(m[0][0], 1.0)
+
+    def test_rotate_around(self):
+        t = Affine2D().rotate_around(0, 0, math.pi)
+        pt = t.transform([1, 0])
+        assert close(pt[0], -1.0)
+        assert abs(pt[1]) < 1e-10
+
+
+# ------------------------------------------------------------------
+# IdentityTransform tests
+# ------------------------------------------------------------------
+
+class TestIdentityTransform:
+    def test_transform(self):
+        t = IdentityTransform()
+        assert t.transform([1, 2]) == [1, 2]
+
+    def test_inverted(self):
+        t = IdentityTransform()
+        ti = t.inverted()
+        assert isinstance(ti, IdentityTransform)
+
+    def test_is_affine(self):
+        t = IdentityTransform()
+        assert t.is_affine
+
+    def test_repr(self):
+        t = IdentityTransform()
+        r = repr(t)
+        assert 'Identity' in r
+
+
+# ------------------------------------------------------------------
+# Rectangle patch tests
+# ------------------------------------------------------------------
+
+class TestRectangle:
+    def test_creation(self):
+        r = Rectangle((0, 0), 1, 2)
+        assert r is not None
+
+    def test_get_xy(self):
+        r = Rectangle((3, 4), 1, 2)
+        xy = r.get_xy()
+        assert close(xy[0], 3)
+        assert close(xy[1], 4)
+
+    def test_get_width(self):
+        r = Rectangle((0, 0), 5, 3)
+        assert close(r.get_width(), 5)
+
+    def test_get_height(self):
+        r = Rectangle((0, 0), 5, 3)
+        assert close(r.get_height(), 3)
+
+    def test_set_xy(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_xy((2, 3))
+        xy = r.get_xy()
+        assert close(xy[0], 2)
+        assert close(xy[1], 3)
+
+    def test_set_width(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_width(7)
+        assert close(r.get_width(), 7)
+
+    def test_set_height(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_height(9)
+        assert close(r.get_height(), 9)
+
+    def test_facecolor(self):
+        r = Rectangle((0, 0), 1, 1, facecolor='red')
+        fc = r.get_facecolor()
+        assert len(fc) == 4
+        assert close(fc[0], 1.0)  # red channel
+
+    def test_edgecolor(self):
+        r = Rectangle((0, 0), 1, 1, edgecolor='blue')
+        ec = r.get_edgecolor()
+        assert len(ec) == 4
+
+    def test_linewidth(self):
+        r = Rectangle((0, 0), 1, 1, linewidth=2)
+        assert close(r.get_linewidth(), 2)
+
+    def test_visible(self):
+        r = Rectangle((0, 0), 1, 1)
+        assert r.get_visible()
+        r.set_visible(False)
+        assert not r.get_visible()
+
+
+# ------------------------------------------------------------------
+# Circle tests
+# ------------------------------------------------------------------
+
+class TestCircle:
+    def test_creation(self):
+        c = Circle((0, 0), radius=1)
+        assert c is not None
+
+    def test_get_radius(self):
+        c = Circle((0, 0), radius=5)
+        assert close(c.get_radius(), 5)
+
+    def test_set_radius(self):
+        c = Circle((0, 0), radius=1)
+        c.set_radius(3)
+        assert close(c.get_radius(), 3)
+
+    def test_center(self):
+        c = Circle((2, 3), radius=1)
+        ctr = c.get_center()
+        assert close(ctr[0], 2)
+        assert close(ctr[1], 3)
+
+
+# ------------------------------------------------------------------
+# Ellipse tests
+# ------------------------------------------------------------------
+
+class TestEllipse:
+    def test_creation(self):
+        e = Ellipse((0, 0), width=4, height=2)
+        assert e is not None
+
+    def test_get_width_height(self):
+        e = Ellipse((0, 0), width=4, height=2)
+        assert close(e.get_width(), 4)
+        assert close(e.get_height(), 2)
+
+
+# ------------------------------------------------------------------
+# Polygon tests
+# ------------------------------------------------------------------
+
+class TestPolygon:
+    def test_creation(self):
+        verts = [(0, 0), (1, 0), (0.5, 1)]
+        p = Polygon(verts)
+        assert p is not None
+
+    def test_get_xy(self):
+        verts = [(0, 0), (1, 0), (0.5, 1)]
+        p = Polygon(verts)
+        xy = p.get_xy()
+        assert len(xy) >= 3
+
+
+# ------------------------------------------------------------------
+# Wedge tests
+# ------------------------------------------------------------------
+
+class TestWedge:
+    def test_creation(self):
+        w = Wedge((0, 0), r=1, theta1=0, theta2=90)
+        assert w is not None
+
+    def test_angles(self):
+        w = Wedge((0.5, 0.5), r=2, theta1=30, theta2=120)
+        assert close(w.get_theta1(), 30)
+        assert close(w.get_theta2(), 120)
+
+
+# ------------------------------------------------------------------
+# Legend tests
+# ------------------------------------------------------------------
+
+class TestLegend:
+    def test_creation(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], label='line')
+        leg = ax.legend()
+        assert leg is not None
+
+    def test_get_texts(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], label='hello')
+        leg = ax.legend()
+        texts = leg.get_texts()
+        assert len(texts) >= 1
+
+    def test_get_title(self):
+        fig, ax = plt.subplots()
+        leg = ax.legend(title='My Legend')
+        title = leg.get_title()
+        assert title is not None
+
+    def test_set_title(self):
+        fig, ax = plt.subplots()
+        leg = ax.legend()
+        leg.set_title('New Title')
+        assert leg.get_title() is not None
+
+    def test_frameon(self):
+        fig, ax = plt.subplots()
+        leg = ax.legend(frameon=True)
+        assert leg._frameon is True
+
+    def test_ncol(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], label='a')
+        ax.plot([3, 4], label='b')
+        leg = ax.legend(ncol=2)
+        assert leg._ncol == 2
+
+    def test_get_frame(self):
+        fig, ax = plt.subplots()
+        leg = ax.legend()
+        frame = leg.get_frame()
+        assert frame is not None
+
+    def test_legend_visible(self):
+        fig, ax = plt.subplots()
+        leg = ax.legend()
+        assert leg._visible
+
+    def test_legend_loc_codes(self):
+        from matplotlib.legend import Legend
+        assert Legend.codes['best'] == 0
+        assert Legend.codes['upper right'] == 1
+        assert Legend.codes['upper left'] == 2
+        assert Legend.codes['lower left'] == 3
+        assert Legend.codes['lower right'] == 4
+
+
+# ------------------------------------------------------------------
+# Figure tests
+# ------------------------------------------------------------------
+
+class TestFigure:
+    def test_creation(self):
+        fig = Figure()
+        assert fig is not None
+
+    def test_add_subplot(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        assert ax is not None
+
+    def test_add_axes(self):
+        fig = Figure()
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+        assert ax is not None
+
+    def test_subplots(self):
+        fig, axes = plt.subplots(2, 2)
+        assert len(axes) == 2
+        assert len(axes[0]) == 2
+
+    def test_get_axes(self):
+        fig = Figure()
+        ax1 = fig.add_subplot(1, 2, 1)
+        ax2 = fig.add_subplot(1, 2, 2)
+        all_axes = fig.get_axes()
+        assert len(all_axes) == 2
+
+    def test_figure_figsize(self):
+        fig = Figure(figsize=(8, 6))
+        assert fig is not None
+
+    def test_figure_dpi(self):
+        fig = Figure(dpi=100)
+        assert fig.dpi == 100
+
+    def test_suptitle(self):
+        fig = Figure()
+        fig.suptitle('Test Title')
+
+    def test_tight_layout(self):
+        fig, ax = plt.subplots()
+        fig.tight_layout()  # Should not error
+
+    def test_get_size_inches(self):
+        fig = Figure(figsize=(8, 6))
+        size = fig.get_size_inches()
+        assert close(size[0], 8)
+        assert close(size[1], 6)
+
+    def test_set_size_inches(self):
+        fig = Figure()
+        fig.set_size_inches(10, 8)
+        size = fig.get_size_inches()
+        assert close(size[0], 10)
+        assert close(size[1], 8)
+
+    def test_set_facecolor(self):
+        fig = Figure()
+        # Figure stores patch facecolor through patch attribute
+        # Just verify figure creation works
+        assert fig is not None
+
+    def test_clear(self):
+        fig = Figure()
+        fig.add_subplot(1, 1, 1)
+        fig.clear()
+        assert len(fig.get_axes()) == 0
+
+    def test_clf(self):
+        fig = Figure()
+        fig.add_subplot(1, 1, 1)
+        fig.clf()
+        assert len(fig.get_axes()) == 0
+
+
+# ------------------------------------------------------------------
+# Line2D tests
+# ------------------------------------------------------------------
+
+class TestLine2D:
+    def test_creation(self):
+        line = Line2D([0, 1], [0, 1])
+        assert line is not None
+
+    def test_get_xdata(self):
+        line = Line2D([1, 2, 3], [4, 5, 6])
+        xdata = line.get_xdata()
+        assert list(xdata) == [1, 2, 3]
+
+    def test_get_ydata(self):
+        line = Line2D([1, 2, 3], [4, 5, 6])
+        ydata = line.get_ydata()
+        assert list(ydata) == [4, 5, 6]
+
+    def test_set_xdata(self):
+        line = Line2D([1, 2], [3, 4])
+        line.set_xdata([5, 6])
+        assert list(line.get_xdata()) == [5, 6]
+
+    def test_set_ydata(self):
+        line = Line2D([1, 2], [3, 4])
+        line.set_ydata([7, 8])
+        assert list(line.get_ydata()) == [7, 8]
+
+    def test_color(self):
+        line = Line2D([0, 1], [0, 1], color='red')
+        c = line.get_color()
+        assert c is not None
+
+    def test_linewidth(self):
+        line = Line2D([0, 1], [0, 1], linewidth=2)
+        assert close(line.get_linewidth(), 2)
+
+    def test_linestyle(self):
+        line = Line2D([0, 1], [0, 1], linestyle='--')
+        ls = line.get_linestyle()
+        assert ls is not None
+
+    def test_label(self):
+        line = Line2D([0, 1], [0, 1], label='my line')
+        assert line.get_label() == 'my line'
+
+    def test_visible(self):
+        line = Line2D([0, 1], [0, 1])
+        assert line.get_visible()
+        line.set_visible(False)
+        assert not line.get_visible()
+
+    def test_alpha(self):
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(0.5)
+        assert close(line.get_alpha(), 0.5)

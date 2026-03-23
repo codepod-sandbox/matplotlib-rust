@@ -1,0 +1,442 @@
+"""
+Upstream tests — batch 20.
+Focus: Boxplot, violinplot, pie, histogram edge cases, bar_label,
+       imshow, pcolormesh, fill_betweenx, and plot type argument handling.
+Adapted from matplotlib upstream tests (no canvas rendering, no image comparison).
+Note: Using random module instead of np.random, list(range(N)) instead of np.arange(N).
+"""
+import math
+import pytest
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
+from matplotlib.collections import PathCollection
+from matplotlib.container import BarContainer
+
+
+def close(a, b, tol=1e-10):
+    """Check approximate equality."""
+    return abs(a - b) < tol
+
+
+# ------------------------------------------------------------------
+# Boxplot tests
+# ------------------------------------------------------------------
+
+class TestBoxplot:
+    def test_basic(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5, 6, 7, 8]
+        result = ax.boxplot(data)
+        assert result is not None
+
+    def test_returns_dict(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        result = ax.boxplot(data)
+        assert isinstance(result, dict)
+
+    def test_has_whiskers(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        result = ax.boxplot(data)
+        assert 'whiskers' in result
+
+    def test_has_boxes(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        result = ax.boxplot(data)
+        assert 'boxes' in result
+
+    def test_has_medians(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        result = ax.boxplot(data)
+        assert 'medians' in result
+
+    def test_multiple_datasets(self):
+        fig, ax = plt.subplots()
+        data = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        result = ax.boxplot(data)
+        assert result is not None
+
+    def test_horizontal(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        result = ax.boxplot(data, vert=False)
+        assert result is not None
+
+    def test_no_fliers(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        result = ax.boxplot(data, showfliers=False)
+        assert result is not None
+
+    def test_with_widths(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        result = ax.boxplot(data, widths=0.5)
+        assert result is not None
+
+    def test_with_positions(self):
+        fig, ax = plt.subplots()
+        data = [[1, 2, 3], [4, 5, 6]]
+        result = ax.boxplot(data, positions=[1, 3])
+        assert result is not None
+
+
+# ------------------------------------------------------------------
+# Violinplot tests
+# ------------------------------------------------------------------
+
+class TestViolinplot:
+    def test_basic(self):
+        fig, ax = plt.subplots()
+        data = [list(range(1, 11))]
+        result = ax.violinplot(data)
+        assert result is not None
+
+    def test_returns_dict(self):
+        fig, ax = plt.subplots()
+        data = [list(range(1, 11))]
+        result = ax.violinplot(data)
+        assert isinstance(result, dict)
+
+    def test_has_bodies(self):
+        fig, ax = plt.subplots()
+        data = [list(range(1, 11))]
+        result = ax.violinplot(data)
+        assert 'bodies' in result
+
+    def test_multiple_datasets(self):
+        fig, ax = plt.subplots()
+        data = [list(range(1, 6)), list(range(3, 11)), list(range(2, 9))]
+        result = ax.violinplot(data)
+        assert 'bodies' in result
+        assert len(result['bodies']) == 3
+
+    def test_horizontal(self):
+        fig, ax = plt.subplots()
+        data = [list(range(1, 6))]
+        result = ax.violinplot(data, vert=False)
+        assert result is not None
+
+    def test_with_means(self):
+        fig, ax = plt.subplots()
+        data = [list(range(1, 11))]
+        result = ax.violinplot(data, showmeans=True)
+        assert 'cmeans' in result
+
+    def test_with_medians(self):
+        fig, ax = plt.subplots()
+        data = [list(range(1, 11))]
+        result = ax.violinplot(data, showmedians=True)
+        assert 'cmedians' in result
+
+    def test_with_positions(self):
+        fig, ax = plt.subplots()
+        data = [list(range(1, 6)), list(range(3, 9))]
+        result = ax.violinplot(data, positions=[1, 3])
+        assert result is not None
+
+
+# ------------------------------------------------------------------
+# Pie chart tests
+# ------------------------------------------------------------------
+
+class TestPie:
+    def test_basic(self):
+        fig, ax = plt.subplots()
+        result = ax.pie([30, 40, 30])
+        assert result is not None
+
+    def test_returns_tuple(self):
+        fig, ax = plt.subplots()
+        result = ax.pie([30, 40, 30])
+        assert isinstance(result, tuple)
+
+    def test_with_labels(self):
+        fig, ax = plt.subplots()
+        patches, texts = ax.pie([30, 40, 30], labels=['A', 'B', 'C'])
+        assert len(texts) == 3
+
+    def test_with_autopct(self):
+        fig, ax = plt.subplots()
+        patches, texts, autotexts = ax.pie([30, 40, 30], autopct='%1.1f%%')
+        assert len(autotexts) == 3
+
+    def test_with_explode(self):
+        fig, ax = plt.subplots()
+        patches, texts = ax.pie([30, 40, 30], explode=[0, 0.1, 0])
+        assert patches is not None
+
+    def test_with_colors(self):
+        fig, ax = plt.subplots()
+        patches, texts = ax.pie([30, 40, 30], colors=['r', 'g', 'b'])
+        assert patches is not None
+
+    def test_patches_count(self):
+        fig, ax = plt.subplots()
+        patches, texts = ax.pie([10, 20, 30, 40])
+        assert len(patches) == 4
+
+
+# ------------------------------------------------------------------
+# Histogram advanced tests
+# ------------------------------------------------------------------
+
+class TestHistogramAdvanced:
+    def test_basic_bins(self):
+        fig, ax = plt.subplots()
+        data = [1, 1, 2, 2, 2, 3, 4, 4, 5]
+        n, bins, patches = ax.hist(data, bins=5)
+        assert len(n) == 5
+        assert len(bins) == 6  # n+1 bin edges
+
+    def test_with_range(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        n, bins, patches = ax.hist(data, bins=5, range=(0, 10))
+        assert bins[0] >= 0
+        assert bins[-1] <= 10
+
+    def test_density_sums_to_1(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 2, 3, 3, 3, 4, 4, 5]
+        n, bins, patches = ax.hist(data, bins=4, density=True)
+        # density*bin_width should sum to 1
+        widths = [bins[i+1] - bins[i] for i in range(len(bins)-1)]
+        total = sum(n_i * w for n_i, w in zip(n, widths))
+        assert abs(total - 1.0) < 1e-6
+
+    def test_horizontal(self):
+        fig, ax = plt.subplots()
+        data = [1, 2, 3, 4, 5]
+        n, bins, patches = ax.hist(data, bins=3, orientation='horizontal')
+        assert n is not None
+
+    def test_multiple_datasets(self):
+        fig, ax = plt.subplots()
+        data1 = [1, 2, 3]
+        data2 = [2, 3, 4]
+        result = ax.hist([data1, data2], bins=4)
+        assert result is not None
+
+
+# ------------------------------------------------------------------
+# Bar plot edge cases
+# ------------------------------------------------------------------
+
+class TestBarAdvanced:
+    def test_bar_returns_container(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([0, 1, 2], [3, 5, 2])
+        assert isinstance(bc, BarContainer)
+
+    def test_bar_with_yerr(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([0, 1, 2], [3, 5, 2], yerr=[0.1, 0.2, 0.1])
+        assert bc is not None
+
+    def test_bar_width(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([0, 1, 2], [3, 5, 2], width=0.5)
+        assert len(bc) == 3
+
+    def test_bar_colors(self):
+        fig, ax = plt.subplots()
+        # Single color for all bars
+        bc = ax.bar([0, 1, 2], [3, 5, 2], color='steelblue')
+        assert bc is not None
+
+    def test_bar_label_basic(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([0, 1, 2], [3, 5, 2])
+        labels = ax.bar_label(bc)
+        assert labels is not None
+
+    def test_bar_label_fmt(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([0, 1, 2], [3, 5, 2])
+        labels = ax.bar_label(bc, fmt='%.1f')
+        assert len(labels) == 3
+
+    def test_barh_basic(self):
+        fig, ax = plt.subplots()
+        bc = ax.barh([0, 1, 2], [3, 5, 2])
+        assert isinstance(bc, BarContainer)
+
+    def test_barh_height(self):
+        fig, ax = plt.subplots()
+        bc = ax.barh([0, 1, 2], [3, 5, 2], height=0.5)
+        assert bc is not None
+
+
+# ------------------------------------------------------------------
+# fill_between / fill_betweenx tests
+# ------------------------------------------------------------------
+
+class TestFillBetween:
+    def test_fill_between_basic(self):
+        fig, ax = plt.subplots()
+        x = [0, 1, 2, 3]
+        y1 = [0, 1, 0, 1]
+        y2 = [1, 2, 1, 2]
+        poly = ax.fill_between(x, y1, y2)
+        assert poly is not None
+
+    def test_fill_between_with_color(self):
+        fig, ax = plt.subplots()
+        x = [0, 1, 2]
+        y1 = [0, 1, 0]
+        y2 = [1, 2, 1]
+        poly = ax.fill_between(x, y1, y2, color='red', alpha=0.3)
+        assert poly is not None
+
+    def test_fill_betweenx_basic(self):
+        fig, ax = plt.subplots()
+        y = [0, 1, 2, 3]
+        x1 = [0, 1, 0, 1]
+        x2 = [1, 2, 1, 2]
+        poly = ax.fill_betweenx(y, x1, x2)
+        assert poly is not None
+
+    def test_fill_between_scalar_y2(self):
+        fig, ax = plt.subplots()
+        x = [0, 1, 2]
+        y1 = [1, 2, 1]
+        poly = ax.fill_between(x, y1, 0)
+        assert poly is not None
+
+
+# ------------------------------------------------------------------
+# Scatter edge cases
+# ------------------------------------------------------------------
+
+class TestScatterAdvanced:
+    def test_scatter_array_sizes(self):
+        fig, ax = plt.subplots()
+        x = [1, 2, 3, 4, 5]
+        y = [5, 4, 3, 2, 1]
+        s = [10, 20, 30, 40, 50]
+        sc = ax.scatter(x, y, s=s)
+        assert sc is not None
+
+    def test_scatter_rgba_colors(self):
+        fig, ax = plt.subplots()
+        x = [1, 2, 3]
+        y = [1, 2, 3]
+        sc = ax.scatter(x, y, c=['r', 'g', 'b'])
+        assert sc is not None
+
+    def test_scatter_alpha(self):
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], alpha=0.5)
+        assert sc is not None
+
+    def test_scatter_edgecolors(self):
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], edgecolors='black')
+        assert sc is not None
+
+
+# ------------------------------------------------------------------
+# Plot formatting edge cases
+# ------------------------------------------------------------------
+
+class TestPlotFormatting:
+    def test_plot_with_marker(self):
+        fig, ax = plt.subplots()
+        lines = ax.plot([0, 1, 2], [0, 1, 4], marker='o')
+        assert len(lines) == 1
+
+    def test_plot_alpha(self):
+        fig, ax = plt.subplots()
+        lines = ax.plot([0, 1], [0, 1], alpha=0.5)
+        assert len(lines) == 1
+
+    def test_plot_linestyle_variations(self):
+        fig, ax = plt.subplots()
+        for ls in ['-', '--', '-.', ':']:
+            lines = ax.plot([0, 1], [0, 1], linestyle=ls)
+            assert len(lines) == 1
+
+    def test_plot_returns_line2d(self):
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        lines = ax.plot([0, 1], [0, 1])
+        assert isinstance(lines[0], Line2D)
+
+    def test_multiple_plots_xlim(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 5], [0, 5])
+        ax.plot([0, 10], [0, 10])
+        xlim = ax.get_xlim()
+        # xlim should encompass all data
+        assert xlim[1] >= 10
+
+    def test_plot_only_y(self):
+        fig, ax = plt.subplots()
+        lines = ax.plot([0, 1, 4, 9])
+        assert len(lines) == 1
+        xdata = lines[0].get_xdata()
+        assert list(xdata) == [0, 1, 2, 3]
+
+    def test_errorbar_with_xerr(self):
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2, 3], [1, 4, 9], xerr=[0.1, 0.1, 0.1])
+        assert ec is not None
+
+    def test_errorbar_both_errors(self):
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2, 3], [1, 4, 9],
+                         xerr=[0.1, 0.1, 0.1],
+                         yerr=[0.2, 0.2, 0.2])
+        assert ec is not None
+
+    def test_stem_with_linefmt(self):
+        fig, ax = plt.subplots()
+        container = ax.stem([1, 2, 3], [1, 4, 9], linefmt='b-')
+        assert container is not None
+
+    def test_stairs_with_baseline(self):
+        fig, ax = plt.subplots()
+        ax.stairs([1, 2, 3], [0, 1, 2, 3], baseline=0)
+
+    def test_step_plot(self):
+        fig, ax = plt.subplots()
+        lines = ax.step([0, 1, 2, 3], [0, 1, 0, 1])
+        assert len(lines) >= 1
+
+
+# ------------------------------------------------------------------
+# imshow tests
+# ------------------------------------------------------------------
+
+class TestImshow:
+    def test_basic(self):
+        fig, ax = plt.subplots()
+        data = [[1, 2], [3, 4]]
+        im = ax.imshow(data)
+        assert im is not None
+
+    def test_with_cmap(self):
+        fig, ax = plt.subplots()
+        data = [[0.0, 0.5], [1.0, 0.25]]
+        im = ax.imshow(data, cmap='viridis')
+        assert im is not None
+
+    def test_3d_array(self):
+        fig, ax = plt.subplots()
+        data = [[[0.0, 0.5, 1.0], [0.1, 0.6, 0.9]],
+                [[0.2, 0.7, 0.8], [0.3, 0.8, 0.7]]]
+        im = ax.imshow(data)
+        assert im is not None
+
+    def test_with_extent(self):
+        fig, ax = plt.subplots()
+        data = [[1, 2], [3, 4]]
+        im = ax.imshow(data, extent=[-1, 1, -1, 1])
+        assert im is not None
