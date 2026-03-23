@@ -3,4 +3,4 @@
 	url = https://github.com/codepod-sandbox/numpy-rust.git
 [submodule "packages/pillow-rust"]
 	path = packages/pillow-rust
-	url = https://github.com/codepod-sandbox/pillow-rust.git
+	url = git@github.com:codepod-sandbox/pillow-rust.git

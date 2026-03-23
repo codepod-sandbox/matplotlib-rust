@@ -313,14 +313,17 @@ class FancyBboxPatch(Patch):
 class FancyArrowPatch(Patch):
     """A fancy arrow patch."""
 
+    zorder = 2
+
     def __init__(self, posA=None, posB=None, path=None,
                  arrowstyle='->', connectionstyle=None,
                  patchA=None, patchB=None,
                  shrinkA=2, shrinkB=2,
                  mutation_scale=1, mutation_aspect=None,
+                 color='black', linewidth=1.5,
                  **kwargs):
-        self._posA = posA
-        self._posB = posB
+        self._posA = tuple(posA) if posA is not None else posA
+        self._posB = tuple(posB) if posB is not None else posB
         self._path = path
         self._arrowstyle = arrowstyle
         self._connectionstyle = connectionstyle
@@ -330,6 +333,8 @@ class FancyArrowPatch(Patch):
         self._shrinkB = shrinkB
         self._mutation_scale = mutation_scale
         self._mutation_aspect = mutation_aspect
+        self._color = color
+        self._linewidth = linewidth
         super().__init__(**kwargs)
 
     def get_arrowstyle(self):
@@ -354,6 +359,29 @@ class FancyArrowPatch(Patch):
         """Set the begin and end positions of the connecting path."""
         self._posA = posA
         self._posB = posB
+
+    def draw(self, renderer, layout):
+        if not self.get_visible():
+            return
+        if self._posA is None or self._posB is None:
+            return
+        import math
+        x1, y1 = layout.sx(self._posA[0]), layout.sy(self._posA[1])
+        x2, y2 = layout.sx(self._posB[0]), layout.sy(self._posB[1])
+
+        # Apply shrink
+        dx, dy = x2 - x1, y2 - y1
+        length = math.hypot(dx, dy)
+        if length > 1e-6 and (self._shrinkA or self._shrinkB):
+            ux, uy = dx / length, dy / length
+            x1 += ux * self._shrinkA
+            y1 += uy * self._shrinkA
+            x2 -= ux * self._shrinkB
+            y2 -= uy * self._shrinkB
+
+        color = to_hex(self._color)
+        renderer.draw_arrow(x1, y1, x2, y2,
+                            self._arrowstyle, color, self._linewidth)
 
 
 class Arrow(Patch):

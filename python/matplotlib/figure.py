@@ -431,15 +431,21 @@ class Figure:
     # ------------------------------------------------------------------
 
     def savefig(self, fname, *, format=None, dpi=None, **kwargs):
-        """Save figure to *fname*.  Format inferred from extension if not given."""
+        """Save figure to *fname*.  Format inferred from extension if not given.
+
+        *fname* may be a file path (str) or a file-like object (BytesIO/StringIO).
+        """
+        import io as _io
         dpi = dpi or self.dpi
-        if format is None and isinstance(fname, str):
-            if fname.lower().endswith('.png'):
-                format = 'png'
-            elif fname.lower().endswith('.svg'):
-                format = 'svg'
+        # Determine format
+        if format is None:
+            if isinstance(fname, str):
+                if fname.lower().endswith('.png'):
+                    format = 'png'
+                else:
+                    format = 'svg'
             else:
-                format = 'svg'
+                format = 'png'  # default for file-like objects
 
         w_px = int(self.figsize[0] * dpi)
         h_px = int(self.figsize[1] * dpi)
@@ -454,12 +460,28 @@ class Figure:
         self.draw(renderer)
         result = renderer.get_result()
 
-        if isinstance(result, bytes):
+        # Write to file path or file-like object
+        if hasattr(fname, 'write'):
+            if isinstance(result, bytes):
+                fname.write(result)
+            else:
+                fname.write(result)
+        elif isinstance(result, bytes):
             with open(fname, 'wb') as f:
                 f.write(result)
         else:
             with open(fname, 'w') as f:
                 f.write(result)
+
+    def to_svg(self, dpi=None):
+        """Render the figure to an SVG string and return it."""
+        dpi = dpi or self.dpi
+        w_px = int(self.figsize[0] * dpi)
+        h_px = int(self.figsize[1] * dpi)
+        from matplotlib._svg_backend import RendererSVG
+        renderer = RendererSVG(w_px, h_px, dpi)
+        self.draw(renderer)
+        return renderer.get_result()
 
     # ------------------------------------------------------------------
     # Repr

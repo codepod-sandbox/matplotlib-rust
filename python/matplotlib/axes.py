@@ -13,7 +13,8 @@ from matplotlib.collections import PathCollection, LineCollection, Collection
 from matplotlib.container import BarContainer, ErrorbarContainer, StemContainer
 from matplotlib.text import Text, Annotation
 from matplotlib.backend_bases import AxesLayout
-from matplotlib._svg_backend import _nice_ticks, _fmt_tick, _esc
+from matplotlib.axis import XAxis, YAxis
+from matplotlib.ticker import FixedFormatter
 
 
 class Tick:
@@ -344,12 +345,10 @@ class Axes:
         self._ylabel = ''
         self._xlim = None
         self._ylim = None
-        self._xticks = None
-        self._yticks = None
-        self._xticklabels = None
-        self._yticklabels = None
+        self.xaxis = XAxis()
+        self.yaxis = YAxis()
         self._grid = False
-        self._legend = False
+        self._legend_obj = None
         self._color_idx = 0
         self._facecolor = 'white'
         self._prop_cycle = None  # custom property cycle
@@ -604,6 +603,7 @@ class Axes:
             sizes=sizes,
             facecolors=facecolors,
             label=label,
+            marker=marker,
         )
         if edgecolors is not None:
             if isinstance(edgecolors, str):
@@ -2345,20 +2345,16 @@ class Axes:
         return ys
 
     def set_xticks(self, ticks, labels=None, **kwargs):
-        self._xticks = list(ticks)
-        if labels is not None:
-            self._xticklabels = list(labels)
+        self.xaxis.set_ticks(ticks, labels)
 
     def get_xticks(self):
-        return self._xticks if self._xticks is not None else []
+        return self.xaxis.get_ticks()
 
     def set_yticks(self, ticks, labels=None, **kwargs):
-        self._yticks = list(ticks)
-        if labels is not None:
-            self._yticklabels = list(labels)
+        self.yaxis.set_ticks(ticks, labels)
 
     def get_yticks(self):
-        return self._yticks if self._yticks is not None else []
+        return self.yaxis.get_ticks()
 
     def get_xticklabels(self):
         """Return the x-axis tick labels."""
@@ -2367,7 +2363,7 @@ class Axes:
         return []
 
     def set_xticklabels(self, labels, **kwargs):
-        self._xticklabels = list(labels)
+        self.xaxis.set_major_formatter(FixedFormatter(list(labels)))
 
     def get_yticklabels(self):
         """Return the y-axis tick labels."""
@@ -2376,7 +2372,7 @@ class Axes:
         return []
 
     def set_yticklabels(self, labels, **kwargs):
-        self._yticklabels = list(labels)
+        self.yaxis.set_major_formatter(FixedFormatter(list(labels)))
 
     def tick_params(self, axis='both', **kwargs):
         """Change the appearance of ticks, tick labels, and gridlines.
@@ -2499,12 +2495,56 @@ class Axes:
     # ------------------------------------------------------------------
 
     def set_xscale(self, scale, **kwargs):
-        """Set the x-axis scale (e.g. 'linear', 'log')."""
-        self._xscale = scale
+        """Set the x-axis scale ('linear', 'log', 'symlog', or a Scale object)."""
+        from matplotlib.scale import (LinearScale, LogScale,
+                                       SymmetricalLogScale, FuncScale)
+        if isinstance(scale, str):
+            if scale == 'linear':
+                scale_obj = LinearScale()
+            elif scale == 'log':
+                scale_obj = LogScale(base=kwargs.get('base', 10.0),
+                                     nonpositive=kwargs.get('nonpositive', 'mask'))
+            elif scale == 'symlog':
+                scale_obj = SymmetricalLogScale(
+                    base=kwargs.get('base', 10.0),
+                    linthresh=kwargs.get('linthresh', 2.0),
+                    linscale=kwargs.get('linscale', 1.0))
+            else:
+                raise ValueError(f"Unknown scale: {scale!r}")
+        elif isinstance(scale, (LinearScale, LogScale,
+                                 SymmetricalLogScale, FuncScale)):
+            scale_obj = scale
+        else:
+            raise TypeError(f"scale must be a string or Scale object, "
+                            f"got {type(scale)}")
+        self._xscale = scale if isinstance(scale, str) else 'custom'
+        self.xaxis.set_scale(scale_obj)
 
     def set_yscale(self, scale, **kwargs):
-        """Set the y-axis scale (e.g. 'linear', 'log')."""
-        self._yscale = scale
+        """Set the y-axis scale ('linear', 'log', 'symlog', or a Scale object)."""
+        from matplotlib.scale import (LinearScale, LogScale,
+                                       SymmetricalLogScale, FuncScale)
+        if isinstance(scale, str):
+            if scale == 'linear':
+                scale_obj = LinearScale()
+            elif scale == 'log':
+                scale_obj = LogScale(base=kwargs.get('base', 10.0),
+                                     nonpositive=kwargs.get('nonpositive', 'mask'))
+            elif scale == 'symlog':
+                scale_obj = SymmetricalLogScale(
+                    base=kwargs.get('base', 10.0),
+                    linthresh=kwargs.get('linthresh', 2.0),
+                    linscale=kwargs.get('linscale', 1.0))
+            else:
+                raise ValueError(f"Unknown scale: {scale!r}")
+        elif isinstance(scale, (LinearScale, LogScale,
+                                 SymmetricalLogScale, FuncScale)):
+            scale_obj = scale
+        else:
+            raise TypeError(f"scale must be a string or Scale object, "
+                            f"got {type(scale)}")
+        self._yscale = scale if isinstance(scale, str) else 'custom'
+        self.yaxis.set_scale(scale_obj)
 
     def get_xscale(self):
         """Return the x-axis scale."""
@@ -2674,7 +2714,12 @@ class Axes:
     # ------------------------------------------------------------------
 
     def _compute_layout(self, fig_w_px, fig_h_px):
-        ml, mr, mt, mb = 70, 20, 40, 50
+        # Use proportional margins: 15% left, 5% right, 10% top, 12% bottom
+        # but clamp to reasonable pixel ranges
+        ml = max(5, min(70, int(fig_w_px * 0.15)))
+        mr = max(3, min(20, int(fig_w_px * 0.05)))
+        mt = max(3, min(40, int(fig_h_px * 0.10)))
+        mb = max(3, min(50, int(fig_h_px * 0.12)))
         plot_x = ml
         plot_y = mt
         plot_w = fig_w_px - ml - mr
@@ -2693,7 +2738,9 @@ class Axes:
         ymin -= dy * 0.05
         ymax += dy * 0.05
 
-        return AxesLayout(plot_x, plot_y, plot_w, plot_h, xmin, xmax, ymin, ymax)
+        return AxesLayout(plot_x, plot_y, plot_w, plot_h, xmin, xmax, ymin, ymax,
+                          xscale=self.xaxis.get_scale(),
+                          yscale=self.yaxis.get_scale())
 
     def draw(self, renderer):
         layout = self._compute_layout(renderer.width, renderer.height)
@@ -2705,43 +2752,48 @@ class Axes:
         # Frame border
         renderer.draw_rect(px, py, pw, ph, '#000000', 'none')
 
+        # Compute tick positions ONCE — used for both grid and tick marks
+        xtick_vals = self.xaxis.tick_values(layout.xmin, layout.xmax)
+        ytick_vals = self.yaxis.tick_values(layout.ymin, layout.ymax)
+        xtick_labels = self.xaxis.format_ticks(xtick_vals)
+        ytick_labels = self.yaxis.format_ticks(ytick_vals)
+
         # Grid
         if self._grid:
-            xticks = _nice_ticks(layout.xmin, layout.xmax, 8)
-            yticks = _nice_ticks(layout.ymin, layout.ymax, 6)
-            for t in xticks:
+            for t in xtick_vals:
                 tx = layout.sx(t)
                 if px < tx < px + pw:
                     renderer.draw_line([tx, tx], [py, py + ph],
                                        '#dddddd', 0.5, '--')
-            for t in yticks:
+            for t in ytick_vals:
                 ty = layout.sy(t)
                 if py < ty < py + ph:
                     renderer.draw_line([px, px + pw], [ty, ty],
                                        '#dddddd', 0.5, '--')
 
         # Tick marks + labels
-        xticks = _nice_ticks(layout.xmin, layout.xmax, 8)
-        yticks = _nice_ticks(layout.ymin, layout.ymax, 6)
-        for t in xticks:
+        for t, label in zip(xtick_vals, xtick_labels):
             tx = layout.sx(t)
             if px <= tx <= px + pw:
                 renderer.draw_line([tx, tx], [py + ph, py + ph + 5],
                                    '#000000', 1.0, '-')
                 if self._xticklabels_visible:
-                    renderer.draw_text(tx, py + ph + 18, _fmt_tick(t),
+                    renderer.draw_text(tx, py + ph + 18, label,
                                        11, '#333333', 'center')
-        for t in yticks:
+        for t, label in zip(ytick_vals, ytick_labels):
             ty = layout.sy(t)
             if py <= ty <= py + ph:
                 renderer.draw_line([px - 5, px], [ty, ty],
                                    '#000000', 1.0, '-')
                 if self._yticklabels_visible:
-                    renderer.draw_text(px - 8, ty + 4, _fmt_tick(t),
+                    renderer.draw_text(px - 8, ty + 4, label,
                                        11, '#333333', 'right')
 
         # Clip for data area
         renderer.set_clip_rect(px, py, pw, ph)
+
+        # Render images (drawn before other artists)
+        self._draw_images(renderer, px, py, pw, ph)
 
         # Collect + sort all artists by zorder
         all_artists = []
@@ -2832,28 +2884,68 @@ class Axes:
             renderer.draw_text(15, ty, self._ylabel, 12, '#333333', 'center')
 
         # Legend
-        if self._legend:
-            self._draw_legend(renderer, px + pw - 10, py + 10)
+        if self._legend_obj is not None:
+            self._legend_obj.draw(renderer, layout)
 
-    def _draw_legend(self, renderer, right_x, top_y):
-        handles, labels = self.get_legend_handles_labels()
-        if not labels:
+    def imshow(self, X, cmap=None, vmin=None, vmax=None, origin='upper', aspect='auto'):
+        """Display an image on the axes."""
+        import matplotlib.cm as _cm
+
+        rows = list(X)
+        if not rows:
             return
-        lw = 120
-        lh = len(labels) * 20 + 10
-        lx = right_x - lw
-        ly = top_y
-        renderer.draw_rect(lx, ly, lw, lh, '#999999', '#ffffff')
-        for i, (handle, label) in enumerate(zip(handles, labels)):
-            iy = ly + 15 + i * 20
-            color = '#000000'
-            if hasattr(handle, 'get_color'):
-                try:
-                    color = to_hex(handle.get_color())
-                except Exception:
-                    pass
-            renderer.draw_line([lx + 5, lx + 25], [iy, iy], color, 2.0, '-')
-            renderer.draw_text(lx + 30, iy + 4, label, 11, '#333333', 'left')
+        first_row = list(rows[0])
+        if not first_row:
+            return
+        first_cell = first_row[0]
+        is_scalar = not hasattr(first_cell, '__len__')
+
+        if is_scalar:
+            if cmap is None:
+                cmap = 'viridis'
+            colormap = _cm.get_cmap(cmap)
+            flat_vals = [float(v) for row in rows for v in row]
+            lo = vmin if vmin is not None else min(flat_vals)
+            hi = vmax if vmax is not None else max(flat_vals)
+            rng = (hi - lo) if hi != lo else 1.0
+            rgba_array = []
+            for row in rows:
+                rgba_row = []
+                for v in row:
+                    t = max(0.0, min(1.0, (float(v) - lo) / rng))
+                    rgba = colormap(t)
+                    rgba_row.append((
+                        int(rgba[0] * 255), int(rgba[1] * 255),
+                        int(rgba[2] * 255), int(rgba[3] * 255)
+                    ))
+                rgba_array.append(rgba_row)
+        else:
+            rgba_array = []
+            for row in rows:
+                rgba_row = []
+                for px in row:
+                    px = list(px)
+                    if len(px) == 3:
+                        rgba_row.append((int(px[0]), int(px[1]), int(px[2]), 255))
+                    else:
+                        rgba_row.append((int(px[0]), int(px[1]), int(px[2]), int(px[3])))
+                rgba_array.append(rgba_row)
+
+        if origin == 'lower':
+            rgba_array = list(reversed(rgba_array))
+
+        self._images = getattr(self, '_images', [])
+        self._images.append(rgba_array)
+        self._needs_draw = True
+
+    def _draw_images(self, renderer, plot_x, plot_y, plot_w, plot_h):
+        """Render all pending images onto renderer."""
+        images = getattr(self, '_images', [])
+        if not images:
+            return
+        for rgba_array in images:
+            renderer.draw_image(plot_x, plot_y, plot_w, plot_h, rgba_array)
+        self._images = []
 
     # ------------------------------------------------------------------
     # Remove
@@ -2875,12 +2967,10 @@ class Axes:
         self._ylabel = ''
         self._xlim = None
         self._ylim = None
-        self._xticks = None
-        self._yticks = None
-        self._xticklabels = None
-        self._yticklabels = None
+        self.xaxis = XAxis()
+        self.yaxis = YAxis()
         self._grid = False
-        self._legend = False
+        self._legend_obj = None
         self._color_idx = 0
         self._facecolor = 'white'
         # Clear typed artist lists

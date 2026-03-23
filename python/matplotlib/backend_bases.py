@@ -7,7 +7,7 @@ class AxesLayout:
     """Stores plot area geometry and provides data-to-pixel transforms."""
 
     def __init__(self, plot_x, plot_y, plot_w, plot_h,
-                 xmin, xmax, ymin, ymax):
+                 xmin, xmax, ymin, ymax, xscale=None, yscale=None):
         self.plot_x = plot_x
         self.plot_y = plot_y
         self.plot_w = plot_w
@@ -17,13 +17,49 @@ class AxesLayout:
         self.ymin = ymin
         self.ymax = ymax
 
+        from matplotlib.scale import LinearScale
+        import numpy as np
+        self._xscale = xscale or LinearScale()
+        self._yscale = yscale or LinearScale()
+
+        def _fwd_scalar(scale, v):
+            """Apply scale.forward() to a scalar and return a plain float.
+            Bypasses numpy masked-array machinery for robustness in RustPython."""
+            from matplotlib.scale import LinearScale, LogScale, SymmetricalLogScale
+            import math
+            v = float(v)
+            if isinstance(scale, LinearScale):
+                return v
+            elif isinstance(scale, LogScale):
+                return math.log(v) / math.log(scale.base) if v > 0 else float('nan')
+            elif isinstance(scale, SymmetricalLogScale):
+                # Inline _symlog for a scalar
+                log_base = math.log(scale.base)
+                sign = 1.0 if v >= 0 else -1.0
+                abs_v = abs(v)
+                if abs_v <= scale.linthresh:
+                    return v / scale.linthresh * scale.linscale
+                return sign * (scale.linscale + math.log(abs_v / scale.linthresh) / log_base)
+            else:
+                # FuncScale or unknown — forward returns a numpy scalar, try float()
+                result = scale.forward(v)
+                return float(result)
+
+        self._fwd_scalar = _fwd_scalar
+        self._fxmin = _fwd_scalar(self._xscale, xmin)
+        self._fxmax = _fwd_scalar(self._xscale, xmax)
+        self._fymin = _fwd_scalar(self._yscale, ymin)
+        self._fymax = _fwd_scalar(self._yscale, ymax)
+
     def sx(self, v):
-        """Map data x to pixel x."""
-        return self.plot_x + (v - self.xmin) / (self.xmax - self.xmin) * self.plot_w
+        """Map data x to pixel x via scale."""
+        fv = self._fwd_scalar(self._xscale, v)
+        return self.plot_x + (fv - self._fxmin) / (self._fxmax - self._fxmin) * self.plot_w
 
     def sy(self, v):
-        """Map data y to pixel y (inverted: ymax at top, ymin at bottom)."""
-        return self.plot_y + self.plot_h - (v - self.ymin) / (self.ymax - self.ymin) * self.plot_h
+        """Map data y to pixel y (inverted) via scale."""
+        fv = self._fwd_scalar(self._yscale, v)
+        return self.plot_y + self.plot_h - (fv - self._fymin) / (self._fymax - self._fymin) * self.plot_h
 
 
 class RendererBase:
@@ -34,10 +70,10 @@ class RendererBase:
         self.height = height
         self.dpi = dpi
 
-    def draw_line(self, xdata, ydata, color, linewidth, linestyle):
+    def draw_line(self, xdata, ydata, color, linewidth, linestyle, opacity=1.0):
         raise NotImplementedError
 
-    def draw_markers(self, xdata, ydata, color, size):
+    def draw_markers(self, xdata, ydata, color, size, marker='o'):
         raise NotImplementedError
 
     def draw_rect(self, x, y, width, height, stroke, fill):
@@ -60,6 +96,28 @@ class RendererBase:
 
     def clear_clip(self):
         raise NotImplementedError
+
+    def draw_arrow(self, x1, y1, x2, y2, arrowstyle, color, linewidth):
+        """Draw an arrow from (x1,y1) to (x2,y2).
+
+        arrowstyle : str
+            One of '->', '<-', '<->', '-', 'fancy'.
+        """
+        raise NotImplementedError
+
+    def draw_image(self, x, y, width, height, rgba_array):
+        """Draw an image.
+
+        Parameters
+        ----------
+        x, y : float
+            Top-left corner in display coordinates (y=0 is top of figure).
+        width, height : float
+            Size in display coordinates.
+        rgba_array : list of lists
+            2D list of (R, G, B) or (R, G, B, A) tuples, shape [rows][cols].
+        """
+        pass
 
     def get_result(self):
         raise NotImplementedError

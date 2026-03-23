@@ -22,6 +22,16 @@ _default_params = {
     'axes.labelsize': 'medium',
     'axes.labelpad': 4.0,
 
+    # Formatter behavior
+    'axes.formatter.limits': [-5, 6],
+    'axes.formatter.use_locale': False,
+    'axes.formatter.use_mathtext': False,
+    'axes.formatter.min_exponent': 0,
+    'axes.formatter.useoffset': True,
+    'axes.formatter.offset_threshold': 4,
+    'axes.unicode_minus': True,
+    'axes.autolimit_mode': 'data',
+
     # Figure
     'figure.figsize': [6.4, 4.8],
     'figure.dpi': 100,
@@ -168,6 +178,7 @@ _default_params = {
     'image.interpolation': 'antialiased',
     'image.aspect': 'equal',
     'image.origin': 'upper',
+    'image.lut': 256,
 
     # Errorbar
     'errorbar.capsize': 0,

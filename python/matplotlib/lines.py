@@ -245,12 +245,13 @@ class Line2D(Artist):
         if (self._linestyle not in ('None', 'none', '')
                 and len(x_px) >= 2):
             renderer.draw_line(x_px, y_px, color,
-                               float(self._linewidth), self._linestyle)
+                               float(self._linewidth), self._linestyle,
+                               opacity=self._alpha if self._alpha is not None else 1.0)
 
         # Draw markers
         if self._marker and self._marker not in ('None', 'none', ''):
             renderer.draw_markers(x_px, y_px, color,
-                                  float(self._markersize))
+                                  float(self._markersize), self._marker)
 
     # --- class-level valid linestyles dict (upstream compat) ---
     lineStyles = {
