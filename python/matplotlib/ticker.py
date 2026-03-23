@@ -368,10 +368,12 @@ class NullFormatter(Formatter):
     """Always return the empty string."""
 
     def __call__(self, x, pos=None):
-        # docstring inherited        return ''
+        # docstring inherited
+        return ''
 
 
-class FixedFormatter(Formatter):    """
+class FixedFormatter(Formatter):
+    """
     Return fixed strings for tick labels based only on position, not value.
 
     .. note::
@@ -403,15 +405,18 @@ class FixedFormatter(Formatter):    """
         self.offset_string = ofs
 
 
-class FuncFormatter(Formatter):    """
+class FuncFormatter(Formatter):
+    """
     Use a user-defined function for formatting.
 
     The function should take in two inputs (a tick value ``x`` and a
     position ``pos``), and return a string containing the corresponding
-    tick label.    """
+    tick label.
+    """
 
     def __init__(self, func):
-        self.func = func        self.offset_string = ""
+        self.func = func
+        self.offset_string = ""
 
     def __call__(self, x, pos=None):
         """
@@ -437,12 +442,14 @@ class FormatStrFormatter(Formatter):
 
     Negative numeric values (e.g., -1) will use a dash, not a Unicode minus;
     use mathtext to get a Unicode minus by wrapping the format specifier with $
-    (e.g. "$%g$").    """
+    (e.g. "$%g$").
+    """
 
     def __init__(self, fmt):
         self.fmt = fmt
 
-    def __call__(self, x, pos=None):        """
+    def __call__(self, x, pos=None):
+        """
         Return the formatted label string.
 
         Only the value *x* is formatted. The position is ignored.
@@ -474,12 +481,14 @@ class StrMethodFormatter(Formatter):
 
     It is typically unnecessary to explicitly construct `.StrMethodFormatter`
     objects, as `~.Axis.set_major_formatter` directly accepts the format string
-    itself.    """
+    itself.
+    """
 
     def __init__(self, fmt):
         self.fmt = fmt
 
-    def __call__(self, x, pos=None):        """
+    def __call__(self, x, pos=None):
+        """
         Return the formatted label string.
 
         *x* and *pos* are passed to `str.format` as keyword arguments
