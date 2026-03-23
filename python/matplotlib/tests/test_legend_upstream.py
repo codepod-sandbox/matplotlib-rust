@@ -355,7 +355,8 @@ class TestLegendFiltering:
         ax.plot([1, 2])
         h, l = ax.get_legend_handles_labels()
         assert len(l) == 0
-=======
+
+
 # Copyright (c) 2024 CodePod Contributors — BSD 3-Clause License
 # Ported from lib/matplotlib/tests/test_legend.py
 import pytest

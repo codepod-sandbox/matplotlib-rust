@@ -737,7 +737,8 @@ class TestTickerEdgeCases:
         result = fmt(8)  # 2^3
         # Should format somehow
         assert isinstance(result, str)
-=======
+
+
 # Ported from lib/matplotlib/tests/test_ticker.py
 import pytest
 import matplotlib
