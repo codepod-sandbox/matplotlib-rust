@@ -152,7 +152,7 @@ def test_zorder_draw_order_in_svg():
     fig, ax = plt.subplots()
     # Default: patches zorder=1 before lines zorder=2
     ax.bar([1], [1])  # adds a Rectangle (zorder=1)
-    ax.plot([1], [1], label='line')  # adds a Line2D (zorder=2)
+    ax.plot([0, 2], [0, 2], label='line')  # adds a Line2D (zorder=2)
     svg = fig.to_svg()
     # polyline (line) must appear after rect (bar) in SVG
     rect_pos = svg.find('<rect')

@@ -154,6 +154,28 @@ class Axis:
         self.isDefault_minloc = True
         self.pickradius = pickradius
 
+    def set_scale(self, scale):
+        """Update locator/formatter for the given Scale object."""
+        from matplotlib.scale import LogScale, SymmetricalLogScale
+        from matplotlib.ticker import (LogLocator, LogFormatter,
+                                        SymmetricalLogLocator, AutoLocator,
+                                        ScalarFormatter)
+        if isinstance(scale, LogScale):
+            if self.isDefault_majloc:
+                self._major_locator = LogLocator(base=scale.base)
+            if self.isDefault_majfmt:
+                self._major_formatter = LogFormatter(base=scale.base)
+        elif isinstance(scale, SymmetricalLogScale):
+            if self.isDefault_majloc:
+                self._major_locator = SymmetricalLogLocator(base=scale.base,
+                                                             linthresh=scale.linthresh)
+        else:
+            # Linear or unknown — restore defaults if they were scale-set
+            if self.isDefault_majloc:
+                self._major_locator = AutoLocator()
+            if self.isDefault_majfmt:
+                self._major_formatter = ScalarFormatter()
+
     def get_major_locator(self):
         return self._major_locator
 
@@ -243,6 +265,37 @@ class Axis:
     def get_ticklabels(self, minor=False):
         ticks = self.minorTicks if minor else self.majorTicks
         return [t.label1 for t in ticks]
+
+    def get_ticks(self, minor=False):
+        ticks = self.minorTicks if minor else self.majorTicks
+        return [t.get_loc() for t in ticks]
+
+    def tick_values(self, vmin, vmax):
+        """Return tick positions for [vmin, vmax] from the major locator."""
+        loc = self._major_locator
+        if loc is not None and hasattr(loc, 'tick_values'):
+            return loc.tick_values(vmin, vmax)
+        if loc is not None and hasattr(loc, '__call__'):
+            return loc(vmin, vmax)
+        return []
+
+    def format_ticks(self, values):
+        """Format a sequence of tick values using the major formatter."""
+        fmt = self._major_formatter
+        vals_list = list(values)
+        if fmt is not None:
+            if hasattr(fmt, 'set_locs'):
+                if hasattr(fmt, 'axis') and fmt.axis is None:
+                    if hasattr(fmt, 'create_dummy_axis'):
+                        fmt.create_dummy_axis()
+                if vals_list:
+                    vmin, vmax = min(vals_list), max(vals_list)
+                    if hasattr(fmt, 'axis') and fmt.axis is not None:
+                        fmt.axis.set_view_interval(vmin, vmax)
+                        fmt.axis.set_data_interval(vmin, vmax)
+                fmt.set_locs(vals_list)
+            return [fmt(v, i) for i, v in enumerate(vals_list)]
+        return [str(v) for v in vals_list]
 
     def set_ticks(self, ticks, labels=None, minor=False, **kwargs):
         tick_list = []
@@ -345,8 +398,6 @@ class Axes:
         self._ylabel = ''
         self._xlim = None
         self._ylim = None
-        self.xaxis = XAxis()
-        self.yaxis = YAxis()
         self._grid = False
         self._legend_obj = None
         self._color_idx = 0
@@ -363,10 +414,13 @@ class Axes:
         self.images = []
 
         # Axis state
+        from matplotlib.scale import LinearScale
         self._x_inverted = False
         self._y_inverted = False
         self._xscale = 'linear'
         self._yscale = 'linear'
+        self._xscale_obj = LinearScale()
+        self._yscale_obj = LinearScale()
         self._aspect = 'auto'
 
         # Shared axes
@@ -495,7 +549,8 @@ class Axes:
                         'markevery', 'fillstyle', 'drawstyle',
                         'antialiased', 'aa',
                         'solid_capstyle', 'solid_joinstyle',
-                        'dash_capstyle', 'dash_joinstyle'):
+                        'dash_capstyle', 'dash_joinstyle',
+                        'alpha'):
                 if mk in kwargs:
                     mkw[mk] = kwargs[mk]
 
@@ -2518,6 +2573,7 @@ class Axes:
             raise TypeError(f"scale must be a string or Scale object, "
                             f"got {type(scale)}")
         self._xscale = scale if isinstance(scale, str) else 'custom'
+        self._xscale_obj = scale_obj
         self.xaxis.set_scale(scale_obj)
 
     def set_yscale(self, scale, **kwargs):
@@ -2544,6 +2600,7 @@ class Axes:
             raise TypeError(f"scale must be a string or Scale object, "
                             f"got {type(scale)}")
         self._yscale = scale if isinstance(scale, str) else 'custom'
+        self._yscale_obj = scale_obj
         self.yaxis.set_scale(scale_obj)
 
     def get_xscale(self):
@@ -2739,8 +2796,8 @@ class Axes:
         ymax += dy * 0.05
 
         return AxesLayout(plot_x, plot_y, plot_w, plot_h, xmin, xmax, ymin, ymax,
-                          xscale=self.xaxis.get_scale(),
-                          yscale=self.yaxis.get_scale())
+                          xscale=self._xscale_obj,
+                          yscale=self._yscale_obj)
 
     def draw(self, renderer):
         layout = self._compute_layout(renderer.width, renderer.height)
@@ -2967,8 +3024,8 @@ class Axes:
         self._ylabel = ''
         self._xlim = None
         self._ylim = None
-        self.xaxis = XAxis()
-        self.yaxis = YAxis()
+        self.xaxis = XAxis(self)
+        self.yaxis = YAxis(self)
         self._grid = False
         self._legend_obj = None
         self._color_idx = 0
@@ -2983,8 +3040,11 @@ class Axes:
         # Reset axis state
         self._x_inverted = False
         self._y_inverted = False
+        from matplotlib.scale import LinearScale
         self._xscale = 'linear'
         self._yscale = 'linear'
+        self._xscale_obj = LinearScale()
+        self._yscale_obj = LinearScale()
         self._aspect = 'auto'
         # Note: do NOT reset _shared_x/_shared_y — shared axes persist across cla()
         self._xticklabels_visible = True

@@ -33,6 +33,8 @@ class Line2D(Artist):
         self._markeredgewidth = kwargs.get('markeredgewidth', kwargs.get('mew', None))
         self._markevery = kwargs.get('markevery', None)
         self._antialiased = kwargs.get('antialiased', kwargs.get('aa', True))
+        if 'alpha' in kwargs:
+            self.set_alpha(kwargs['alpha'])
         self._solid_capstyle = kwargs.get('solid_capstyle', None)
         self._solid_joinstyle = kwargs.get('solid_joinstyle', None)
         self._dash_capstyle = kwargs.get('dash_capstyle', None)
