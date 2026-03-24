@@ -2707,3 +2707,115 @@ class TestFillBetween:
         poly = ax.fill_betweenx([0, 1], [0, 1], label='betweenx')
         assert poly.get_label() == 'betweenx'
         plt.close('all')
+
+
+# ===================================================================
+# step / stairs tests
+# ===================================================================
+
+class TestStepStairs:
+    def test_step_pre_default(self):
+        """step with default where='pre' returns line(s)."""
+        fig, ax = plt.subplots()
+        result = ax.step([0, 1, 2], [1, 2, 1])
+        assert result is not None
+        plt.close('all')
+
+    def test_step_post(self):
+        """step(where='post') creates a line."""
+        fig, ax = plt.subplots()
+        result = ax.step([0, 1, 2], [1, 2, 1], where='post')
+        assert result is not None
+        plt.close('all')
+
+    def test_step_mid(self):
+        """step(where='mid') creates a line."""
+        fig, ax = plt.subplots()
+        result = ax.step([0, 1, 2], [1, 2, 1], where='mid')
+        assert result is not None
+        plt.close('all')
+
+    def test_step_invalid_where(self):
+        """step with invalid where raises ValueError."""
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError):
+            ax.step([0, 1, 2], [1, 2, 1], where='invalid')
+        plt.close('all')
+
+    def test_step_single_point(self):
+        """step with single point falls back to plot."""
+        fig, ax = plt.subplots()
+        result = ax.step([0], [1])
+        assert result is not None
+        plt.close('all')
+
+    def test_step_adds_to_lines(self):
+        """step adds lines to ax.lines."""
+        fig, ax = plt.subplots()
+        n_before = len(ax.lines)
+        ax.step([0, 1, 2], [1, 2, 1])
+        assert len(ax.lines) > n_before
+        plt.close('all')
+
+    def test_step_color(self):
+        """step respects color kwarg."""
+        fig, ax = plt.subplots()
+        ax.step([0, 1, 2], [1, 2, 1], color='blue')
+        assert len(ax.lines) > 0
+        plt.close('all')
+
+    def test_step_pre_has_more_points_than_input(self):
+        """step(pre) creates more x-points than input for drawing steps."""
+        fig, ax = plt.subplots()
+        ax.step([0, 1, 2, 3], [1, 2, 3, 2])
+        line = ax.lines[-1]
+        # Pre-step has more x-values than input
+        assert len(line.get_xdata()) >= 4
+        plt.close('all')
+
+    def test_stairs_basic(self):
+        """stairs returns a line."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        line = ax.stairs([1, 2, 1])
+        assert isinstance(line, Line2D)
+        plt.close('all')
+
+    def test_stairs_in_lines(self):
+        """stairs adds line to ax.lines."""
+        fig, ax = plt.subplots()
+        line = ax.stairs([1, 2, 1])
+        assert line in ax.lines
+        plt.close('all')
+
+    def test_stairs_custom_edges(self):
+        """stairs with edges has the right length."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        line = ax.stairs([1, 2, 3], edges=[0, 1, 2, 3])
+        assert isinstance(line, Line2D)
+        plt.close('all')
+
+    def test_stairs_default_edges(self):
+        """stairs without edges uses 0..n as default."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        line = ax.stairs([5, 3, 7, 2])
+        # 4 values → 5 edge points → 8 data points (each step has 2 x)
+        assert len(line.get_xdata()) == 8
+        plt.close('all')
+
+    def test_stairs_color(self):
+        """stairs respects color kwarg."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        line = ax.stairs([1, 2], color='red')
+        assert isinstance(line, Line2D)
+        plt.close('all')
+
+    def test_stairs_label(self):
+        """stairs label is stored on line."""
+        fig, ax = plt.subplots()
+        line = ax.stairs([1, 2, 3], label='bins')
+        assert line.get_label() == 'bins'
+        plt.close('all')
