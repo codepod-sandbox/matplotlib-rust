@@ -1459,3 +1459,125 @@ class TestLogFormatterSciNotation:
         # 1000 = 10^3, coeff=1 — decade case handled by parent
         result = f(1000, 0)
         assert '1' in result
+
+
+# ===================================================================
+# ScalarFormatter extended tests (upstream-ported)
+# ===================================================================
+
+class TestScalarFormatterExtended:
+    def test_get_useOffset_default(self):
+        fmt = ScalarFormatter()
+        val = fmt.get_useOffset()
+        assert val is True or val is False or val is None or isinstance(val, (int, float))
+
+    def test_set_useOffset_false(self):
+        fmt = ScalarFormatter()
+        fmt.set_useOffset(False)
+        assert fmt.useOffset is False
+
+    def test_set_useOffset_true(self):
+        fmt = ScalarFormatter()
+        fmt.set_useOffset(True)
+        assert fmt.useOffset is True
+
+    def test_get_useMathText_default(self):
+        fmt = ScalarFormatter()
+        val = fmt.get_useMathText()
+        assert val is True or val is False
+
+    def test_set_useMathText_true(self):
+        fmt = ScalarFormatter()
+        fmt.set_useMathText(True)
+        assert fmt.useMathText is True
+
+    def test_set_useMathText_false(self):
+        fmt = ScalarFormatter()
+        fmt.set_useMathText(False)
+        assert fmt.useMathText is False
+
+    def test_get_useLocale_default(self):
+        fmt = ScalarFormatter()
+        val = fmt.get_useLocale()
+        assert val is True or val is False
+
+    def test_set_useLocale(self):
+        fmt = ScalarFormatter()
+        fmt.set_useLocale(False)
+        assert fmt.useLocale is False
+
+    def test_format_data_returns_string(self):
+        fmt = ScalarFormatter()
+        result = fmt.format_data(42)
+        assert isinstance(result, str)
+
+    def test_format_data_short_returns_string(self):
+        fmt = ScalarFormatter()
+        result = fmt.format_data_short(42)
+        assert isinstance(result, str)
+
+    def test_negative_number(self):
+        fmt = ScalarFormatter()
+        result = fmt(-5.0)
+        assert '-5' in result
+
+    def test_set_scientific_false(self):
+        fmt = ScalarFormatter()
+        fmt.set_scientific(False)
+        assert fmt._scientific is False
+
+    def test_set_powerlimits_large(self):
+        fmt = ScalarFormatter()
+        fmt.set_powerlimits((-5, 5))
+        assert fmt._powerlimits == (-5, 5)
+
+
+# ===================================================================
+# FixedFormatter extended tests
+# ===================================================================
+
+class TestFixedFormatterExtended:
+    def test_format_beyond_seq_length(self):
+        """Values beyond sequence length return empty string."""
+        from matplotlib.ticker import FixedFormatter
+        fmt = FixedFormatter(['a', 'b'])
+        result = fmt(5, 5)  # position 5 > len(['a', 'b'])
+        assert result == ''
+
+    def test_seq_length(self):
+        from matplotlib.ticker import FixedFormatter
+        fmt = FixedFormatter(['x', 'y', 'z'])
+        assert fmt(0, 0) == 'x'
+        assert fmt(1, 1) == 'y'
+        assert fmt(2, 2) == 'z'
+
+
+# ===================================================================
+# FuncFormatter extended tests
+# ===================================================================
+
+class TestFuncFormatterExtended:
+    def test_with_lambda(self):
+        from matplotlib.ticker import FuncFormatter
+        fmt = FuncFormatter(lambda x, pos: f'{x:.2f}')
+        result = fmt(3.14159, 0)
+        assert '3.14' in result
+
+    def test_with_named_function(self):
+        from matplotlib.ticker import FuncFormatter
+        def my_fmt(x, pos):
+            return f'val={x}'
+        fmt = FuncFormatter(my_fmt)
+        result = fmt(5, 0)
+        assert 'val=5' in result
+
+    def test_get_offset_default(self):
+        from matplotlib.ticker import FuncFormatter
+        fmt = FuncFormatter(lambda x, pos: str(x))
+        assert fmt.get_offset() == ''
+
+    def test_set_offset_string(self):
+        from matplotlib.ticker import FuncFormatter
+        fmt = FuncFormatter(lambda x, pos: str(x))
+        fmt.set_offset_string('+100')
+        assert fmt.get_offset() == '+100'
