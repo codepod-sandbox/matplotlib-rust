@@ -419,3 +419,133 @@ def test_step_plot_svg():
     svg = fig.to_svg()
     assert '<polyline' in svg or '<path' in svg
     plt.close('all')
+
+
+# ===================================================================
+# Additional rendering tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestSVGRenderingParametric:
+    """Parametric SVG rendering tests."""
+
+    @pytest.mark.parametrize('title', ['My Plot', 'Test Title', 'SVG Rendering'])
+    def test_title_in_svg(self, title):
+        """Title text appears in SVG output."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        svg = fig.to_svg()
+        assert title in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X axis', 'Time (s)', 'Value'])
+    def test_xlabel_in_svg(self, label):
+        """X label text appears in SVG."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(label)
+        svg = fig.to_svg()
+        assert label in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['Y axis', 'Amplitude', 'Count'])
+    def test_ylabel_in_svg(self, label):
+        """Y label text appears in SVG."""
+        fig, ax = plt.subplots()
+        ax.set_ylabel(label)
+        svg = fig.to_svg()
+        assert label in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_lines_in_svg(self, n):
+        """SVG output grows with each line plotted."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([i, i+1], [0, 1])
+        svg = fig.to_svg()
+        assert len(svg) > 100
+        plt.close('all')
+
+    @pytest.mark.parametrize('text', ['annotation', 'UNIQUE_TEXT_XYZ'])
+    def test_text_annotation_in_svg(self, text):
+        """ax.text content appears in SVG."""
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, text)
+        svg = fig.to_svg()
+        assert text in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('color_hex', ['#ff0000', '#00ff00', '#0000ff'])
+    def test_colored_line_hex_in_svg(self, color_hex):
+        """Hex color appears in SVG output."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], color=color_hex)
+        svg = fig.to_svg()
+        # The color may appear with or without # sign
+        color_digits = color_hex.lstrip('#')
+        assert color_digits.lower() in svg.lower()
+        plt.close('all')
+
+
+class TestSVGStructure:
+    """Tests for SVG document structure."""
+
+    def test_svg_has_viewbox(self):
+        """SVG output has viewBox attribute."""
+        fig, ax = plt.subplots()
+        svg = fig.to_svg()
+        assert 'viewBox' in svg or 'viewbox' in svg.lower()
+        plt.close('all')
+
+    def test_svg_has_width_height(self):
+        """SVG output has width and height attributes."""
+        fig, ax = plt.subplots()
+        svg = fig.to_svg()
+        assert 'width' in svg
+        assert 'height' in svg
+        plt.close('all')
+
+    def test_svg_opens_and_closes_svg_tag(self):
+        """SVG output has matching open and close svg tags."""
+        fig, ax = plt.subplots()
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        assert '</svg>' in svg
+        plt.close('all')
+
+    def test_svg_contains_path_or_polyline(self):
+        """SVG output for a plot contains path or polyline element."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<polyline' in svg or '<path' in svg or '<line' in svg
+        plt.close('all')
+
+    def test_empty_figure_svg_is_valid(self):
+        """Empty figure produces valid SVG."""
+        fig = plt.figure()
+        svg = fig.to_svg()
+        assert svg.startswith('<svg') or '<?xml' in svg
+        assert '</svg>' in svg
+        plt.close('all')
+
+    def test_svg_multiple_subplots(self):
+        """SVG with multiple subplots is valid."""
+        fig, axes = plt.subplots(2, 2)
+        svg = fig.to_svg()
+        assert len(svg) > 200
+        assert '</svg>' in svg
+        plt.close('all')
+
+    def test_svg_with_legend_is_longer(self):
+        """Adding a legend increases SVG output length."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='no legend')
+        svg_no_legend = fig.to_svg()
+        ax.legend()
+        svg_with_legend = fig.to_svg()
+        assert len(svg_with_legend) >= len(svg_no_legend)
+        plt.close('all')

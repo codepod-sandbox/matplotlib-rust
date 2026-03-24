@@ -292,3 +292,139 @@ class TestAxesImageExtended:
         im.set_alpha(0.5)
         assert im.get_alpha() == 0.5
         plt.close('all')
+
+
+# ===================================================================
+# Additional AxesImage tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.image import AxesImage
+
+
+class TestAxesImageParametric:
+    """Parametrized tests for AxesImage properties."""
+
+    @pytest.mark.parametrize('interp', [
+        'nearest', 'bilinear', 'bicubic', 'lanczos', 'none'
+    ])
+    def test_interpolation_settable(self, interp):
+        """All standard interpolation methods can be set."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        im.set_interpolation(interp)
+        assert im.get_interpolation() == interp
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_alpha_values(self, alpha):
+        """AxesImage alpha is settable to any value in [0, 1]."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        im.set_alpha(alpha)
+        assert abs(im.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_zorder_values(self, zorder):
+        """AxesImage zorder is settable."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        im.set_zorder(zorder)
+        assert im.get_zorder() == zorder
+        plt.close('all')
+
+    @pytest.mark.parametrize('cmap', ['viridis', 'plasma', 'gray', 'hot', 'cool'])
+    def test_cmap_names(self, cmap):
+        """Standard colormap names can be applied to imshow."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]], cmap=cmap)
+        stored = im.get_cmap()
+        name = stored.name if hasattr(stored, 'name') else stored
+        assert name == cmap
+        plt.close('all')
+
+
+class TestImshowProperties:
+    """Tests for imshow return value properties."""
+
+    def test_imshow_returns_axesimage(self):
+        """imshow returns an AxesImage instance."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        assert isinstance(im, AxesImage)
+        plt.close('all')
+
+    def test_imshow_visible_default(self):
+        """imshow result is visible by default."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        assert im.get_visible() is True
+        plt.close('all')
+
+    def test_imshow_label_settable(self):
+        """imshow label can be set."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]], label='my_image')
+        assert im.get_label() == 'my_image'
+        plt.close('all')
+
+    def test_imshow_set_clim(self):
+        """set_clim adjusts vmin/vmax."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        im.set_clim(0, 10)
+        vmin, vmax = im.get_clim()
+        assert vmin == 0
+        assert vmax == 10
+        plt.close('all')
+
+    def test_imshow_2d_gray(self):
+        """2D array renders as grayscale."""
+        fig, ax = plt.subplots()
+        data = np.linspace(0, 1, 9).reshape(3, 3)
+        im = ax.imshow(data, cmap='gray')
+        assert im.get_array() is not None
+        plt.close('all')
+
+    def test_imshow_rgb_array(self):
+        """3-channel RGB array renders."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4, 3))
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_rgba_array(self):
+        """4-channel RGBA array renders."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4, 4))
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_in_images_list(self):
+        """imshow adds AxesImage to ax.images."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        assert im in ax.images
+        plt.close('all')
+
+    def test_imshow_extent_sets_limits(self):
+        """extent kwarg is stored on the image."""
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]], extent=(0, 10, 0, 5))
+        assert im.get_extent() == (0, 10, 0, 5)
+        plt.close('all')
+
+    def test_multiple_imshow(self):
+        """Multiple imshow calls stack images."""
+        fig, ax = plt.subplots()
+        im1 = ax.imshow([[1, 2], [3, 4]])
+        im2 = ax.imshow([[5, 6], [7, 8]])
+        assert len(ax.images) == 2
+        assert im1 in ax.images
+        assert im2 in ax.images
+        plt.close('all')

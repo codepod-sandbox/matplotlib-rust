@@ -281,3 +281,128 @@ class TestRcContextNewKeys:
                 assert k in matplotlib.rcParams
         for k in keys:
             assert k not in matplotlib.rcParams
+
+
+# ===================================================================
+# Additional rcsetup tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib
+from matplotlib import rcParams, rc_context
+
+
+class TestRcParamsParametric:
+    """Parametric tests for default rcParams values."""
+
+    @pytest.mark.parametrize('key,expected', [
+        ('lines.linewidth', 1.5),
+        ('lines.markersize', 6),
+        ('figure.dpi', 100),
+        ('font.size', 10.0),
+        ('axes.titlesize', 'large'),
+        ('axes.labelsize', 'medium'),
+        ('xtick.labelsize', 'medium'),
+        ('ytick.labelsize', 'medium'),
+        ('legend.fontsize', 'medium'),
+        ('legend.frameon', True),
+        ('legend.numpoints', 1),
+        ('legend.scatterpoints', 1),
+    ])
+    def test_default_rcparam(self, key, expected):
+        """rcParams default values match upstream matplotlib."""
+        assert rcParams[key] == expected
+
+    @pytest.mark.parametrize('key,value', [
+        ('lines.linewidth', 2.0),
+        ('lines.markersize', 10),
+        ('figure.dpi', 150),
+        ('font.size', 14.0),
+    ])
+    def test_rcparam_set_get(self, key, value):
+        """rcParams values can be set and retrieved."""
+        old = rcParams[key]
+        try:
+            rcParams[key] = value
+            assert rcParams[key] == value
+        finally:
+            rcParams[key] = old
+
+
+class TestRcContextParametric:
+    """Parametric tests for rc_context manager."""
+
+    @pytest.mark.parametrize('key,value', [
+        ('lines.linewidth', 3.0),
+        ('lines.markersize', 12),
+        ('figure.dpi', 200),
+        ('font.size', 16.0),
+    ])
+    def test_context_sets_value(self, key, value):
+        """rc_context sets value inside the block."""
+        with rc_context({key: value}):
+            assert rcParams[key] == value
+
+    @pytest.mark.parametrize('key,value', [
+        ('lines.linewidth', 3.0),
+        ('lines.markersize', 12),
+        ('figure.dpi', 200),
+        ('font.size', 16.0),
+    ])
+    def test_context_restores_value(self, key, value):
+        """rc_context restores original value after block."""
+        original = rcParams[key]
+        with rc_context({key: value}):
+            pass
+        assert rcParams[key] == original
+
+    def test_context_multiple_keys(self):
+        """rc_context can set multiple keys at once."""
+        originals = {
+            'lines.linewidth': rcParams['lines.linewidth'],
+            'font.size': rcParams['font.size'],
+        }
+        with rc_context({'lines.linewidth': 5.0, 'font.size': 20.0}):
+            assert rcParams['lines.linewidth'] == 5.0
+            assert rcParams['font.size'] == 20.0
+        assert rcParams['lines.linewidth'] == originals['lines.linewidth']
+        assert rcParams['font.size'] == originals['font.size']
+
+    def test_nested_contexts_independent(self):
+        """Nested rc_context blocks restore independently."""
+        outer_lw = 2.0
+        inner_lw = 4.0
+        orig = rcParams['lines.linewidth']
+        with rc_context({'lines.linewidth': outer_lw}):
+            with rc_context({'lines.linewidth': inner_lw}):
+                assert rcParams['lines.linewidth'] == inner_lw
+            assert rcParams['lines.linewidth'] == outer_lw
+        assert rcParams['lines.linewidth'] == orig
+
+
+class TestRcParamsKeys:
+    """Tests for rcParams key membership."""
+
+    @pytest.mark.parametrize('key', [
+        'lines.linewidth',
+        'lines.linestyle',
+        'lines.markersize',
+        'figure.dpi',
+        'figure.figsize',
+        'font.size',
+        'axes.facecolor',
+        'axes.edgecolor',
+        'axes.grid',
+        'grid.alpha',
+        'grid.linewidth',
+        'legend.frameon',
+        'legend.fontsize',
+        'xtick.labelsize',
+        'ytick.labelsize',
+        'savefig.dpi',
+        'savefig.format',
+        'patch.linewidth',
+    ])
+    def test_key_exists(self, key):
+        """Expected rcParams key is present."""
+        assert key in rcParams

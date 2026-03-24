@@ -318,3 +318,142 @@ class TestAdditional:
         assert fig2 is fig
         assert fig2.get_axes() == []
         assert fig2.get_suptitle() == ''
+
+
+# ===================================================================
+# Additional pyplot tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib
+import matplotlib.pyplot as plt
+
+
+class TestPyplotPlottingAPI:
+    """Tests for pyplot plotting functions."""
+
+    def test_plot_returns_list(self):
+        """plt.plot returns a list of Line2D."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        lines = ax.plot([1, 2, 3], [4, 5, 6])
+        assert isinstance(lines, list)
+        assert len(lines) == 1
+        assert isinstance(lines[0], Line2D)
+        plt.close('all')
+
+    def test_scatter_returns_collection(self):
+        """ax.scatter returns a PathCollection."""
+        from matplotlib.collections import PathCollection
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [4, 5, 6])
+        assert isinstance(sc, PathCollection)
+        plt.close('all')
+
+    def test_bar_returns_container(self):
+        """ax.bar returns a BarContainer."""
+        from matplotlib.container import BarContainer
+        fig, ax = plt.subplots()
+        bars = ax.bar([1, 2, 3], [4, 5, 6])
+        assert isinstance(bars, BarContainer)
+        plt.close('all')
+
+    def test_axhline_returns_line(self):
+        """ax.axhline returns a Line2D."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        line = ax.axhline(0.5)
+        assert isinstance(line, Line2D)
+        plt.close('all')
+
+    def test_axvline_returns_line(self):
+        """ax.axvline returns a Line2D."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        line = ax.axvline(0.5)
+        assert isinstance(line, Line2D)
+        plt.close('all')
+
+    def test_fill_between_returns_artist(self):
+        """ax.fill_between returns an artist."""
+        from matplotlib.artist import Artist
+        fig, ax = plt.subplots()
+        pc = ax.fill_between([0, 1, 2], [0, 1, 0], [1, 2, 1])
+        assert isinstance(pc, Artist)
+        plt.close('all')
+
+    def test_title_set_and_get(self):
+        """ax.set_title / ax.get_title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title('My Plot')
+        assert ax.get_title() == 'My Plot'
+        plt.close('all')
+
+    def test_xlabel_set_and_get(self):
+        """ax.set_xlabel / ax.get_xlabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel('X axis')
+        assert ax.get_xlabel() == 'X axis'
+        plt.close('all')
+
+    def test_ylabel_set_and_get(self):
+        """ax.set_ylabel / ax.get_ylabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylabel('Y axis')
+        assert ax.get_ylabel() == 'Y axis'
+        plt.close('all')
+
+    def test_multiple_lines_same_axes(self):
+        """Multiple plot calls on same axes accumulate lines."""
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4])
+        ax.plot([5, 6], [7, 8])
+        assert len(ax.lines) == 2
+        plt.close('all')
+
+    def test_legend_after_labeled_plot(self):
+        """Legend can be created after labeled plot."""
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='series')
+        leg = ax.legend()
+        assert leg is not None
+        plt.close('all')
+
+
+class TestPyplotParametric:
+    """Parametrized pyplot tests."""
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (1, 1), (1, 2), (2, 1), (2, 2), (3, 3), (1, 4)
+    ])
+    def test_subplots_shape(self, nrows, ncols):
+        """plt.subplots returns correct number of axes."""
+        fig, axes = plt.subplots(nrows, ncols)
+        if nrows == 1 and ncols == 1:
+            # Single axes — not a list
+            assert hasattr(axes, 'plot')
+        elif nrows == 1 or ncols == 1:
+            total = nrows * ncols
+            assert len(axes) == total
+        else:
+            assert len(axes) == nrows
+            assert len(axes[0]) == ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [
+        (6.4, 4.8), (10, 8), (4, 3), (12, 6)
+    ])
+    def test_figure_figsize(self, figsize):
+        """plt.figure accepts figsize tuple."""
+        w, h = figsize
+        fig = plt.figure(figsize=figsize)
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200])
+    def test_figure_dpi(self, dpi):
+        """plt.figure accepts dpi argument."""
+        fig = plt.figure(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
