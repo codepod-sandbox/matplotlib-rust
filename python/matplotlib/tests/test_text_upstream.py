@@ -513,3 +513,181 @@ class TestTextExtendedProperties:
         t = Text(1, 2, 'hello')
         r = repr(t)
         assert 'hello' in r or 'Text' in r
+
+
+# ===================================================================
+# Text integration with axes
+# ===================================================================
+
+class TestTextAxesIntegration:
+    def test_ax_text_default_color(self):
+        """ax.text with explicit color stores it."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', color='black')
+        color = t.get_color()
+        assert color == 'black'
+        plt.close('all')
+
+    def test_ax_text_with_rotation(self):
+        """ax.text with rotation stores the rotation."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'rot', rotation=45)
+        assert t.get_rotation() == 45.0
+        plt.close('all')
+
+    def test_ax_text_ha_center(self):
+        """ax.text with ha='center' stores alignment."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'centered', ha='center')
+        assert t.get_horizontalalignment() == 'center'
+        plt.close('all')
+
+    def test_ax_text_va_top(self):
+        """ax.text with va='top' stores alignment."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'top', va='top')
+        assert t.get_verticalalignment() == 'top'
+        plt.close('all')
+
+    def test_ax_text_fontsize_constructor(self):
+        """ax.text with fontsize stores it."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'sized', fontsize=18)
+        assert t.get_fontsize() == 18
+        plt.close('all')
+
+    def test_ax_text_visible_toggle(self):
+        """ax.text visible can be toggled after creation."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'hidden')
+        t.set_visible(False)
+        assert t.get_visible() is False
+        plt.close('all')
+
+    def test_multiple_ax_texts(self):
+        """Multiple ax.text calls add to texts list."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t1 = ax.text(0.1, 0.1, 'a')
+        t2 = ax.text(0.5, 0.5, 'b')
+        t3 = ax.text(0.9, 0.9, 'c')
+        assert t1 in ax.texts
+        assert t2 in ax.texts
+        assert t3 in ax.texts
+        plt.close('all')
+
+
+# ===================================================================
+# Text rotation properties (extended)
+# ===================================================================
+
+class TestTextRotationExtended:
+    def test_rotation_45(self):
+        """Text rotation 45 is stored exactly."""
+        t = Text(0, 0, 'r', rotation=45)
+        assert t.get_rotation() == 45.0
+
+    def test_rotation_90(self):
+        """Text rotation 90 is stored exactly."""
+        t = Text(0, 0, 'r', rotation=90)
+        assert t.get_rotation() == 90.0
+
+    def test_rotation_180(self):
+        """Text rotation 180 is stored exactly."""
+        t = Text(0, 0, 'r', rotation=180)
+        assert t.get_rotation() == 180.0
+
+    def test_rotation_270(self):
+        """Text rotation 270 mod 360 is 270."""
+        t = Text(0, 0, 'r', rotation=270)
+        assert t.get_rotation() == 270.0
+
+    def test_set_rotation_updates(self):
+        """set_rotation updates get_rotation."""
+        t = Text(0, 0, 'r', rotation=0)
+        t.set_rotation(30)
+        assert t.get_rotation() == 30.0
+
+    def test_ha_for_angle_0(self):
+        """_ha_for_angle(0) is 'center'."""
+        t = Text()
+        assert t._ha_for_angle(0) == 'center'
+
+    def test_ha_for_angle_90(self):
+        """_ha_for_angle(90) is 'center'."""
+        t = Text()
+        assert t._ha_for_angle(90) == 'center'
+
+    def test_va_for_angle_0(self):
+        """_va_for_angle(0) is 'center'."""
+        t = Text()
+        assert t._va_for_angle(0) == 'center'
+
+    def test_ha_for_angle_45_is_valid(self):
+        """_ha_for_angle(45) is a valid alignment."""
+        t = Text()
+        ha = t._ha_for_angle(45)
+        assert ha in ('center', 'left', 'right')
+
+    def test_va_for_angle_45_is_valid(self):
+        """_va_for_angle(45) is a valid alignment."""
+        t = Text()
+        va = t._va_for_angle(45)
+        assert va in ('center', 'top', 'baseline')
+
+
+# ===================================================================
+# Annotation extended
+# ===================================================================
+
+class TestAnnotationExtendedProperties:
+    def test_annotation_arrowprops_stores_arrow_patch(self):
+        """Annotation with arrowprops creates arrow_patch."""
+        from matplotlib.text import Annotation
+        ann = Annotation('note', xy=(0, 0), xytext=(1, 1),
+                         arrowprops={'arrowstyle': '->'})
+        assert ann.arrow_patch is not None
+
+    def test_annotation_no_arrowprops_null_arrow_patch(self):
+        """Annotation without arrowprops has arrow_patch=None."""
+        from matplotlib.text import Annotation
+        ann = Annotation('note', xy=(0, 0))
+        assert ann.arrow_patch is None
+
+    def test_annotation_set_position(self):
+        """Annotation.set_position changes position."""
+        from matplotlib.text import Annotation
+        ann = Annotation('note', xy=(1, 2))
+        ann.set_position((5, 6))
+        pos = ann.get_position()
+        assert pos == (5, 6)
+
+    def test_annotation_rotation(self):
+        """Annotation supports rotation."""
+        from matplotlib.text import Annotation
+        ann = Annotation('note', xy=(0, 0), rotation=30)
+        assert ann.get_rotation() == 30.0
+
+    def test_annotation_fontsize_constructor(self):
+        """Annotation fontsize from constructor."""
+        from matplotlib.text import Annotation
+        ann = Annotation('note', xy=(0, 0), fontsize=16)
+        assert ann.get_fontsize() == 16
+
+    def test_annotation_is_subclass_text(self):
+        """Annotation is a subclass of Text."""
+        from matplotlib.text import Annotation, Text
+        ann = Annotation('test', xy=(0, 0))
+        assert isinstance(ann, Text)
+
+    def test_annotation_zorder_default(self):
+        """Annotation zorder is 3 (same as Text)."""
+        from matplotlib.text import Annotation
+        ann = Annotation('test', xy=(0, 0))
+        assert ann.get_zorder() == 3

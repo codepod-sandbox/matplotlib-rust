@@ -685,3 +685,104 @@ class TestLine2DMarkerProperties:
         line = Line2D([], [])
         xy = line.get_xydata()
         assert len(xy) == 0
+
+
+# ===================================================================
+# Line2D extended tests
+# ===================================================================
+
+class TestLine2DExtended:
+    def test_fillstyle_default(self):
+        """Line2D fillstyle defaults to 'full' or similar."""
+        line = Line2D([0], [0])
+        fs = line.get_fillstyle()
+        assert fs in ('full', 'left', 'right', 'bottom', 'top', 'none', None)
+
+    def test_set_fillstyle(self):
+        """Line2D.set_fillstyle changes fillstyle."""
+        line = Line2D([0], [0])
+        line.set_fillstyle('none')
+        assert line.get_fillstyle() == 'none'
+
+    def test_fillstyle_left(self):
+        """Line2D fillstyle 'left'."""
+        line = Line2D([0], [0])
+        line.set_fillstyle('left')
+        assert line.get_fillstyle() == 'left'
+
+    def test_get_xdata(self):
+        """Line2D.get_xdata returns x values."""
+        line = Line2D([1, 2, 3], [4, 5, 6])
+        assert list(line.get_xdata()) == [1, 2, 3]
+
+    def test_get_ydata(self):
+        """Line2D.get_ydata returns y values."""
+        line = Line2D([1, 2, 3], [4, 5, 6])
+        assert list(line.get_ydata()) == [4, 5, 6]
+
+    def test_set_xdata(self):
+        """Line2D.set_xdata changes x values."""
+        line = Line2D([1, 2], [3, 4])
+        line.set_xdata([5, 6, 7])
+        assert list(line.get_xdata()) == [5, 6, 7]
+
+    def test_set_ydata(self):
+        """Line2D.set_ydata changes y values."""
+        line = Line2D([1, 2], [3, 4])
+        line.set_ydata([10, 20])
+        assert list(line.get_ydata()) == [10, 20]
+
+    def test_get_data(self):
+        """Line2D.get_data returns (x, y) tuple."""
+        line = Line2D([1, 2], [3, 4])
+        x, y = line.get_data()
+        assert list(x) == [1, 2]
+        assert list(y) == [3, 4]
+
+    def test_set_data(self):
+        """Line2D.set_data changes x and y."""
+        line = Line2D([0], [0])
+        line.set_data([1, 2, 3], [4, 5, 6])
+        assert list(line.get_xdata()) == [1, 2, 3]
+        assert list(line.get_ydata()) == [4, 5, 6]
+
+    def test_get_path_returns_path(self):
+        """Line2D.get_path returns a path object."""
+        line = Line2D([0, 1, 2], [3, 4, 5])
+        path = line.get_path()
+        assert path is not None
+
+    def test_marker_default_none(self):
+        """Line2D marker defaults to None."""
+        line = Line2D([0], [0])
+        assert line.get_marker() is None or line.get_marker() == 'None'
+
+    def test_color_and_xdata_independent(self):
+        """Changing color does not affect xdata."""
+        line = Line2D([1, 2, 3], [4, 5, 6], color='red')
+        line.set_color('blue')
+        assert list(line.get_xdata()) == [1, 2, 3]
+
+    def test_linewidth_zero(self):
+        """Line2D linewidth can be set to zero."""
+        line = Line2D([0], [0])
+        line.set_linewidth(0)
+        assert line.get_linewidth() == 0
+
+    def test_set_color_updates_color(self):
+        """Line2D.set_color updates get_color."""
+        line = Line2D([0], [0])
+        line.set_color('green')
+        assert line.get_color() == 'green'
+
+    def test_linestyle_empty_string(self):
+        """Line2D linestyle can be empty string (no line)."""
+        line = Line2D([0], [0])
+        line.set_linestyle('')
+        assert line.get_linestyle() == ''
+
+    def test_single_point_line(self):
+        """Line2D with a single point works."""
+        line = Line2D([5], [10])
+        assert list(line.get_xdata()) == [5]
+        assert list(line.get_ydata()) == [10]
