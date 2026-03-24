@@ -2,6 +2,7 @@
 
 import math
 import pytest
+import matplotlib.pyplot as plt
 from matplotlib.tests._approx import approx
 
 from matplotlib.ticker import (
@@ -11,6 +12,7 @@ from matplotlib.ticker import (
     Locator, NullLocator, FixedLocator, IndexLocator,
     LinearLocator, MultipleLocator, MaxNLocator, AutoLocator,
     AutoMinorLocator, LogLocator, SymmetricalLogLocator,
+    EngFormatter, AsinhLocator,
 )
 
 
@@ -610,9 +612,12 @@ class TestAutoLocatorUpstream:
 
 class TestAutoMinorLocatorUpstream:
     def test_basic(self):
-        loc = AutoMinorLocator()
-        ticks = loc.tick_values(0, 10)
-        assert len(ticks) > 0
+        # AutoMinorLocator uses __call__ not tick_values; test via an axis
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 1.39)
+        ax.minorticks_on()
+        minorticks = ax.xaxis.get_ticklocs(minor=True)
+        assert len(minorticks) > 5
 
     def test_custom_n(self):
         loc = AutoMinorLocator(n=5)

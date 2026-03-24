@@ -235,10 +235,13 @@ class TestTickerAdvanced:
         assert len(ticks) >= 5
 
     def test_auto_minor_locator_ticks(self):
-        from matplotlib.ticker import AutoMinorLocator
-        loc = AutoMinorLocator(n=5)
-        ticks = loc.tick_values(0, 10)
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ax.minorticks_on()
+        ticks = ax.xaxis.get_ticklocs(minor=True)
         assert isinstance(ticks, list)
+        assert len(ticks) > 0
 
 
 # ------------------------------------------------------------------

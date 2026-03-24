@@ -136,6 +136,7 @@ _default_params = {
     'xtick.minor.top': True,
     'xtick.minor.bottom': True,
     'xtick.alignment': 'center',
+    'xtick.minor.ndivs': 'auto',
     'ytick.left': True,
     'ytick.right': False,
     'ytick.labelleft': True,
@@ -156,6 +157,7 @@ _default_params = {
     'ytick.minor.left': True,
     'ytick.minor.right': True,
     'ytick.alignment': 'center_baseline',
+    'ytick.minor.ndivs': 'auto',
 
     # Text
     'text.antialiased': True,

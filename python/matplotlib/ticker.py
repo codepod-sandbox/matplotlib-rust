@@ -50,8 +50,8 @@ The Locator subclasses defined here are:
                         adds 0 if inside the limits.
 ======================= =======================================================
 
-Note: Date formatters/locators and some advanced classes (AsinhLocator,
-LogitLocator, AutoMinorLocator) are not available in this adaptation.
+Note: Date formatters/locators and some advanced classes (LogitLocator)
+are not available in this adaptation.
 
 There are a number of locators specialized for date locations - see
 the :mod:`.dates` module.
@@ -109,7 +109,8 @@ operates on a single tick value and returns a string to the axis.
 `PercentFormatter`        Format labels as a percentage.
 ========================= =====================================================
 
-Note: LogitFormatter and EngFormatter are not available in this adaptation.
+Note: LogitFormatter is not available in this adaptation.
+`EngFormatter`            Format values using engineering SI prefixes.
 
 You can derive your own formatter from the Formatter base class by
 simply overriding the ``__call__`` method. The formatter class has
@@ -552,13 +553,17 @@ class ScalarFormatter(Formatter):
 
     """
 
-    def __init__(self, useOffset=None, useMathText=None, useLocale=None):
+    def __init__(self, useOffset=None, useMathText=None, useLocale=None,
+                 usetex=None):
         if useOffset is None:
             useOffset = mpl.rcParams['axes.formatter.useoffset']
         self._offset_threshold = \
             mpl.rcParams['axes.formatter.offset_threshold']
         self.set_useOffset(useOffset)
-        self._usetex = mpl.rcParams['text.usetex']
+        if usetex is not None:
+            self._usetex = usetex
+        else:
+            self._usetex = mpl.rcParams['text.usetex']
         self.set_useMathText(useMathText)
         self.orderOfMagnitude = 0
         self.format = ''
@@ -1348,6 +1353,139 @@ class PercentFormatter(Formatter):
     @symbol.setter
     def symbol(self, symbol):
         self._symbol = symbol
+
+
+class EngFormatter(ScalarFormatter):
+    """
+    Format axis values using engineering prefixes to represent powers
+    of 1000, plus a specified unit, e.g., 10 MHz instead of 1e7.
+    """
+
+    # The SI engineering prefixes
+    ENG_PREFIXES = {
+        -30: "q",
+        -27: "r",
+        -24: "y",
+        -21: "z",
+        -18: "a",
+        -15: "f",
+        -12: "p",
+         -9: "n",
+         -6: "\N{MICRO SIGN}",
+         -3: "m",
+          0: "",
+          3: "k",
+          6: "M",
+          9: "G",
+         12: "T",
+         15: "P",
+         18: "E",
+         21: "Z",
+         24: "Y",
+         27: "R",
+         30: "Q"
+    }
+
+    def __init__(self, unit="", places=None, sep=" ", *, usetex=None,
+                 useMathText=None, useOffset=False):
+        self.unit = unit
+        self.places = places
+        self.sep = sep
+        super().__init__(
+            useOffset=useOffset,
+            useMathText=useMathText,
+            useLocale=False,
+            usetex=usetex,
+        )
+
+    def __call__(self, x, pos=None):
+        if len(self.locs) == 0 or self.offset == 0:
+            return self.fix_minus(self.format_data(x))
+        else:
+            xp = (x - self.offset) / (10. ** self.orderOfMagnitude)
+            if abs(xp) < 1e-8:
+                xp = 0
+            return self._format_maybe_minus_and_locale(self.format, xp)
+
+    def set_locs(self, locs):
+        # docstring inherited
+        self.locs = locs
+        if len(self.locs) > 0:
+            if self.axis is not None:
+                vmin, vmax = sorted(self.axis.get_view_interval())
+            else:
+                vmin = min(locs)
+                vmax = max(locs)
+            if self._useOffset:
+                self._compute_offset()
+                if self.offset != 0:
+                    self.offset = round((vmin + vmax) / 2, 3)
+            if vmin != vmax:
+                self.orderOfMagnitude = math.floor(math.log(vmax - vmin, 1000)) * 3
+            else:
+                self.orderOfMagnitude = 0
+            self._set_format()
+
+    def get_offset(self):
+        # docstring inherited
+        if len(self.locs) == 0:
+            return ''
+        if self.offset:
+            offsetStr = ''
+            if self.offset:
+                offsetStr = self.format_data(self.offset)
+                if self.offset > 0:
+                    offsetStr = '+' + offsetStr
+            sciNotStr = self.format_data(10 ** self.orderOfMagnitude)
+            if self._useMathText or self._usetex:
+                if sciNotStr != '':
+                    sciNotStr = r'\times%s' % sciNotStr
+                s = f'${sciNotStr}{offsetStr}$'
+            else:
+                s = sciNotStr + offsetStr
+            return self.fix_minus(s)
+        return ''
+
+    def format_eng(self, num):
+        """Alias to EngFormatter.format_data"""
+        return self.format_data(num)
+
+    def format_data(self, value):
+        """
+        Format a number in engineering notation, appending a letter
+        representing the power of 1000 of the original number.
+        """
+        sign = 1
+        fmt = "g" if self.places is None else f".{self.places:d}f"
+
+        if value < 0:
+            sign = -1
+            value = -value
+
+        if value != 0:
+            pow10 = int(math.floor(math.log10(value) / 3) * 3)
+        else:
+            pow10 = 0
+            value = 0.0
+
+        pow10 = np.clip(pow10, min(self.ENG_PREFIXES), max(self.ENG_PREFIXES))
+
+        mant = sign * value / (10.0 ** pow10)
+        # Handle corner case like 999.9... which may round to 1000
+        if (abs(float(format(mant, fmt))) >= 1000
+                and pow10 < max(self.ENG_PREFIXES)):
+            mant /= 1000
+            pow10 += 3
+
+        unit_prefix = self.ENG_PREFIXES[int(pow10)]
+        if self.unit or unit_prefix:
+            suffix = f"{self.sep}{unit_prefix}{self.unit}"
+        else:
+            suffix = ""
+        if self._usetex or self._useMathText:
+            return f"${mant:{fmt}}${suffix}"
+        else:
+            return f"{mant:{fmt}}{suffix}"
 
 
 class Locator(TickHelper):
@@ -2450,26 +2588,156 @@ class AutoLocator(MaxNLocator):
 
 
 class AutoMinorLocator(Locator):
-    """Automatically find minor tick locations.
+    """
+    Place evenly spaced minor ticks, with the step size and maximum number of
+    ticks chosen automatically.
 
-    Parameters
-    ----------
-    n : int or None
-        Number of subdivisions per major tick interval.
+    The Axis must use a linear scale and have evenly spaced major ticks.
     """
 
     def __init__(self, n=None):
+        """
+        Parameters
+        ----------
+        n : int or 'auto', default: :rc:`xtick.minor.ndivs` or :rc:`ytick.minor.ndivs`
+            The number of subdivisions of the interval between major ticks;
+            e.g., n=2 will place a single minor tick midway between major ticks.
+
+            If *n* is 'auto', it will be set to 4 or 5: if the distance
+            between the major ticks equals 1, 2.5, 5 or 10 it can be perfectly
+            divided in 5 equidistant sub-intervals with a length multiple of
+            0.05; otherwise, it is divided in 4 sub-intervals.
+        """
         self.ndivs = n
 
-    def tick_values(self, vmin, vmax):
-        # Simplified: divide the range into many small ticks
-        n = self.ndivs if self.ndivs is not None else 4
-        step = (vmax - vmin) / (n * 10)
-        if step == 0:
+    def __call__(self):
+        # docstring inherited
+        if self.axis is not None and self.axis.get_scale() == 'log':
+            import warnings
+            warnings.warn('AutoMinorLocator does not work on logarithmic scales')
             return []
-        ticks = []
-        t = vmin
-        while t <= vmax + step * 0.5:
-            ticks.append(round(t, 12))
-            t += step
-        return ticks
+
+        if self.axis is not None:
+            majorlocs = np.unique(self.axis.get_majorticklocs())
+        else:
+            return []
+
+        if len(majorlocs) < 2:
+            return []
+
+        majorstep = majorlocs[1] - majorlocs[0]
+
+        ndivs = self.ndivs
+        if ndivs is None:
+            # Get from rcParams based on axis name
+            if self.axis is not None:
+                axis_name = getattr(self.axis, 'axis_name', 'x')
+                ndivs = mpl.rcParams.get(
+                    f'{axis_name}tick.minor.ndivs', 'auto')
+            else:
+                ndivs = 'auto'
+
+        if ndivs == 'auto':
+            majorstep_mantissa = 10 ** (np.log10(majorstep) % 1)
+            ndivs = 5 if np.isclose(majorstep_mantissa, [1, 2.5, 5, 10]).any() else 4
+        else:
+            ndivs = int(ndivs)
+
+        minorstep = majorstep / ndivs
+
+        if self.axis is not None:
+            vmin, vmax = sorted(self.axis.get_view_interval())
+        else:
+            vmin, vmax = majorlocs[0], majorlocs[-1]
+
+        t0 = majorlocs[0]
+        tmin = round((vmin - t0) / minorstep)
+        tmax = round((vmax - t0) / minorstep) + 1
+        locs = (np.arange(tmin, tmax) * minorstep) + t0
+
+        return self.raise_if_exceeds(locs)
+
+    def tick_values(self, vmin, vmax):
+        raise NotImplementedError(
+            f"Cannot get tick locations for a {type(self).__name__}")
+
+
+class AsinhLocator(Locator):
+    """
+    Place ticks spaced evenly on an inverse-sinh scale.
+
+    Generally used with the `~.scale.AsinhScale` class.
+    """
+
+    def __init__(self, linear_width, numticks=11, symthresh=0.2,
+                 base=10, subs=None):
+        """
+        Parameters
+        ----------
+        linear_width : float
+            The scale parameter defining the extent of the quasi-linear region.
+        numticks : int, default: 11
+            The approximate number of major ticks that will fit along the entire axis.
+        symthresh : float, default: 0.2
+            The fractional threshold beneath which data which covers a range
+            that is approximately symmetric about zero will have ticks that are
+            exactly symmetric.
+        base : int, default: 10
+            The number base used for rounding tick locations on a logarithmic scale.
+        subs : tuple, default: None
+            Multiples of the number base for minor ticks.
+        """
+        super().__init__()
+        self.linear_width = linear_width
+        self.numticks = numticks
+        self.symthresh = symthresh
+        self.base = base
+        self.subs = subs
+
+    def set_params(self, numticks=None, symthresh=None, base=None, subs=None):
+        """Set parameters within this locator."""
+        if numticks is not None:
+            self.numticks = numticks
+        if symthresh is not None:
+            self.symthresh = symthresh
+        if base is not None:
+            self.base = base
+        if subs is not None:
+            self.subs = subs if len(subs) > 0 else None
+
+    def __call__(self):
+        vmin, vmax = self.axis.get_view_interval()
+        if (vmin * vmax) < 0 and abs(1 + vmax / vmin) < self.symthresh:
+            bound = max(abs(vmin), abs(vmax))
+            return self.tick_values(-bound, bound)
+        else:
+            return self.tick_values(vmin, vmax)
+
+    def tick_values(self, vmin, vmax):
+        # Construct uniformly-spaced "on-screen" locations
+        ymin, ymax = self.linear_width * np.arcsinh(
+            np.array([vmin, vmax]) / self.linear_width)
+        ys = np.linspace(ymin, ymax, self.numticks)
+        zero_dev = abs(ys / (ymax - ymin)) if ymax != ymin else np.zeros_like(ys)
+        if ymin * ymax < 0:
+            # Include zero tick if axis straddles zero
+            ys = np.hstack([ys[(zero_dev > 0.5 / self.numticks)], 0.0])
+
+        # Transform back to data space
+        xs = self.linear_width * np.sinh(ys / self.linear_width)
+        zero_xs = (ys == 0)
+
+        with np.errstate(divide="ignore"):
+            if self.base > 1:
+                pows = (np.sign(xs)
+                        * self.base ** np.floor(
+                            np.log(np.where(zero_xs, 1, abs(xs)))
+                            / math.log(self.base)))
+                qs = np.outer(pows, self.subs).flatten() if self.subs else pows
+            else:
+                pows = np.where(zero_xs, 1,
+                                10 ** np.floor(np.log10(np.where(zero_xs, 1, abs(xs)))))
+                qs = pows * np.round(xs / np.where(zero_xs, 1, pows))
+
+        ticks = np.array(sorted(set(qs)))
+        return ticks if len(ticks) >= 2 else np.linspace(vmin, vmax, self.numticks)
