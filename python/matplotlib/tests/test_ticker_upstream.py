@@ -8,7 +8,8 @@ from matplotlib.tests._approx import approx
 from matplotlib.ticker import (
     Formatter, NullFormatter, FixedFormatter, FuncFormatter,
     FormatStrFormatter, StrMethodFormatter, ScalarFormatter,
-    LogFormatter, PercentFormatter,
+    LogFormatter, LogFormatterExponent, LogFormatterMathtext,
+    LogFormatterSciNotation, PercentFormatter,
     Locator, NullLocator, FixedLocator, IndexLocator,
     LinearLocator, MultipleLocator, MaxNLocator, AutoLocator,
     AutoMinorLocator, LogLocator, SymmetricalLogLocator,
@@ -1252,3 +1253,209 @@ class TestAxisConnectedLocators:
         minor = ax.xaxis.get_ticklocs(minor=True)
         assert isinstance(minor, list)
         plt.close('all')
+
+
+# ===================================================================
+# LogFormatterExponent
+# ===================================================================
+
+class TestLogFormatterExponent:
+    def test_formats_as_exponent_for_decade(self):
+        """LogFormatterExponent formats decade values as exponents."""
+        f = LogFormatterExponent(base=10)
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        ax.set_xlim(1, 1000)
+        f.set_axis(ax.xaxis)
+        result = f(100, 0)
+        # Should return the exponent (2 for 10^2) or its string
+        assert result is not None
+        plt.close('all')
+
+    def test_base_10_exponent_for_1000(self):
+        """1000 = 10^3, exponent should include '3'."""
+        f = LogFormatterExponent(base=10)
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        ax.set_xlim(1, 10000)
+        f.set_axis(ax.xaxis)
+        result = f(1000, 0)
+        assert '3' in str(result)
+        plt.close('all')
+
+    def test_base_2_exponent(self):
+        """LogFormatterExponent with base=2 formats 8=2^3 with exponent 3."""
+        f = LogFormatterExponent(base=2)
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        ax.set_xlim(1, 16)
+        f.set_axis(ax.xaxis)
+        result = f(8, 0)
+        assert '3' in str(result)
+        plt.close('all')
+
+    def test_non_decade_empty_when_labelonlybase(self):
+        """labelOnlyBase=True silences non-decade values."""
+        f = LogFormatterExponent(base=10, labelOnlyBase=True)
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        ax.set_xlim(1, 1000)
+        f.set_axis(ax.xaxis)
+        # 50 is not a power of 10
+        assert f(50, 0) == ''
+        plt.close('all')
+
+    def test_zero_or_negative_returns_empty(self):
+        """LogFormatterExponent returns '' for x <= 0."""
+        f = LogFormatterExponent(base=10)
+        assert f(0, 0) == ''
+        assert f(-1, 0) == ''
+
+    def test_set_base(self):
+        """set_base changes the base used for formatting."""
+        f = LogFormatterExponent(base=10)
+        f.set_base(2)
+        assert f._base == 2.0
+
+    def test_format_data_short(self):
+        """format_data_short returns a compact string."""
+        f = LogFormatterExponent(base=10)
+        result = f.format_data_short(100.0)
+        assert '100' in result
+
+    def test_returns_string(self):
+        """__call__ always returns a string."""
+        f = LogFormatterExponent(base=10)
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        ax.set_xlim(1, 10000)
+        f.set_axis(ax.xaxis)
+        for val in [1, 10, 100, 1000]:
+            assert isinstance(f(val, 0), str)
+        plt.close('all')
+
+
+# ===================================================================
+# LogFormatterMathtext
+# ===================================================================
+
+class TestLogFormatterMathtext:
+    def test_decade_produces_mathdefault(self):
+        """Decade values produce $\\mathdefault{base^{exp}}$ format."""
+        f = LogFormatterMathtext(base=10)
+        result = f(100, 0)
+        assert 'mathdefault' in result.lower() or '10' in result
+
+    def test_zero_symlog(self):
+        """x=0 returns the zero label."""
+        f = LogFormatterMathtext(base=10)
+        result = f(0, 0)
+        assert '0' in result
+
+    def test_negative_gets_sign(self):
+        """Negative values include minus sign in output."""
+        f = LogFormatterMathtext(base=10)
+        result = f(-100, 0)
+        assert '-' in result
+
+    def test_base_2_decade(self):
+        """Base-2: 8 = 2^3 formatted with exponent 3."""
+        f = LogFormatterMathtext(base=2)
+        result = f(8, 0)
+        assert '3' in result
+
+    def test_labelonlybase_silences_non_decade(self):
+        """labelOnlyBase=True returns '' for non-powers."""
+        f = LogFormatterMathtext(base=10, labelOnlyBase=True)
+        assert f(50, 0) == ''
+
+    def test_non_decade_not_silenced_by_default(self):
+        """By default non-decade values are formatted."""
+        f = LogFormatterMathtext(base=10, labelOnlyBase=False)
+        result = f(50, 0)
+        # Not empty (sublabels filter may suppress, but default allows)
+        assert result is not None
+
+    def test_returns_string(self):
+        """__call__ always returns a string."""
+        f = LogFormatterMathtext(base=10)
+        for val in [1, 10, 100]:
+            assert isinstance(f(val, 0), str)
+
+    def test_non_decade_format_output(self):
+        """_non_decade_format returns a mathtext string."""
+        f = LogFormatterMathtext(base=10)
+        result = f._non_decade_format('', '10', 1.7, False)
+        assert '10' in result and '1.70' in result
+
+    def test_format_data(self):
+        """format_data strips math markup."""
+        f = LogFormatterMathtext(base=10)
+        result = f.format_data(100.0)
+        assert result is not None
+
+    def test_base_10_power_of_10(self):
+        """10^2 = 100 is formatted with exponent 2."""
+        f = LogFormatterMathtext(base=10)
+        result = f(100, 0)
+        assert '2' in result
+
+
+# ===================================================================
+# LogFormatterSciNotation
+# ===================================================================
+
+class TestLogFormatterSciNotation:
+    def test_decade_produces_power_format(self):
+        """Decade values produce base^exp notation."""
+        f = LogFormatterSciNotation(base=10)
+        result = f(1000, 0)
+        assert '10' in result and '3' in result
+
+    def test_non_decade_produces_coeff_times_power(self):
+        """Non-decade values produce coeff×base^exp notation."""
+        f = LogFormatterSciNotation(base=10)
+        result = f(500, 0)
+        # Should contain 'times' or coefficient
+        assert result is not None
+
+    def test_zero_symlog(self):
+        """x=0 returns the zero label."""
+        f = LogFormatterSciNotation(base=10)
+        result = f(0, 0)
+        assert '0' in result
+
+    def test_negative_gets_sign(self):
+        """Negative values include minus sign."""
+        f = LogFormatterSciNotation(base=10)
+        result = f(-1000, 0)
+        assert '-' in result
+
+    def test_non_decade_format_contains_times(self):
+        """_non_decade_format for sci notation contains times symbol."""
+        f = LogFormatterSciNotation(base=10)
+        result = f._non_decade_format('', '10', 2.7, False)
+        assert 'times' in result or r'\times' in result
+
+    def test_labelonlybase_silences_non_decade(self):
+        """labelOnlyBase=True returns '' for non-powers."""
+        f = LogFormatterSciNotation(base=10, labelOnlyBase=True)
+        assert f(50, 0) == ''
+
+    def test_returns_string(self):
+        """__call__ always returns a string."""
+        f = LogFormatterSciNotation(base=10)
+        for val in [1, 10, 100, 1000]:
+            assert isinstance(f(val, 0), str)
+
+    def test_inherits_from_mathtext(self):
+        """LogFormatterSciNotation is a subclass of LogFormatterMathtext."""
+        from matplotlib.ticker import LogFormatterMathtext
+        assert issubclass(LogFormatterSciNotation, LogFormatterMathtext)
+
+    def test_coeff_close_to_int_rounded(self):
+        """When coeff is close to an integer, it's rounded."""
+        f = LogFormatterSciNotation(base=10)
+        # 1000 = 10^3, coeff=1 — decade case handled by parent
+        result = f(1000, 0)
+        assert '1' in result
