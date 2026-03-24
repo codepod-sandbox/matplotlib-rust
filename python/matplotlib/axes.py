@@ -2570,8 +2570,10 @@ class Axes:
         self.yaxis.set_minor_locator(AutoMinorLocator())
 
     def minorticks_off(self):
-        """Turn off minor ticks (no-op)."""
-        pass
+        """Turn off minor ticks by installing NullLocator."""
+        from matplotlib.ticker import NullLocator
+        self.xaxis.set_minor_locator(NullLocator())
+        self.yaxis.set_minor_locator(NullLocator())
 
     def set_visible(self, b):
         """Set whether the axes is visible."""
