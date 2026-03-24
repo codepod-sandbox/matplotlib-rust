@@ -2452,3 +2452,258 @@ def test_label_outer_corner_case():
     # Bottom-right: bottom, not left => xlabel shown, ylabel hidden
     assert axes[1][1]._xlabel_visible is True
     assert axes[1][1]._ylabel_visible is False
+
+
+# ===================================================================
+# axhline / axvline tests
+# ===================================================================
+
+class TestAxhlineAxvline:
+    def test_axhline_default(self):
+        """axhline with no args adds a line at y=0."""
+        fig, ax = plt.subplots()
+        line = ax.axhline()
+        assert line in ax.lines
+        plt.close('all')
+
+    def test_axhline_at_y(self):
+        """axhline(y=0.5) places line at y=0.5."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(y=0.5)
+        assert line in ax.lines
+        assert line.get_ydata()[0] == 0.5
+        plt.close('all')
+
+    def test_axhline_color(self):
+        """axhline respects color kwarg."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(color='red')
+        assert '#ff0000' in line.get_color().lower() or 'red' in str(line.get_color())
+        plt.close('all')
+
+    def test_axhline_linestyle(self):
+        """axhline respects linestyle kwarg."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(linestyle='--')
+        assert line.get_linestyle() in ('--', 'dashed')
+        plt.close('all')
+
+    def test_axhline_spanning_attr(self):
+        """axhline sets _spanning='horizontal'."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(0.5)
+        assert line._spanning == 'horizontal'
+        plt.close('all')
+
+    def test_axvline_default(self):
+        """axvline with no args adds a line at x=0."""
+        fig, ax = plt.subplots()
+        line = ax.axvline()
+        assert line in ax.lines
+        plt.close('all')
+
+    def test_axvline_at_x(self):
+        """axvline(x=0.5) places line at x=0.5."""
+        fig, ax = plt.subplots()
+        line = ax.axvline(x=0.5)
+        assert line in ax.lines
+        assert line.get_xdata()[0] == 0.5
+        plt.close('all')
+
+    def test_axvline_spanning_attr(self):
+        """axvline sets _spanning='vertical'."""
+        fig, ax = plt.subplots()
+        line = ax.axvline(0.5)
+        assert line._spanning == 'vertical'
+        plt.close('all')
+
+    def test_axhline_returns_line(self):
+        """axhline returns a Line2D object."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        line = ax.axhline()
+        assert isinstance(line, Line2D)
+        plt.close('all')
+
+    def test_axvline_returns_line(self):
+        """axvline returns a Line2D object."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        line = ax.axvline()
+        assert isinstance(line, Line2D)
+        plt.close('all')
+
+    def test_axhline_label(self):
+        """axhline with label stores label on line."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(y=1, label='baseline')
+        assert line.get_label() == 'baseline'
+        plt.close('all')
+
+    def test_axvline_label(self):
+        """axvline with label stores label on line."""
+        fig, ax = plt.subplots()
+        line = ax.axvline(x=1, label='cutoff')
+        assert line.get_label() == 'cutoff'
+        plt.close('all')
+
+    def test_axhline_multiple(self):
+        """Multiple axhline calls all add to ax.lines."""
+        fig, ax = plt.subplots()
+        l1 = ax.axhline(0.2)
+        l2 = ax.axhline(0.8)
+        assert l1 in ax.lines
+        assert l2 in ax.lines
+        plt.close('all')
+
+    def test_axvline_multiple(self):
+        """Multiple axvline calls all add to ax.lines."""
+        fig, ax = plt.subplots()
+        l1 = ax.axvline(0.2)
+        l2 = ax.axvline(0.8)
+        assert l1 in ax.lines
+        assert l2 in ax.lines
+        plt.close('all')
+
+
+# ===================================================================
+# hlines / vlines tests
+# ===================================================================
+
+class TestHlinesVlines:
+    def test_hlines_scalar_y(self):
+        """hlines with scalar y creates one line."""
+        fig, ax = plt.subplots()
+        result = ax.hlines(0.5, 0, 1)
+        assert len(result) == 1
+        plt.close('all')
+
+    def test_hlines_list_y(self):
+        """hlines with list y creates one line per value."""
+        fig, ax = plt.subplots()
+        result = ax.hlines([0.2, 0.5, 0.8], 0, 1)
+        assert len(result) == 3
+        plt.close('all')
+
+    def test_hlines_adds_to_lines(self):
+        """hlines adds lines to ax.lines."""
+        fig, ax = plt.subplots()
+        result = ax.hlines(0.5, 0, 1)
+        for line in result:
+            assert line in ax.lines
+        plt.close('all')
+
+    def test_hlines_label(self):
+        """hlines first line gets label."""
+        fig, ax = plt.subplots()
+        result = ax.hlines([0.2, 0.5], 0, 1, label='h')
+        assert result[0].get_label() == 'h'
+        plt.close('all')
+
+    def test_vlines_scalar_x(self):
+        """vlines with scalar x creates one line."""
+        fig, ax = plt.subplots()
+        result = ax.vlines(0.5, 0, 1)
+        assert len(result) == 1
+        plt.close('all')
+
+    def test_vlines_list_x(self):
+        """vlines with list x creates one line per value."""
+        fig, ax = plt.subplots()
+        result = ax.vlines([0.2, 0.5, 0.8], 0, 1)
+        assert len(result) == 3
+        plt.close('all')
+
+    def test_vlines_adds_to_lines(self):
+        """vlines adds lines to ax.lines."""
+        fig, ax = plt.subplots()
+        result = ax.vlines(0.5, 0, 1)
+        for line in result:
+            assert line in ax.lines
+        plt.close('all')
+
+    def test_hlines_vector_xmin_xmax(self):
+        """hlines accepts vector xmin/xmax."""
+        fig, ax = plt.subplots()
+        result = ax.hlines([0.3, 0.7], [0, 0.1], [0.5, 1.0])
+        assert len(result) == 2
+        plt.close('all')
+
+    def test_vlines_vector_ymin_ymax(self):
+        """vlines accepts vector ymin/ymax."""
+        fig, ax = plt.subplots()
+        result = ax.vlines([0.3, 0.7], [0, 0.1], [0.5, 1.0])
+        assert len(result) == 2
+        plt.close('all')
+
+
+# ===================================================================
+# fill_between / fill_betweenx tests
+# ===================================================================
+
+class TestFillBetween:
+    def test_fill_between_basic(self):
+        """fill_between returns a Polygon patch."""
+        from matplotlib.patches import Polygon
+        fig, ax = plt.subplots()
+        poly = ax.fill_between([0, 1, 2], [0, 1, 0], [1, 2, 1])
+        assert isinstance(poly, Polygon)
+        plt.close('all')
+
+    def test_fill_between_in_patches(self):
+        """fill_between adds polygon to ax.patches."""
+        fig, ax = plt.subplots()
+        poly = ax.fill_between([0, 1, 2], [0, 1, 0])
+        assert poly in ax.patches
+        plt.close('all')
+
+    def test_fill_between_y2_scalar(self):
+        """fill_between with scalar y2 fills to a constant baseline."""
+        from matplotlib.patches import Polygon
+        fig, ax = plt.subplots()
+        poly = ax.fill_between([0, 1, 2], [1, 2, 1], y2=0)
+        assert isinstance(poly, Polygon)
+        plt.close('all')
+
+    def test_fill_between_color(self):
+        """fill_between respects color kwarg."""
+        fig, ax = plt.subplots()
+        poly = ax.fill_between([0, 1], [0, 1], color='red')
+        assert poly.get_facecolor() is not None
+        plt.close('all')
+
+    def test_fill_between_label(self):
+        """fill_between with label stores label on polygon."""
+        fig, ax = plt.subplots()
+        poly = ax.fill_between([0, 1], [0, 1], label='shaded')
+        assert poly.get_label() == 'shaded'
+        plt.close('all')
+
+    def test_fill_between_alpha(self):
+        """fill_between default alpha is 0.5."""
+        fig, ax = plt.subplots()
+        poly = ax.fill_between([0, 1], [0, 1])
+        assert poly.get_alpha() == 0.5
+        plt.close('all')
+
+    def test_fill_betweenx_basic(self):
+        """fill_betweenx returns a Polygon patch."""
+        from matplotlib.patches import Polygon
+        fig, ax = plt.subplots()
+        poly = ax.fill_betweenx([0, 1, 2], [0, 1, 0], [1, 2, 1])
+        assert isinstance(poly, Polygon)
+        plt.close('all')
+
+    def test_fill_betweenx_in_patches(self):
+        """fill_betweenx adds polygon to ax.patches."""
+        fig, ax = plt.subplots()
+        poly = ax.fill_betweenx([0, 1, 2], [0, 1, 0])
+        assert poly in ax.patches
+        plt.close('all')
+
+    def test_fill_betweenx_label(self):
+        """fill_betweenx with label stores label."""
+        fig, ax = plt.subplots()
+        poly = ax.fill_betweenx([0, 1], [0, 1], label='betweenx')
+        assert poly.get_label() == 'betweenx'
+        plt.close('all')
