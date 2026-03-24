@@ -5,7 +5,10 @@ These tests are adapted from the real matplotlib test suite to validate
 compatibility of our Patch / Rectangle / Circle implementation.
 """
 
-from matplotlib.patches import Circle, Patch, Rectangle
+from matplotlib.patches import (
+    Circle, Patch, Rectangle, Ellipse, Arc, FancyBboxPatch,
+    Arrow, RegularPolygon, PathPatch, FancyArrowPatch, ConnectionPatch,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -700,3 +703,369 @@ def test_patch_remove():
     assert r in ax.patches
     r.remove()
     assert r not in ax.patches
+
+
+# ===================================================================
+# Ellipse tests
+# ===================================================================
+
+class TestEllipse:
+    def test_basic_construction(self):
+        e = Ellipse((1, 2), 3, 4)
+        assert e.get_center() == (1, 2)
+        assert e.get_width() == 3
+        assert e.get_height() == 4
+
+    def test_angle_default_zero(self):
+        e = Ellipse((0, 0), 2, 1)
+        assert e.get_angle() == 0
+
+    def test_angle_set(self):
+        e = Ellipse((0, 0), 2, 1, angle=45)
+        assert e.get_angle() == 45
+
+    def test_set_center(self):
+        e = Ellipse((0, 0), 2, 1)
+        e.set_center((5, 6))
+        assert e.get_center() == (5, 6)
+
+    def test_set_width(self):
+        e = Ellipse((0, 0), 2, 1)
+        e.set_width(10)
+        assert e.get_width() == 10
+
+    def test_set_height(self):
+        e = Ellipse((0, 0), 2, 1)
+        e.set_height(7)
+        assert e.get_height() == 7
+
+    def test_set_angle(self):
+        e = Ellipse((0, 0), 2, 1)
+        e.set_angle(90)
+        assert e.get_angle() == 90
+
+    def test_kwargs_facecolor(self):
+        e = Ellipse((0, 0), 2, 1, facecolor='red')
+        assert e.get_facecolor() is not None
+
+    def test_is_patch(self):
+        e = Ellipse((0, 0), 2, 1)
+        assert isinstance(e, Patch)
+
+    def test_circle_is_ellipse(self):
+        """Circle created as Ellipse with equal width and height."""
+        e = Ellipse((1, 1), 3, 3)
+        assert e.get_width() == e.get_height()
+
+    def test_add_to_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        e = Ellipse((0.5, 0.5), 0.4, 0.2)
+        ax.add_patch(e)
+        assert e in ax.patches
+        plt.close('all')
+
+
+# ===================================================================
+# Arc tests
+# ===================================================================
+
+class TestArc:
+    def test_basic_construction(self):
+        a = Arc((0, 0), 2, 1)
+        assert a.get_center() == (0, 0)
+        assert a.get_width() == 2
+        assert a.get_height() == 1
+
+    def test_theta_defaults(self):
+        a = Arc((0, 0), 2, 1)
+        assert a.get_theta1() == 0.0
+        assert a.get_theta2() == 360.0
+
+    def test_theta_custom(self):
+        a = Arc((0, 0), 2, 1, theta1=30, theta2=270)
+        assert a.get_theta1() == 30
+        assert a.get_theta2() == 270
+
+    def test_set_theta1(self):
+        a = Arc((0, 0), 2, 1)
+        a.set_theta1(45)
+        assert a.get_theta1() == 45
+
+    def test_set_theta2(self):
+        a = Arc((0, 0), 2, 1)
+        a.set_theta2(180)
+        assert a.get_theta2() == 180
+
+    def test_is_ellipse(self):
+        a = Arc((0, 0), 2, 1)
+        assert isinstance(a, Ellipse)
+
+    def test_angle(self):
+        a = Arc((0, 0), 2, 1, angle=30)
+        assert a.get_angle() == 30
+
+    def test_add_to_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        a = Arc((0.5, 0.5), 0.4, 0.2, theta1=0, theta2=180)
+        ax.add_patch(a)
+        assert a in ax.patches
+        plt.close('all')
+
+
+# ===================================================================
+# FancyBboxPatch tests
+# ===================================================================
+
+class TestFancyBboxPatch:
+    def test_basic_construction(self):
+        fb = FancyBboxPatch((0, 0), 1, 1)
+        assert fb.get_xy() == (0, 0)
+        assert fb.get_width() == 1
+        assert fb.get_height() == 1
+
+    def test_boxstyle_default(self):
+        fb = FancyBboxPatch((0, 0), 1, 1)
+        assert fb.get_boxstyle() == 'round'
+
+    def test_boxstyle_custom(self):
+        fb = FancyBboxPatch((0, 0), 1, 1, boxstyle='square')
+        assert fb.get_boxstyle() == 'square'
+
+    def test_set_boxstyle(self):
+        fb = FancyBboxPatch((0, 0), 1, 1)
+        fb.set_boxstyle('round4')
+        assert fb.get_boxstyle() == 'round4'
+
+    def test_get_x_y(self):
+        fb = FancyBboxPatch((3, 4), 2, 2)
+        assert fb.get_x() == 3
+        assert fb.get_y() == 4
+
+    def test_set_xy(self):
+        fb = FancyBboxPatch((0, 0), 1, 1)
+        fb.set_xy((5, 6))
+        assert fb.get_xy() == (5, 6)
+
+    def test_set_width(self):
+        fb = FancyBboxPatch((0, 0), 1, 1)
+        fb.set_width(10)
+        assert fb.get_width() == 10
+
+    def test_set_height(self):
+        fb = FancyBboxPatch((0, 0), 1, 1)
+        fb.set_height(7)
+        assert fb.get_height() == 7
+
+    def test_is_patch(self):
+        fb = FancyBboxPatch((0, 0), 1, 1)
+        assert isinstance(fb, Patch)
+
+    def test_facecolor_kwarg(self):
+        fb = FancyBboxPatch((0, 0), 1, 1, facecolor='blue')
+        assert fb.get_facecolor() is not None
+
+    def test_add_to_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        fb = FancyBboxPatch((0.1, 0.1), 0.5, 0.5)
+        ax.add_patch(fb)
+        assert fb in ax.patches
+        plt.close('all')
+
+
+# ===================================================================
+# Arrow tests
+# ===================================================================
+
+class TestArrow:
+    def test_basic_construction(self):
+        a = Arrow(0, 0, 1, 1)
+        assert isinstance(a, Patch)
+
+    def test_with_width(self):
+        a = Arrow(0, 0, 1, 1, width=0.5)
+        assert isinstance(a, Arrow)
+
+    def test_facecolor(self):
+        a = Arrow(0, 0, 1, 1, facecolor='green')
+        assert a.get_facecolor() is not None
+
+    def test_add_to_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        a = Arrow(0.2, 0.2, 0.5, 0.5)
+        ax.add_patch(a)
+        assert a in ax.patches
+        plt.close('all')
+
+
+# ===================================================================
+# RegularPolygon tests
+# ===================================================================
+
+class TestRegularPolygon:
+    def test_basic_construction(self):
+        p = RegularPolygon((0, 0), 6)
+        assert isinstance(p, Patch)
+
+    def test_numvertices(self):
+        p = RegularPolygon((0, 0), 5)
+        assert p.numvertices == 5
+
+    def test_xy(self):
+        p = RegularPolygon((3, 4), 6)
+        assert p.xy == (3, 4)
+
+    def test_orientation_default(self):
+        p = RegularPolygon((0, 0), 4)
+        assert p.orientation == 0
+
+    def test_orientation_custom(self):
+        import math
+        p = RegularPolygon((0, 0), 4, orientation=math.pi / 4)
+        assert abs(p.orientation - math.pi / 4) < 1e-10
+
+    def test_radius(self):
+        p = RegularPolygon((0, 0), 6, radius=10)
+        assert p._radius == 10
+
+    def test_facecolor(self):
+        p = RegularPolygon((0, 0), 3, facecolor='purple')
+        assert p.get_facecolor() is not None
+
+    def test_add_to_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        p = RegularPolygon((0.5, 0.5), 6, radius=0.2)
+        ax.add_patch(p)
+        assert p in ax.patches
+        plt.close('all')
+
+
+# ===================================================================
+# PathPatch tests
+# ===================================================================
+
+class TestPathPatch:
+    def _make_path(self):
+        """Return a simple path-like object (no matplotlib.path dependency)."""
+        class SimplePath:
+            def __init__(self, verts):
+                self.vertices = verts
+        return SimplePath([(0, 0), (1, 0), (1, 1), (0, 1)])
+
+    def test_basic_construction(self):
+        path = self._make_path()
+        p = PathPatch(path)
+        assert isinstance(p, Patch)
+
+    def test_get_path(self):
+        path = self._make_path()
+        p = PathPatch(path)
+        assert p.get_path() is path
+
+    def test_set_path(self):
+        path1 = self._make_path()
+        path2 = self._make_path()
+        p = PathPatch(path1)
+        p.set_path(path2)
+        assert p.get_path() is path2
+
+    def test_facecolor(self):
+        path = self._make_path()
+        p = PathPatch(path, facecolor='orange')
+        assert p.get_facecolor() is not None
+
+    def test_add_to_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        path = self._make_path()
+        p = PathPatch(path)
+        ax.add_patch(p)
+        assert p in ax.patches
+        plt.close('all')
+
+
+# ===================================================================
+# FancyArrowPatch tests
+# ===================================================================
+
+class TestFancyArrowPatch:
+    def test_basic_construction(self):
+        fa = FancyArrowPatch((0, 0), (1, 1))
+        assert isinstance(fa, Patch)
+
+    def test_arrowstyle_default(self):
+        fa = FancyArrowPatch((0, 0), (1, 1))
+        assert fa.get_arrowstyle() == '->'
+
+    def test_arrowstyle_custom(self):
+        fa = FancyArrowPatch((0, 0), (1, 1), arrowstyle='<->')
+        assert fa.get_arrowstyle() == '<->'
+
+    def test_set_arrowstyle(self):
+        fa = FancyArrowPatch((0, 0), (1, 1))
+        fa.set_arrowstyle('-|>')
+        assert fa.get_arrowstyle() == '-|>'
+
+    def test_get_connectionstyle_default(self):
+        fa = FancyArrowPatch((0, 0), (1, 1))
+        assert fa.get_connectionstyle() is None
+
+    def test_set_connectionstyle(self):
+        fa = FancyArrowPatch((0, 0), (1, 1))
+        fa.set_connectionstyle('arc3')
+        assert fa.get_connectionstyle() == 'arc3'
+
+    def test_mutation_scale(self):
+        fa = FancyArrowPatch((0, 0), (1, 1), mutation_scale=2)
+        assert fa.get_mutation_scale() == 2
+
+    def test_set_mutation_scale(self):
+        fa = FancyArrowPatch((0, 0), (1, 1))
+        fa.set_mutation_scale(3)
+        assert fa.get_mutation_scale() == 3
+
+    def test_set_positions(self):
+        fa = FancyArrowPatch((0, 0), (1, 1))
+        fa.set_positions((2, 3), (4, 5))
+        assert fa._posA == (2, 3)
+        assert fa._posB == (4, 5)
+
+    def test_add_to_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        fa = FancyArrowPatch((0.1, 0.1), (0.9, 0.9))
+        ax.add_patch(fa)
+        assert fa in ax.patches
+        plt.close('all')
+
+
+# ===================================================================
+# ConnectionPatch tests
+# ===================================================================
+
+class TestConnectionPatch:
+    def test_basic_construction(self):
+        cp = ConnectionPatch((0, 0), (1, 1), 'data')
+        assert isinstance(cp, FancyArrowPatch)
+
+    def test_coords_stored(self):
+        cp = ConnectionPatch((0, 0), (1, 1), 'data', 'data')
+        assert cp._coordsA == 'data'
+        assert cp._coordsB == 'data'
+
+    def test_xy_stored(self):
+        cp = ConnectionPatch((1, 2), (3, 4), 'data')
+        assert cp._xyA == (1, 2)
+        assert cp._xyB == (3, 4)
+
+    def test_coordsB_defaults_to_coordsA(self):
+        cp = ConnectionPatch((0, 0), (1, 1), 'axes fraction')
+        assert cp._coordsB == 'axes fraction'
+
+    def test_is_fancy_arrow_patch(self):
+        cp = ConnectionPatch((0, 0), (1, 1), 'data')
+        assert isinstance(cp, FancyArrowPatch)
