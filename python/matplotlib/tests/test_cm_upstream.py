@@ -219,3 +219,161 @@ def test_rcparam_image_cmap():
     import matplotlib
     assert matplotlib.rcParams['image.cmap'] == 'viridis'
     assert matplotlib.rcParams['image.lut'] == 256
+
+
+# ===================================================================
+# ColormapRegistry extended tests
+# ===================================================================
+
+import matplotlib.cm as cm
+
+class TestColormapRegistry:
+    def test_len(self):
+        """Registry has at least some colormaps."""
+        assert len(cm._colormaps) > 10
+
+    def test_contains(self):
+        """__contains__ works for known names."""
+        assert 'viridis' in cm._colormaps
+        assert 'hot' in cm._colormaps
+
+    def test_not_contains(self):
+        """Unknown name not in registry."""
+        assert 'not_a_real_cmap' not in cm._colormaps
+
+    def test_iter(self):
+        """Can iterate over registry."""
+        names = list(cm._colormaps)
+        assert len(names) > 10
+        assert 'viridis' in names
+
+    def test_getitem(self):
+        """Registry[name] returns a Colormap."""
+        cmap = cm._colormaps['viridis']
+        assert hasattr(cmap, '__call__')
+
+    def test_getitem_unknown_raises(self):
+        """Registry[unknown] raises KeyError."""
+        with pytest.raises(KeyError):
+            _ = cm._colormaps['not_real_cmap_xyz']
+
+    def test_register_new(self):
+        """Can register a new colormap."""
+        new_cmap = cm.ListedColormap(['red', 'green', 'blue'], name='test_reg_abc')
+        cm._colormaps.register(new_cmap)
+        assert 'test_reg_abc' in cm._colormaps
+        cm._colormaps.unregister('test_reg_abc')
+
+    def test_register_duplicate_raises(self):
+        """Registering duplicate without force raises."""
+        new_cmap = cm.ListedColormap(['red'], name='viridis_dup_xyz')
+        cm._colormaps.register(new_cmap)
+        with pytest.raises(ValueError):
+            cm._colormaps.register(new_cmap)
+        cm._colormaps.unregister('viridis_dup_xyz')
+
+    def test_register_force_overwrites(self):
+        """force=True allows overwriting."""
+        new_cmap = cm.ListedColormap(['red'], name='viridis_force_xyz')
+        cm._colormaps.register(new_cmap)
+        new_cmap2 = cm.ListedColormap(['blue'], name='viridis_force_xyz')
+        cm._colormaps.register(new_cmap2, force=True)
+        assert 'viridis_force_xyz' in cm._colormaps
+        cm._colormaps.unregister('viridis_force_xyz')
+
+    def test_unregister(self):
+        """unregister removes cmap."""
+        new_cmap = cm.ListedColormap(['red'], name='test_unreg_xyz')
+        cm._colormaps.register(new_cmap)
+        cm._colormaps.unregister('test_unreg_xyz')
+        assert 'test_unreg_xyz' not in cm._colormaps
+
+    def test_unregister_nonexistent_no_error(self):
+        """unregister of nonexistent name doesn't raise."""
+        cm._colormaps.unregister('definitely_not_a_cmap_xyz')
+
+    def test_register_non_cmap_raises(self):
+        """Registering a non-Colormap raises ValueError."""
+        with pytest.raises(ValueError):
+            cm._colormaps.register('not_a_colormap', name='test_xyz')
+
+    def test_reversed_variants(self):
+        """Reversed (_r) variants are in the registry."""
+        assert 'viridis_r' in cm._colormaps
+
+
+# ===================================================================
+# ScalarMappable extended tests
+# ===================================================================
+
+class TestScalarMappableExtended:
+    def test_set_norm(self):
+        """set_norm stores the norm."""
+        from matplotlib.colors import Normalize
+        sm = cm.ScalarMappable()
+        n = Normalize(0, 1)
+        sm.set_norm(n)
+        assert sm.get_norm() is n
+
+    def test_set_norm_none_creates_normalize(self):
+        """Setting norm to None creates a default Normalize."""
+        from matplotlib.colors import Normalize
+        sm = cm.ScalarMappable()
+        sm.norm = None
+        assert isinstance(sm.norm, Normalize)
+
+    def test_set_cmap_string(self):
+        """set_cmap with string resolves to Colormap."""
+        sm = cm.ScalarMappable()
+        sm.set_cmap('hot')
+        assert sm.get_cmap() is not None
+
+    def test_set_cmap_object(self):
+        """set_cmap with Colormap object stores it."""
+        cmap = cm.get_cmap('cool')
+        sm = cm.ScalarMappable(cmap=cmap)
+        assert sm.get_cmap() is cmap
+
+    def test_get_array_default_none(self):
+        """get_array returns None by default."""
+        sm = cm.ScalarMappable()
+        assert sm.get_array() is None
+
+    def test_set_array(self):
+        """set_array stores the data."""
+        sm = cm.ScalarMappable()
+        sm.set_array([1, 2, 3])
+        assert sm.get_array() == [1, 2, 3]
+
+    def test_set_array_none(self):
+        """set_array(None) clears data."""
+        sm = cm.ScalarMappable()
+        sm.set_array([1, 2, 3])
+        sm.set_array(None)
+        assert sm.get_array() is None
+
+    def test_autoscale_from_array(self):
+        """autoscale sets vmin/vmax from array."""
+        from matplotlib.colors import Normalize
+        sm = cm.ScalarMappable(norm=Normalize())
+        sm.set_array([2, 5, 8])
+        sm.autoscale()
+        assert sm.get_norm().vmin == 2
+        assert sm.get_norm().vmax == 8
+
+    def test_autoscale_none_no_array(self):
+        """autoscale_None does nothing when no array."""
+        sm = cm.ScalarMappable()
+        sm.autoscale_None()  # Should not raise
+
+    def test_changed_no_error(self):
+        """changed() can be called without error."""
+        sm = cm.ScalarMappable()
+        sm.changed()  # No-op, should not raise
+
+    def test_to_rgba_list(self):
+        """to_rgba works with list input and norm."""
+        from matplotlib.colors import Normalize
+        sm = cm.ScalarMappable(norm=Normalize(0, 10), cmap='viridis')
+        result = sm.to_rgba([0.0, 5.0, 10.0])
+        assert result is not None
