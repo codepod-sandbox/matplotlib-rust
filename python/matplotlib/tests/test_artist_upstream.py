@@ -199,3 +199,198 @@ def test_linestyle_loosely_dashed():
     svg = fig.to_svg()
     assert 'stroke-dasharray' in svg
     plt.close('all')
+
+
+# ===================================================================
+# Artist extended property tests
+# ===================================================================
+
+class TestArtistExtendedProperties:
+    def test_clip_box_default_none(self):
+        a = Artist()
+        assert a.get_clip_box() is None
+
+    def test_set_clip_box(self):
+        a = Artist()
+        box = object()
+        a.set_clip_box(box)
+        assert a.get_clip_box() is box
+
+    def test_clip_path_default_none(self):
+        a = Artist()
+        assert a.get_clip_path() is None
+
+    def test_set_clip_path(self):
+        a = Artist()
+        path = object()
+        a.set_clip_path(path)
+        assert a.get_clip_path() is path
+
+    def test_transform_default_none(self):
+        a = Artist()
+        assert a.get_transform() is None
+
+    def test_set_transform(self):
+        a = Artist()
+        t = object()
+        a.set_transform(t)
+        assert a.get_transform() is t
+
+    def test_is_transform_set_false_by_default(self):
+        a = Artist()
+        assert not a.is_transform_set()
+
+    def test_is_transform_set_after_setting(self):
+        a = Artist()
+        a.set_transform(object())
+        assert a.is_transform_set()
+
+    def test_animated_default_false(self):
+        a = Artist()
+        assert a.get_animated() is False
+
+    def test_set_animated(self):
+        a = Artist()
+        a.set_animated(True)
+        assert a.get_animated() is True
+
+    def test_rasterized_default_none(self):
+        a = Artist()
+        assert a.get_rasterized() is None
+
+    def test_set_rasterized(self):
+        a = Artist()
+        a.set_rasterized(True)
+        assert a.get_rasterized() is True
+
+    def test_sketch_params_default_none(self):
+        a = Artist()
+        assert a.get_sketch_params() is None
+
+    def test_set_sketch_params(self):
+        a = Artist()
+        a.set_sketch_params(scale=1.0)
+        params = a.get_sketch_params()
+        assert params is not None
+        assert params[0] == 1.0
+
+    def test_set_sketch_params_none_clears(self):
+        a = Artist()
+        a.set_sketch_params(scale=1.0)
+        a.set_sketch_params(None)
+        assert a.get_sketch_params() is None
+
+    def test_sketch_params_with_length_randomness(self):
+        a = Artist()
+        a.set_sketch_params(scale=2.0, length=64, randomness=8)
+        scale, length, randomness = a.get_sketch_params()
+        assert scale == 2.0
+        assert length == 64
+        assert randomness == 8
+
+    def test_snap_default_none(self):
+        a = Artist()
+        assert a.get_snap() is None
+
+    def test_set_snap(self):
+        a = Artist()
+        a.set_snap(True)
+        assert a.get_snap() is True
+
+    def test_path_effects_default_empty(self):
+        a = Artist()
+        assert a.get_path_effects() == []
+
+    def test_set_path_effects(self):
+        a = Artist()
+        effects = [object(), object()]
+        a.set_path_effects(effects)
+        assert len(a.get_path_effects()) == 2
+
+    def test_url_default_none(self):
+        a = Artist()
+        assert a.get_url() is None
+
+    def test_set_url(self):
+        a = Artist()
+        a.set_url('https://example.com')
+        assert a.get_url() == 'https://example.com'
+
+    def test_gid_default_none(self):
+        a = Artist()
+        assert a.get_gid() is None
+
+    def test_set_gid(self):
+        a = Artist()
+        a.set_gid('my-id')
+        assert a.get_gid() == 'my-id'
+
+    def test_in_layout_default_true(self):
+        a = Artist()
+        assert a.get_in_layout() is True
+
+    def test_set_in_layout(self):
+        a = Artist()
+        a.set_in_layout(False)
+        assert a.get_in_layout() is False
+
+    def test_picker_default_none(self):
+        a = Artist()
+        assert a.get_picker() is None
+
+    def test_set_picker(self):
+        a = Artist()
+        a.set_picker(True)
+        assert a.get_picker() is True
+
+    def test_pickable_false_by_default(self):
+        a = Artist()
+        assert not a.pickable()
+
+    def test_pickable_true_after_set_picker(self):
+        a = Artist()
+        a.set_picker(lambda *args: True)
+        assert a.pickable()
+
+    def test_agg_filter_default_none(self):
+        a = Artist()
+        assert a.get_agg_filter() is None
+
+    def test_set_agg_filter(self):
+        a = Artist()
+        f = lambda x: x
+        a.set_agg_filter(f)
+        assert a.get_agg_filter() is f
+
+    def test_contains_default_none(self):
+        a = Artist()
+        assert a.get_contains() is None
+
+    def test_set_contains(self):
+        a = Artist()
+        fn = lambda event: True
+        a.set_contains(fn)
+        assert a.get_contains() is fn
+
+    def test_figure_default_none(self):
+        a = Artist()
+        assert a.get_figure() is None
+
+    def test_set_figure(self):
+        a = Artist()
+        fig = object()
+        a.set_figure(fig)
+        assert a.get_figure() is fig
+
+    def test_pchanged_sets_stale(self):
+        a = Artist()
+        a._stale = False
+        a.pchanged()
+        assert a.stale is True
+
+    def test_stale_setter(self):
+        a = Artist()
+        a.stale = False
+        assert a.stale is False
+        a.stale = True
+        assert a.stale is True
