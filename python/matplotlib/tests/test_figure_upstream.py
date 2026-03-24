@@ -814,3 +814,131 @@ def test_figure_invalid_figsize_negative():
     """Negative figsize raises ValueError."""
     with pytest.raises(ValueError):
         Figure(figsize=(-1, 4.8))
+
+
+# ===================================================================
+# Figure extended tests (upstream-inspired)
+# ===================================================================
+
+class TestFigureExtended:
+    def test_figure_constrained_layout_default(self):
+        """Figure constrained_layout is False by default."""
+        fig = Figure()
+        assert fig.get_constrained_layout() is False
+
+    def test_figure_set_constrained_layout(self):
+        """Figure.set_constrained_layout changes layout."""
+        fig = Figure()
+        fig.set_constrained_layout(True)
+        assert fig.get_constrained_layout() is True
+
+    def test_figure_tight_layout_default(self):
+        """Figure tight_layout is False by default."""
+        fig = Figure()
+        assert fig.get_tight_layout() is False
+
+    def test_figure_set_tight_layout(self):
+        """Figure.set_tight_layout changes layout."""
+        fig = Figure()
+        fig.set_tight_layout(True)
+        assert fig.get_tight_layout() is True
+
+    def test_figure_get_children_empty(self):
+        """Figure.get_children is a list."""
+        fig = Figure()
+        children = fig.get_children()
+        assert isinstance(children, list)
+
+    def test_figure_get_children_with_axes(self):
+        """Figure.get_children includes axes."""
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        children = fig.get_children()
+        assert ax in children
+        plt.close(fig)
+
+    def test_figure_legend_creates_legend(self):
+        """Figure.legend() creates a Legend."""
+        from matplotlib.legend import Legend
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = fig.legend()
+        assert isinstance(leg, Legend)
+        plt.close(fig)
+
+    def test_figure_legend_explicit_handles_labels(self):
+        """Figure.legend with explicit handles and labels."""
+        from matplotlib.legend import Legend
+        from matplotlib.lines import Line2D
+        fig = plt.figure()
+        handle = Line2D([], [], color='blue')
+        leg = fig.legend(handles=[handle], labels=['line'])
+        assert isinstance(leg, Legend)
+        plt.close(fig)
+
+    def test_figure_align_xlabels_noop(self):
+        """Figure.align_xlabels doesn't raise."""
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        fig.align_xlabels([ax])  # no-op
+        plt.close(fig)
+
+    def test_figure_align_ylabels_noop(self):
+        """Figure.align_ylabels doesn't raise."""
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        fig.align_ylabels([ax])  # no-op
+        plt.close(fig)
+
+    def test_figure_align_labels_noop(self):
+        """Figure.align_labels doesn't raise."""
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        fig.align_labels([ax])  # no-op
+        plt.close(fig)
+
+    def test_figure_colorbar_returns_object(self):
+        """Figure.colorbar returns a colorbar-like object."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        img = ax.imshow(np.zeros((3, 3)))
+        cb = fig.colorbar(img, ax=ax)
+        assert cb is not None
+        plt.close(fig)
+
+    def test_figure_subplots_1x1_returns_single(self):
+        """Figure.subplots(1, 1) returns a single Axes."""
+        fig = Figure()
+        ax = fig.subplots(1, 1)
+        assert not isinstance(ax, list)
+
+    def test_figure_subplots_2x2_returns_nested(self):
+        """Figure.subplots(2, 2) returns 2x2 list."""
+        fig = Figure()
+        axes = fig.subplots(2, 2)
+        assert len(axes) == 2
+        assert len(axes[0]) == 2
+
+    def test_figure_subplots_1x3_returns_flat(self):
+        """Figure.subplots(1, 3) returns flat list."""
+        fig = Figure()
+        axes = fig.subplots(1, 3)
+        assert len(axes) == 3
+
+    def test_figure_get_suptitle_after_set(self):
+        """Figure.get_suptitle returns the set title."""
+        fig = Figure()
+        fig.suptitle('main title')
+        assert fig.get_suptitle() == 'main title'
+
+    def test_figure_dpi_default(self):
+        """Figure default DPI is 100."""
+        fig = Figure()
+        assert fig.get_dpi() == 100
+
+    def test_figure_set_dpi(self):
+        """Figure.set_dpi changes DPI."""
+        fig = Figure()
+        fig.set_dpi(150)
+        assert fig.get_dpi() == 150
