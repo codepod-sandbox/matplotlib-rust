@@ -141,6 +141,8 @@ class Axis:
         self._minor_locator = NullLocator()
         self._major_formatter = ScalarFormatter()
         self._minor_formatter = NullFormatter()
+        self._major_locator.set_axis(self)
+        self._minor_locator.set_axis(self)
         self._visible = True
         self._label = _TickLabel('')
         self.label = self._label
@@ -164,20 +166,33 @@ class Axis:
         if isinstance(scale, LogScale):
             if self.isDefault_majloc:
                 self._major_locator = LogLocator(base=scale.base)
+                self._major_locator.set_axis(self)
             if self.isDefault_majfmt:
                 self._major_formatter = LogFormatter(base=scale.base)
         elif isinstance(scale, SymmetricalLogScale):
             if self.isDefault_majloc:
                 self._major_locator = SymmetricalLogLocator(base=scale.base,
                                                              linthresh=scale.linthresh)
+                self._major_locator.set_axis(self)
         else:
             # Linear or unknown — restore defaults if they were scale-set
             if self.isDefault_majloc:
                 self._major_locator = AutoLocator()
+                self._major_locator.set_axis(self)
             if self.isDefault_majfmt:
                 self._major_formatter = ScalarFormatter()
 
     def get_scale(self):
+        """Return the current scale name string."""
+        from matplotlib.scale import LogScale, SymmetricalLogScale, LinearScale
+        scale_obj = getattr(self, '_scale_obj', None)
+        if isinstance(scale_obj, LogScale):
+            return 'log'
+        elif isinstance(scale_obj, SymmetricalLogScale):
+            return 'symlog'
+        return 'linear'
+
+    def get_scale_obj(self):
         """Return the current Scale object."""
         return getattr(self, '_scale_obj', None)
 
@@ -186,6 +201,7 @@ class Axis:
 
     def set_major_locator(self, locator):
         self._major_locator = locator
+        locator.set_axis(self)
         self.isDefault_majloc = False
 
     def get_minor_locator(self):
@@ -193,6 +209,7 @@ class Axis:
 
     def set_minor_locator(self, locator):
         self._minor_locator = locator
+        locator.set_axis(self)
         self.isDefault_minloc = False
 
     def get_major_formatter(self):
@@ -264,8 +281,32 @@ class Axis:
     def get_minor_ticks(self):
         return list(self.minorTicks)
 
-    def get_ticklocs(self):
+    def get_ticklocs(self, minor=False):
+        if minor:
+            return self.get_minorticklocs()
         return [t.get_loc() for t in self.majorTicks]
+
+    def get_majorticklocs(self):
+        """Return major tick locations from the major locator."""
+        if self.majorTicks:
+            return [t.get_loc() for t in self.majorTicks]
+        # Compute dynamically from the locator
+        try:
+            locs = self._major_locator()
+            return list(locs)
+        except Exception:
+            return []
+
+    def get_minorticklocs(self):
+        """Return minor tick locations by calling the minor locator."""
+        from matplotlib.ticker import NullLocator
+        if isinstance(self._minor_locator, NullLocator):
+            return []
+        try:
+            locs = self._minor_locator()
+            return list(locs)
+        except Exception:
+            return [t.get_loc() for t in self.minorTicks]
 
     def get_ticklabels(self, minor=False):
         ticks = self.minorTicks if minor else self.majorTicks
@@ -342,6 +383,26 @@ class Axis:
     def _update_ticks(self):
         return self.majorTicks + self.minorTicks
 
+    def get_view_interval(self):
+        """Return the view limits (vmin, vmax) for this axis."""
+        return (0, 1)
+
+    def get_data_interval(self):
+        """Return the data limits (dmin, dmax) for this axis."""
+        return (0, 1)
+
+    def get_minpos(self):
+        """Return smallest positive value in data."""
+        return 1e-300
+
+    def get_tick_space(self):
+        """Return the number of ticks that can fit in the current view."""
+        return 9
+
+    def _get_shared_axis(self):
+        """Return list containing this axis (for compatibility)."""
+        return [self]
+
     def get_pickradius(self):
         return self.pickradius
 
@@ -352,6 +413,16 @@ class Axis:
 class XAxis(Axis):
     """X-axis object."""
     axis_name = 'x'
+
+    def get_view_interval(self):
+        if self.axes is not None:
+            return self.axes.get_xlim()
+        return (0, 1)
+
+    def get_data_interval(self):
+        if self.axes is not None:
+            return self.axes.get_xlim()
+        return (0, 1)
 
     def get_inverted(self):
         return self.axes._x_inverted if self.axes else False
@@ -374,6 +445,16 @@ class YAxis(Axis):
     """Y-axis object."""
     axis_name = 'y'
 
+    def get_view_interval(self):
+        if self.axes is not None:
+            return self.axes.get_ylim()
+        return (0, 1)
+
+    def get_data_interval(self):
+        if self.axes is not None:
+            return self.axes.get_ylim()
+        return (0, 1)
+
     def get_inverted(self):
         return self.axes._y_inverted if self.axes else False
 
@@ -393,6 +474,8 @@ class YAxis(Axis):
 
 class Axes:
     """A single set of axes in a Figure."""
+
+    name = 'rectilinear'
 
     def __init__(self, fig, position):
         self.figure = fig
@@ -2481,8 +2564,10 @@ class Axes:
         return dict(self._tick_params.get(axis, {}))
 
     def minorticks_on(self):
-        """Turn on minor ticks (no-op)."""
-        pass
+        """Turn on automatic minor ticks for both axes."""
+        from matplotlib.ticker import AutoMinorLocator
+        self.xaxis.set_minor_locator(AutoMinorLocator())
+        self.yaxis.set_minor_locator(AutoMinorLocator())
 
     def minorticks_off(self):
         """Turn off minor ticks (no-op)."""

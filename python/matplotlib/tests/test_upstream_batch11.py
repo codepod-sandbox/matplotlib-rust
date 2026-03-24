@@ -912,8 +912,10 @@ class TestLocatorFormatter:
         assert 2.5 in vals
 
     def test_auto_minor_locator(self):
-        loc = mticker.AutoMinorLocator(n=5)
-        vals = loc.tick_values(0, 10)
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ax.minorticks_on()
+        vals = ax.xaxis.get_ticklocs(minor=True)
         assert len(vals) > 0
 
     def test_symmetrical_log_locator(self):

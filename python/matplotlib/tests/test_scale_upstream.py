@@ -67,10 +67,9 @@ def test_set_xscale_log_changes_locator():
     """ax.set_xscale('log') must install LogLocator on xaxis."""
     import matplotlib.pyplot as plt
     from matplotlib.ticker import LogLocator
-    from matplotlib.scale import LogScale
     fig, ax = plt.subplots()
     ax.set_xscale('log')
-    assert isinstance(ax.xaxis.get_scale(), LogScale)
+    assert ax.xaxis.get_scale() == 'log'
     assert isinstance(ax.xaxis.get_major_locator(), LogLocator)
     plt.close('all')
 
@@ -78,9 +77,8 @@ def test_set_xscale_log_changes_locator():
 def test_set_xscale_linear_is_default():
     """ax.set_xscale('linear') (or default) uses LinearScale."""
     import matplotlib.pyplot as plt
-    from matplotlib.scale import LinearScale
     fig, ax = plt.subplots()
-    assert isinstance(ax.xaxis.get_scale(), LinearScale)
+    assert ax.xaxis.get_scale() == 'linear'
     plt.close('all')
 
 
@@ -114,12 +112,11 @@ def test_axes_layout_backward_compat_no_scales():
 
 
 def test_cla_resets_scale():
-    """cla() must reset axis scale to LinearScale and _xscale to 'linear'."""
+    """cla() must reset axis scale to 'linear' and _xscale to 'linear'."""
     import matplotlib.pyplot as plt
-    from matplotlib.scale import LinearScale
     fig, ax = plt.subplots()
     ax.set_xscale('log')
     ax.cla()
-    assert isinstance(ax.xaxis.get_scale(), LinearScale)
+    assert ax.xaxis.get_scale() == 'linear'
     assert ax.get_xscale() == 'linear'
     plt.close('all')

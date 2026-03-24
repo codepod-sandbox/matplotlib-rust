@@ -417,10 +417,12 @@ class TestLocators:
         assert len(ticks) >= 2
 
     def test_auto_minor_locator(self):
-        loc = AutoMinorLocator()
-        # Should not error
-        ticks = loc.tick_values(0, 10)
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ax.minorticks_on()
+        ticks = ax.xaxis.get_ticklocs(minor=True)
         assert isinstance(ticks, list)
+        assert len(ticks) > 0
 
     def test_log_locator(self):
         loc = LogLocator(base=10.0)
