@@ -549,3 +549,118 @@ def test_figure_reuse_by_label():
     fig1 = plt.figure('my_fig')
     fig2 = plt.figure('my_fig')
     assert fig1 is fig2
+
+
+# ===================================================================
+# get_fignums / get_figlabels / axes / tight_layout / imshow / contour
+# ===================================================================
+
+def test_plt_get_fignums_empty():
+    """get_fignums returns empty list when no figures."""
+    plt.close('all')
+    nums = plt.get_fignums()
+    assert isinstance(nums, list)
+    assert nums == []
+
+
+def test_plt_get_fignums_with_figures():
+    """get_fignums returns figure numbers."""
+    plt.close('all')
+    fig1 = plt.figure()
+    fig2 = plt.figure()
+    nums = plt.get_fignums()
+    assert fig1.number in nums
+    assert fig2.number in nums
+    plt.close('all')
+
+
+def test_plt_get_figlabels_empty():
+    """get_figlabels returns empty list when no figures."""
+    plt.close('all')
+    labels = plt.get_figlabels()
+    assert isinstance(labels, list)
+    assert labels == []
+
+
+def test_plt_get_figlabels_with_label():
+    """get_figlabels returns figure labels."""
+    plt.close('all')
+    plt.figure('mylabel')  # string num sets label
+    labels = plt.get_figlabels()
+    assert 'mylabel' in labels
+    plt.close('all')
+
+
+def test_plt_axes_creates_axes():
+    """plt.axes() creates axes on current figure."""
+    plt.close('all')
+    ax = plt.axes()
+    assert ax is not None
+    plt.close('all')
+
+
+def test_plt_imshow_basic():
+    """plt.imshow returns an image."""
+    plt.close('all')
+    data = [[1, 2], [3, 4]]
+    im = plt.imshow(data)
+    assert im is not None
+    plt.close('all')
+
+
+def test_plt_tight_layout_noop():
+    """plt.tight_layout() doesn't raise."""
+    plt.close('all')
+    plt.figure()
+    plt.tight_layout()
+    plt.close('all')
+
+
+def test_plt_contour_basic():
+    """plt.contour with 2D list data returns a result."""
+    plt.close('all')
+    # Use simple 2D list to avoid np.meshgrid (missing in numpy-rust)
+    Z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    result = plt.contour(Z)
+    assert result is not None
+    plt.close('all')
+
+
+def test_plt_contourf_basic():
+    """plt.contourf with 2D list data returns a result."""
+    plt.close('all')
+    Z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    result = plt.contourf(Z)
+    assert result is not None
+    plt.close('all')
+
+
+def test_plt_pcolormesh_basic():
+    """plt.pcolormesh returns a result."""
+    import numpy as np
+    plt.close('all')
+    data = np.zeros((4, 4))
+    result = plt.pcolormesh(data)
+    assert result is not None
+    plt.close('all')
+
+
+def test_plt_get_figlabels_multiple():
+    """get_figlabels returns multiple labels."""
+    plt.close('all')
+    plt.figure('fig_a')
+    plt.figure('fig_b')
+    labels = plt.get_figlabels()
+    assert 'fig_a' in labels
+    assert 'fig_b' in labels
+    plt.close('all')
+
+
+def test_plt_axes_on_existing_figure():
+    """plt.axes() on existing figure returns its axes."""
+    plt.close('all')
+    fig = plt.figure()
+    ax = plt.axes()
+    assert ax is not None
+    assert ax is plt.gca()
+    plt.close('all')
