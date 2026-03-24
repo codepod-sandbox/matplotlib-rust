@@ -1468,9 +1468,9 @@ class EngFormatter(ScalarFormatter):
             pow10 = 0
             value = 0.0
 
-        pow10 = np.clip(pow10, min(self.ENG_PREFIXES), max(self.ENG_PREFIXES))
+        pow10 = int(np.clip(pow10, min(self.ENG_PREFIXES), max(self.ENG_PREFIXES)))
 
-        mant = sign * value / (10.0 ** pow10)
+        mant = float(sign * value / (10.0 ** pow10))
         # Handle corner case like 999.9... which may round to 1000
         if (abs(float(format(mant, fmt))) >= 1000
                 and pow10 < max(self.ENG_PREFIXES)):
@@ -2715,29 +2715,34 @@ class AsinhLocator(Locator):
 
     def tick_values(self, vmin, vmax):
         # Construct uniformly-spaced "on-screen" locations
-        ymin, ymax = self.linear_width * np.arcsinh(
-            np.array([vmin, vmax]) / self.linear_width)
+        lw = self.linear_width
+        ymin = lw * math.asinh(vmin / lw)
+        ymax = lw * math.asinh(vmax / lw)
         ys = np.linspace(ymin, ymax, self.numticks)
         zero_dev = abs(ys / (ymax - ymin)) if ymax != ymin else np.zeros_like(ys)
         if ymin * ymax < 0:
             # Include zero tick if axis straddles zero
-            ys = np.hstack([ys[(zero_dev > 0.5 / self.numticks)], 0.0])
+            ys_filtered = ys[(zero_dev > 0.5 / self.numticks)]
+            ys = np.array(list(ys_filtered) + [0.0])
 
         # Transform back to data space
         xs = self.linear_width * np.sinh(ys / self.linear_width)
         zero_xs = (ys == 0)
+        ones_like_xs = np.ones_like(xs)
 
         with np.errstate(divide="ignore"):
             if self.base > 1:
+                safe_abs = np.where(zero_xs, ones_like_xs, abs(xs))
                 pows = (np.sign(xs)
                         * self.base ** np.floor(
-                            np.log(np.where(zero_xs, 1, abs(xs)))
-                            / math.log(self.base)))
+                            np.log(safe_abs) / math.log(self.base)))
                 qs = np.outer(pows, self.subs).flatten() if self.subs else pows
             else:
-                pows = np.where(zero_xs, 1,
-                                10 ** np.floor(np.log10(np.where(zero_xs, 1, abs(xs)))))
-                qs = pows * np.round(xs / np.where(zero_xs, 1, pows))
+                safe_abs = np.where(zero_xs, ones_like_xs, abs(xs))
+                pows_denom = np.where(zero_xs, ones_like_xs,
+                                      10 ** np.floor(np.log10(safe_abs)))
+                pows = np.where(zero_xs, ones_like_xs, pows_denom)
+                qs = pows * np.round(xs / pows)
 
-        ticks = np.array(sorted(set(qs)))
+        ticks = np.array(sorted(set(float(q) for q in qs)))
         return ticks if len(ticks) >= 2 else np.linspace(vmin, vmax, self.numticks)

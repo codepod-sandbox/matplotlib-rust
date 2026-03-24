@@ -997,3 +997,258 @@ def test_draw_renders_tick_labels(tmp_path):
     # SVG must contain some numeric tick label text
     assert any(str(n) in svg for n in range(1, 31))
     plt.close('all')
+
+
+# ===================================================================
+# EngFormatter tests
+# ===================================================================
+
+class TestEngFormatter:
+    def test_basic_no_unit(self):
+        fmt = EngFormatter()
+        assert fmt(1000) == '1 k'
+        assert fmt(1e6) == '1 M'
+        assert fmt(1e9) == '1 G'
+
+    def test_with_unit(self):
+        fmt = EngFormatter(unit='Hz')
+        result = fmt(1e6)
+        assert 'M' in result
+        assert 'Hz' in result
+
+    def test_milli(self):
+        fmt = EngFormatter()
+        result = fmt(0.001)
+        assert 'm' in result
+
+    def test_micro(self):
+        fmt = EngFormatter()
+        result = fmt(1e-6)
+        # micro sign U+00B5 should be present
+        assert '\u00b5' in result or 'u' in result.lower()
+
+    def test_nano(self):
+        fmt = EngFormatter()
+        result = fmt(1e-9)
+        assert 'n' in result
+
+    def test_zero(self):
+        fmt = EngFormatter()
+        result = fmt(0)
+        assert '0' in result
+
+    def test_negative(self):
+        fmt = EngFormatter()
+        result = fmt(-1000)
+        assert 'k' in result
+
+    def test_places(self):
+        fmt = EngFormatter(places=2)
+        result = fmt(1234)
+        assert '1.23' in result
+
+    def test_sep(self):
+        fmt = EngFormatter(sep='')
+        result = fmt(1000)
+        assert result == '1k'
+
+    def test_format_eng_alias(self):
+        fmt = EngFormatter()
+        assert fmt.format_eng(1000) == fmt.format_data(1000)
+
+    def test_get_offset_empty(self):
+        fmt = EngFormatter()
+        assert fmt.get_offset() == ''
+
+    def test_set_locs(self):
+        fmt = EngFormatter()
+        fmt.set_locs([1e3, 2e3, 3e3])
+        assert fmt.locs == [1e3, 2e3, 3e3]
+
+    def test_tera(self):
+        fmt = EngFormatter()
+        result = fmt(1e12)
+        assert 'T' in result
+
+    def test_peta(self):
+        fmt = EngFormatter()
+        result = fmt(1e15)
+        assert 'P' in result
+
+    def test_kilo_unit(self):
+        fmt = EngFormatter(unit='V')
+        result = fmt(5000)
+        assert 'k' in result
+        assert 'V' in result
+
+    def test_large_exponent_clips(self):
+        # Values beyond Q prefix range should still format without error
+        fmt = EngFormatter()
+        result = fmt(1e35)
+        assert isinstance(result, str)
+
+    def test_small_exponent_clips(self):
+        fmt = EngFormatter()
+        result = fmt(1e-35)
+        assert isinstance(result, str)
+
+
+# ===================================================================
+# AsinhLocator tests
+# ===================================================================
+
+class TestAsinhLocator:
+    def test_basic_positive(self):
+        loc = AsinhLocator(linear_width=1.0)
+        ticks = loc.tick_values(1, 100)
+        assert len(ticks) >= 2
+        assert ticks[0] >= 1
+        assert ticks[-1] <= 100
+
+    def test_symmetric_range(self):
+        loc = AsinhLocator(linear_width=1.0)
+        ticks = loc.tick_values(-100, 100)
+        assert 0.0 in ticks or any(abs(t) < 1e-10 for t in ticks)
+        assert len(ticks) >= 3
+
+    def test_negative_range(self):
+        loc = AsinhLocator(linear_width=1.0)
+        ticks = loc.tick_values(-100, -1)
+        assert len(ticks) >= 2
+
+    def test_numticks(self):
+        loc = AsinhLocator(linear_width=1.0, numticks=5)
+        assert loc.numticks == 5
+
+    def test_set_params(self):
+        loc = AsinhLocator(linear_width=1.0)
+        loc.set_params(numticks=7)
+        assert loc.numticks == 7
+
+    def test_set_params_symthresh(self):
+        loc = AsinhLocator(linear_width=1.0)
+        loc.set_params(symthresh=0.1)
+        assert loc.symthresh == 0.1
+
+    def test_set_params_base(self):
+        loc = AsinhLocator(linear_width=1.0)
+        loc.set_params(base=2)
+        assert loc.base == 2
+
+    def test_set_params_subs(self):
+        loc = AsinhLocator(linear_width=1.0)
+        loc.set_params(subs=[1.0, 2.0, 5.0])
+        assert loc.subs == [1.0, 2.0, 5.0]
+
+    def test_set_params_subs_empty(self):
+        loc = AsinhLocator(linear_width=1.0, subs=[1.0])
+        loc.set_params(subs=[])
+        assert loc.subs is None
+
+    def test_linear_width_stored(self):
+        loc = AsinhLocator(linear_width=0.5)
+        assert loc.linear_width == 0.5
+
+    def test_returns_sorted(self):
+        loc = AsinhLocator(linear_width=1.0)
+        ticks = loc.tick_values(-10, 10)
+        assert list(ticks) == sorted(ticks)
+
+    def test_fallback_for_few_ticks(self):
+        # Very small range may produce linspace fallback
+        loc = AsinhLocator(linear_width=1.0, numticks=3)
+        ticks = loc.tick_values(0.001, 0.002)
+        assert len(ticks) >= 2
+
+
+# ===================================================================
+# Axis-connected locator behavior tests
+# ===================================================================
+
+class TestAxisConnectedLocators:
+    def test_autolocator_uses_axis_limits(self):
+        """AutoLocator ticks should be within the axis view limits."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 5)
+        locs = ax.xaxis.get_majorticklocs()
+        assert len(locs) >= 2
+        assert min(locs) >= 0
+        assert max(locs) <= 5
+        plt.close('all')
+
+    def test_minor_locs_within_view(self):
+        """AutoMinorLocator should produce locs within view interval."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 2)
+        ax.minorticks_on()
+        minor = ax.xaxis.get_ticklocs(minor=True)
+        assert len(minor) > 0
+        assert min(minor) >= 0
+        assert max(minor) <= 2
+        plt.close('all')
+
+    def test_get_view_interval_xaxis(self):
+        fig, ax = plt.subplots()
+        ax.set_xlim(3, 7)
+        vmin, vmax = ax.xaxis.get_view_interval()
+        assert vmin == approx(3.0)
+        assert vmax == approx(7.0)
+        plt.close('all')
+
+    def test_get_view_interval_yaxis(self):
+        fig, ax = plt.subplots()
+        ax.set_ylim(-5, 5)
+        vmin, vmax = ax.yaxis.get_view_interval()
+        assert vmin == approx(-5.0)
+        assert vmax == approx(5.0)
+        plt.close('all')
+
+    def test_get_scale_linear(self):
+        fig, ax = plt.subplots()
+        assert ax.xaxis.get_scale() == 'linear'
+        plt.close('all')
+
+    def test_get_scale_log(self):
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        assert ax.xaxis.get_scale() == 'log'
+        plt.close('all')
+
+    def test_locator_set_axis_on_set_major_locator(self):
+        """set_major_locator must call locator.set_axis(axis)."""
+        from matplotlib.ticker import MultipleLocator
+        fig, ax = plt.subplots()
+        loc = MultipleLocator(base=1.0)
+        ax.xaxis.set_major_locator(loc)
+        assert loc.axis is ax.xaxis
+        plt.close('all')
+
+    def test_locator_set_axis_on_set_minor_locator(self):
+        """set_minor_locator must call locator.set_axis(axis)."""
+        from matplotlib.ticker import AutoMinorLocator
+        fig, ax = plt.subplots()
+        loc = AutoMinorLocator()
+        ax.xaxis.set_minor_locator(loc)
+        assert loc.axis is ax.xaxis
+        plt.close('all')
+
+    def test_maxnlocator_nbins_auto_with_axis(self):
+        """MaxNLocator with nbins='auto' should work when connected to axis."""
+        from matplotlib.ticker import MaxNLocator
+        fig, ax = plt.subplots()
+        loc = MaxNLocator(nbins='auto')
+        ax.xaxis.set_major_locator(loc)
+        ax.set_xlim(0, 100)
+        ticks = ax.xaxis.get_majorticklocs()
+        assert len(ticks) >= 2
+        plt.close('all')
+
+    def test_minorticks_off_restores_null(self):
+        """minorticks_off should not break minor tick queries."""
+        fig, ax = plt.subplots()
+        ax.minorticks_on()
+        ax.minorticks_off()
+        # After off, axis may return NullLocator which gives empty list
+        minor = ax.xaxis.get_ticklocs(minor=True)
+        assert isinstance(minor, list)
+        plt.close('all')
