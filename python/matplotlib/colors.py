@@ -975,11 +975,11 @@ class Colormap:
 
         for i in range(len(X)):
             if bad_list[i]:
-                result[i] = bad_color
+                result[i] = np.array(bad_color, dtype=float)
             elif under_list[i]:
-                result[i] = under_color
+                result[i] = np.array(under_color, dtype=float)
             elif over_list[i]:
-                result[i] = over_color
+                result[i] = np.array(over_color, dtype=float)
 
         # Apply alpha multiplier
         if alpha is not None:
@@ -1021,6 +1021,53 @@ class Colormap:
         """Set the color for out-of-range high values."""
         self._rgba_over = list(to_rgba(color, alpha=alpha))
 
+    def get_bad(self):
+        """Return the color for masked/NaN values."""
+        return tuple(self._rgba_bad)
+
+    def get_under(self):
+        """Return the color for out-of-range low values."""
+        if self._rgba_under is None:
+            if hasattr(self, '_lut'):
+                return tuple(self._lut[0].tolist())
+            return (0.0, 0.0, 0.0, 1.0)
+        return tuple(self._rgba_under)
+
+    def get_over(self):
+        """Return the color for out-of-range high values."""
+        if self._rgba_over is None:
+            if hasattr(self, '_lut'):
+                return tuple(self._lut[self.N - 1].tolist())
+            return (0.0, 0.0, 0.0, 1.0)
+        return tuple(self._rgba_over)
+
+    def resampled(self, lutsize):
+        """Return a new colormap with lutsize entries."""
+        import copy
+        new = copy.copy(self)
+        new.N = int(lutsize)
+        if hasattr(new, '_lut'):
+            del new._lut
+        return new
+
+    def copy(self):
+        """Return a copy of this colormap."""
+        import copy
+        return copy.copy(self)
+
+    def _init(self):
+        """Initialize the LUT (override in subclasses)."""
+        # Base class: create a simple grayscale LUT
+        rows = []
+        for i in range(self.N):
+            t = i / max(self.N - 1, 1)
+            rows.append([t, t, t, 1.0])
+        bad = list(self._rgba_bad) if self._rgba_bad else [0.0, 0.0, 0.0, 0.0]
+        under = list(self._rgba_under) if self._rgba_under is not None else [0.0, 0.0, 0.0, 1.0]
+        over = list(self._rgba_over) if self._rgba_over is not None else [1.0, 1.0, 1.0, 1.0]
+        rows.extend([bad, under, over])
+        self._lut = np.array(rows, dtype=float)
+
     def is_gray(self):
         """Return True if the colormap is grayscale."""
         if not hasattr(self, '_lut'):
@@ -1037,7 +1084,10 @@ class Colormap:
     def __eq__(self, other):
         if not isinstance(other, Colormap):
             return False
-        return self.name == other.name
+        return self.name == other.name and self.N == other.N
+
+    def __hash__(self):
+        return hash((self.name, self.N))
 
     def __copy__(self):
         cls = type(self)
@@ -1104,7 +1154,7 @@ class LinearSegmentedColormap(Colormap):
             del self._lut
 
     @classmethod
-    def from_list(cls, name, colors, N=256):
+    def from_list(cls, name, colors, N=256, gamma=1.0):
         """Create a LinearSegmentedColormap from a list of colors.
 
         Parameters
@@ -1136,7 +1186,7 @@ class LinearSegmentedColormap(Colormap):
         a_seg = [(vals[i], rgba[i][3], rgba[i][3]) for i in range(len(vals))]
 
         segmentdata = {'red': r_seg, 'green': g_seg, 'blue': b_seg, 'alpha': a_seg}
-        return cls(name, segmentdata, N=N)
+        return cls(name, segmentdata, N=N, gamma=gamma)
 
     def reversed(self, name=None):
         if name is None:

@@ -122,6 +122,9 @@ class Colormap:
                 and self.name == other.name
                 and self.N == other.N)
 
+    def __hash__(self):
+        return hash((type(self).__name__, self.name, self.N))
+
     def __repr__(self):
         return f"{type(self).__name__}(name={self.name!r}, N={self.N})"
 
@@ -675,7 +678,8 @@ def get_cmap(name=None, lut=None):
     """
     if name is None:
         name = 'viridis'
-    if isinstance(name, Colormap):
+    # Accept any colormap-like object (handles both cm.Colormap and colors.Colormap)
+    if hasattr(name, 'N') and hasattr(name, '_rgba_bad') and not isinstance(name, str):
         if lut is not None:
             return name.resampled(lut)
         return name

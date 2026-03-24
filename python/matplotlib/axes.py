@@ -160,6 +160,7 @@ class Axis:
         from matplotlib.ticker import (LogLocator, LogFormatter,
                                         SymmetricalLogLocator, AutoLocator,
                                         ScalarFormatter)
+        self._scale_obj = scale
         if isinstance(scale, LogScale):
             if self.isDefault_majloc:
                 self._major_locator = LogLocator(base=scale.base)
@@ -175,6 +176,10 @@ class Axis:
                 self._major_locator = AutoLocator()
             if self.isDefault_majfmt:
                 self._major_formatter = ScalarFormatter()
+
+    def get_scale(self):
+        """Return the current Scale object."""
+        return getattr(self, '_scale_obj', None)
 
     def get_major_locator(self):
         return self._major_locator
@@ -317,9 +322,6 @@ class Axis:
                 t.label1.set_text(str(lbl))
                 t.label2.set_text(str(lbl))
 
-    def get_scale(self):
-        return 'linear'
-
     def get_inverted(self):
         return False
 
@@ -343,9 +345,6 @@ class XAxis(Axis):
     """X-axis object."""
     axis_name = 'x'
 
-    def get_scale(self):
-        return self.axes.get_xscale() if self.axes else 'linear'
-
     def get_inverted(self):
         return self.axes._x_inverted if self.axes else False
 
@@ -366,9 +365,6 @@ class XAxis(Axis):
 class YAxis(Axis):
     """Y-axis object."""
     axis_name = 'y'
-
-    def get_scale(self):
-        return self.axes.get_yscale() if self.axes else 'linear'
 
     def get_inverted(self):
         return self.axes._y_inverted if self.axes else False
@@ -426,6 +422,10 @@ class Axes:
         # Shared axes
         self._shared_x = []  # list of axes sharing x-limits
         self._shared_y = []  # list of axes sharing y-limits
+
+        # Custom tick labels (set via set_xticks/set_xticklabels)
+        self._xticklabels = None
+        self._yticklabels = None
 
         # Tick/label visibility (for label_outer)
         self._xticklabels_visible = True
@@ -2403,12 +2403,16 @@ class Axes:
 
     def set_xticks(self, ticks, labels=None, **kwargs):
         self.xaxis.set_ticks(ticks, labels)
+        if labels is not None:
+            self._xticklabels = list(labels)
 
     def get_xticks(self):
         return self.xaxis.get_ticks()
 
     def set_yticks(self, ticks, labels=None, **kwargs):
         self.yaxis.set_ticks(ticks, labels)
+        if labels is not None:
+            self._yticklabels = list(labels)
 
     def get_yticks(self):
         return self.yaxis.get_ticks()
@@ -2420,6 +2424,7 @@ class Axes:
         return []
 
     def set_xticklabels(self, labels, **kwargs):
+        self._xticklabels = list(labels)
         self.xaxis.set_major_formatter(FixedFormatter(list(labels)))
 
     def get_yticklabels(self):
@@ -2429,6 +2434,7 @@ class Axes:
         return []
 
     def set_yticklabels(self, labels, **kwargs):
+        self._yticklabels = list(labels)
         self.yaxis.set_major_formatter(FixedFormatter(list(labels)))
 
     def tick_params(self, axis='both', **kwargs):
