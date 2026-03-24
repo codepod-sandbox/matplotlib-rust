@@ -889,3 +889,77 @@ class TestBoundaryNormExtended:
         result = n([0.5, 1.5, 2.5])
         assert isinstance(result, list)
         assert len(result) == 3
+
+
+# ===================================================================
+# TwoSlopeNorm tests
+# ===================================================================
+
+class TestTwoSlopeNorm:
+    def test_basic_construction(self):
+        """TwoSlopeNorm can be constructed with vcenter."""
+        n = mcolors.TwoSlopeNorm(vcenter=0)
+        assert n.vcenter == 0.0
+
+    def test_vcenter_maps_to_half(self):
+        """vcenter maps to 0.5."""
+        n = mcolors.TwoSlopeNorm(vcenter=0, vmin=-1, vmax=1)
+        result = n(0.0)
+        assert abs(result - 0.5) < 1e-10
+
+    def test_vmin_maps_to_zero(self):
+        """vmin maps to 0.0."""
+        n = mcolors.TwoSlopeNorm(vcenter=0, vmin=-2, vmax=4)
+        result = n(-2.0)
+        assert abs(result - 0.0) < 1e-10
+
+    def test_vmax_maps_to_one(self):
+        """vmax maps to 1.0."""
+        n = mcolors.TwoSlopeNorm(vcenter=0, vmin=-2, vmax=4)
+        result = n(4.0)
+        assert abs(result - 1.0) < 1e-10
+
+    def test_vmin_ge_vcenter_raises(self):
+        """vmin >= vcenter raises ValueError."""
+        with pytest.raises(ValueError):
+            mcolors.TwoSlopeNorm(vcenter=0, vmin=1, vmax=2)
+
+    def test_vmax_le_vcenter_raises(self):
+        """vmax <= vcenter raises ValueError."""
+        with pytest.raises(ValueError):
+            mcolors.TwoSlopeNorm(vcenter=0, vmin=-1, vmax=-0.5)
+
+    def test_asymmetric_mapping(self):
+        """Values below center map differently than above."""
+        n = mcolors.TwoSlopeNorm(vcenter=0, vmin=-2, vmax=4)
+        below = n(-1.0)
+        above = n(2.0)
+        # below center: -1 is midpoint of [-2, 0] -> 0.25
+        assert abs(below - 0.25) < 1e-10
+        # above center: 2 is midpoint of [0, 4] -> 0.75
+        assert abs(above - 0.75) < 1e-10
+
+    def test_list_input(self):
+        """TwoSlopeNorm works with list input."""
+        n = mcolors.TwoSlopeNorm(vcenter=0, vmin=-1, vmax=1)
+        result = n([-1.0, 0.0, 1.0])
+        assert len(result) == 3
+        assert abs(result[0] - 0.0) < 1e-10
+        assert abs(result[1] - 0.5) < 1e-10
+        assert abs(result[2] - 1.0) < 1e-10
+
+    def test_autoscale_from_data(self):
+        """TwoSlopeNorm autoscales from data when vmin/vmax not set."""
+        n = mcolors.TwoSlopeNorm(vcenter=0)
+        result = n([-2.0, 0.0, 4.0])
+        # Center should map to 0.5
+        assert abs(result[1] - 0.5) < 1e-10
+
+    def test_is_normalize_subclass(self):
+        n = mcolors.TwoSlopeNorm(vcenter=0, vmin=-1, vmax=1)
+        assert isinstance(n, mcolors.Normalize)
+
+    def test_repr(self):
+        n = mcolors.TwoSlopeNorm(vcenter=0, vmin=-1, vmax=1)
+        r = repr(n)
+        assert 'TwoSlopeNorm' in r or 'vcenter' in r
