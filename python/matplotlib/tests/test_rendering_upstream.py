@@ -252,3 +252,170 @@ def test_multiple_lines_svg():
     count = svg.count('<polyline')
     assert count >= 2
     plt.close('all')
+
+
+# ===================================================================
+# Additional SVG rendering tests
+# ===================================================================
+
+def test_figure_suptitle_svg():
+    """Suptitle appears in SVG output."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    fig.suptitle('Main Title')
+    svg = fig.to_svg()
+    assert 'Main Title' in svg
+    plt.close('all')
+
+
+def test_fill_between_svg():
+    """fill_between produces path elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.fill_between([0, 1, 2], [0, 1, 0], [1, 2, 1], color='blue')
+    svg = fig.to_svg()
+    assert '<path' in svg or '<polygon' in svg
+    plt.close('all')
+
+
+def test_scatter_svg_has_circles():
+    """Scatter with default marker produces circle-like elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.scatter([0.5], [0.5], s=100, color='red')
+    svg = fig.to_svg()
+    # should contain some rendering element
+    assert '<circle' in svg or '<path' in svg or '<use' in svg
+    plt.close('all')
+
+
+def test_axhline_svg():
+    """axhline produces a horizontal line in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.axhline(y=0.5)
+    svg = fig.to_svg()
+    assert '<polyline' in svg or '<line' in svg or '<path' in svg
+    plt.close('all')
+
+
+def test_axvline_svg():
+    """axvline produces a vertical line in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.axvline(x=0.5)
+    svg = fig.to_svg()
+    assert '<polyline' in svg or '<line' in svg or '<path' in svg
+    plt.close('all')
+
+
+def test_annotate_svg_has_text():
+    """annotate text appears in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.annotate('note', xy=(0.5, 0.5))
+    svg = fig.to_svg()
+    assert 'note' in svg
+    plt.close('all')
+
+
+def test_svg_valid_structure():
+    """SVG output is well-formed (starts with <svg and ends with </svg>)."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    svg = fig.to_svg()
+    assert '<svg' in svg
+    assert '</svg>' in svg
+    plt.close('all')
+
+
+def test_imshow_svg_has_image_tag():
+    """imshow in SVG uses image element."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.imshow([[1, 2], [3, 4]], cmap='gray')
+    svg = fig.to_svg()
+    assert '<image' in svg or 'image' in svg.lower()
+    plt.close('all')
+
+
+def test_line_color_red_svg():
+    """Red line contains red color code in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1], color='red')
+    svg = fig.to_svg()
+    # ff0000 or rgb(255 or #ff0000
+    assert 'ff0000' in svg.lower() or '#f00' in svg.lower() or 'rgb(255' in svg
+    plt.close('all')
+
+
+def test_empty_plot_svg():
+    """Empty axes produce valid SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    svg = fig.to_svg()
+    assert '<svg' in svg
+    assert len(svg) > 100
+    plt.close('all')
+
+
+def test_errorbar_svg():
+    """errorbar produces path elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.errorbar([1, 2, 3], [4, 5, 6], yerr=[0.5, 0.5, 0.5])
+    svg = fig.to_svg()
+    assert '<path' in svg or '<polyline' in svg
+    plt.close('all')
+
+
+def test_hist_svg():
+    """Histogram produces rect elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.hist([1, 2, 2, 3, 3, 3], bins=3)
+    svg = fig.to_svg()
+    assert '<rect' in svg
+    plt.close('all')
+
+
+def test_hlines_svg():
+    """hlines produces line elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.hlines([0, 1, 2], 0, 1)
+    svg = fig.to_svg()
+    assert '<polyline' in svg or '<line' in svg or '<path' in svg
+    plt.close('all')
+
+
+def test_vlines_svg():
+    """vlines produces line elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.vlines([0, 1, 2], 0, 1)
+    svg = fig.to_svg()
+    assert '<polyline' in svg or '<line' in svg or '<path' in svg
+    plt.close('all')
+
+
+def test_pie_svg_has_path():
+    """Pie chart produces path elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.pie([1, 2, 3])
+    svg = fig.to_svg()
+    assert '<path' in svg
+    plt.close('all')
+
+
+def test_step_plot_svg():
+    """Step plot produces polyline in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.step([0, 1, 2, 3], [0, 1, 0, 1])
+    svg = fig.to_svg()
+    assert '<polyline' in svg or '<path' in svg
+    plt.close('all')

@@ -148,3 +148,144 @@ def test_barcontainer_remove():
     initial_patches = len(ax.patches)
     bc.remove()
     assert len(ax.patches) < initial_patches
+
+
+# ===================================================================
+# Container extended tests (upstream-inspired)
+# ===================================================================
+
+class TestBarContainerExtended:
+    def test_single_bar(self):
+        """BarContainer with one bar has length 1."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1], [5])
+        assert len(bc) == 1
+        plt.close('all')
+
+    def test_bar_heights(self):
+        """BarContainer patches have correct heights."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2, 3], [10, 20, 30])
+        heights = [p.get_height() for p in bc]
+        assert heights == [10, 20, 30]
+        plt.close('all')
+
+    def test_bar_widths_default(self):
+        """BarContainer patches have default width 0.8."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1], [1])
+        assert abs(bc[0].get_width() - 0.8) < 1e-10
+        plt.close('all')
+
+    def test_bar_custom_width(self):
+        """BarContainer respects custom width."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1], [1], width=0.5)
+        assert abs(bc[0].get_width() - 0.5) < 1e-10
+        plt.close('all')
+
+    def test_bar_negative_values(self):
+        """BarContainer handles negative bar heights."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2], [-3, 4])
+        assert bc[0].get_height() == -3
+        assert bc[1].get_height() == 4
+        plt.close('all')
+
+    def test_barcontainer_is_tuple(self):
+        """BarContainer is a tuple subclass."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2], [3, 4])
+        assert isinstance(bc, tuple)
+        plt.close('all')
+
+    def test_barcontainer_set_label(self):
+        """BarContainer.set_label changes label."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1], [2])
+        bc.set_label('new_label')
+        assert bc.get_label() == 'new_label'
+        plt.close('all')
+
+    def test_barcontainer_in_patches(self):
+        """Bar patches are in ax.patches."""
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2], [3, 4])
+        for patch in bc:
+            assert patch in ax.patches
+        plt.close('all')
+
+    def test_barcontainer_errorbar_none(self):
+        """BarContainer without errorbar has errorbar=None."""
+        from matplotlib.container import BarContainer
+        from matplotlib.patches import Rectangle
+        rect = Rectangle((0, 0), 1, 1)
+        bc = BarContainer([rect])
+        assert bc.errorbar is None
+
+
+class TestErrorbarContainerExtended:
+    def test_no_error_bars(self):
+        """Errorbar with no error has both False."""
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2], [3, 4])
+        assert ec.has_xerr is False
+        assert ec.has_yerr is False
+        plt.close('all')
+
+    def test_lines_is_tuple(self):
+        """ErrorbarContainer.lines is a tuple."""
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2], [3, 4], yerr=[0.1, 0.1])
+        assert isinstance(ec.lines, tuple)
+        plt.close('all')
+
+    def test_errorbar_set_label(self):
+        """ErrorbarContainer.set_label changes label."""
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2], [3, 4])
+        ec.set_label('err_label')
+        assert ec.get_label() == 'err_label'
+        plt.close('all')
+
+
+class TestStemContainerExtended:
+    def test_stem_single_point(self):
+        """StemContainer with a single point."""
+        fig, ax = plt.subplots()
+        sc = ax.stem([1], [5])
+        assert sc.markerline is not None
+        assert sc.baseline is not None
+        assert len(sc.stemlines) == 1
+        plt.close('all')
+
+    def test_stemlines_not_none(self):
+        """StemContainer.stemlines is not None."""
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2, 3], [4, 5, 6])
+        assert sc.stemlines is not None
+        plt.close('all')
+
+    def test_stem_markerline_is_line2d(self):
+        """StemContainer.markerline is a Line2D."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2], [3, 4])
+        assert isinstance(sc.markerline, Line2D)
+        plt.close('all')
+
+    def test_stem_baseline_is_line2d(self):
+        """StemContainer.baseline is a Line2D."""
+        from matplotlib.lines import Line2D
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2], [3, 4])
+        assert isinstance(sc.baseline, Line2D)
+        plt.close('all')
+
+    def test_stem_set_label(self):
+        """StemContainer.set_label changes label."""
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2], [3, 4])
+        sc.set_label('stem_label')
+        assert sc.get_label() == 'stem_label'
+        plt.close('all')
