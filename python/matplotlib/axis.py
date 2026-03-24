@@ -119,3 +119,9 @@ class XAxis(Axis):
 
 class YAxis(Axis):
     """Y-axis."""
+
+
+# Re-export the real XAxis/YAxis from axes so that
+# `from matplotlib.axis import XAxis` gives the same class
+# that Axes uses for ax.xaxis / ax.yaxis.
+from matplotlib.axes import XAxis as XAxis, YAxis as YAxis  # noqa: F811

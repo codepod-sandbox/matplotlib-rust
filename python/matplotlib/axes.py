@@ -13,7 +13,6 @@ from matplotlib.collections import PathCollection, LineCollection, Collection
 from matplotlib.container import BarContainer, ErrorbarContainer, StemContainer
 from matplotlib.text import Text, Annotation
 from matplotlib.backend_bases import AxesLayout
-from matplotlib.axis import XAxis, YAxis
 from matplotlib.ticker import FixedFormatter
 
 
@@ -134,13 +133,14 @@ class _OffsetText:
 class Axis:
     """Base class for XAxis/YAxis objects."""
 
-    def __init__(self, axes, *, pickradius=15):
+    def __init__(self, axes=None, *, pickradius=15):
+        from matplotlib.ticker import AutoLocator, ScalarFormatter, NullLocator, NullFormatter
         self.axes = axes
         self.figure = axes.figure if axes else None
-        self._major_locator = None
-        self._minor_locator = None
-        self._major_formatter = None
-        self._minor_formatter = None
+        self._major_locator = AutoLocator()
+        self._minor_locator = NullLocator()
+        self._major_formatter = ScalarFormatter()
+        self._minor_formatter = NullFormatter()
         self._visible = True
         self._label = _TickLabel('')
         self.label = self._label
@@ -303,14 +303,22 @@ class Axis:
         return [str(v) for v in vals_list]
 
     def set_ticks(self, ticks, labels=None, minor=False, **kwargs):
+        from matplotlib.ticker import FixedLocator, FixedFormatter
+        ticks = list(ticks)
         tick_list = []
         for i, t in enumerate(ticks):
             lbl = str(labels[i]) if labels and i < len(labels) else str(t)
             tick_list.append(Tick(t, lbl))
         if minor:
             self.minorTicks = tick_list
+            self._minor_locator = FixedLocator(ticks)
+            if labels is not None:
+                self._minor_formatter = FixedFormatter(list(labels))
         else:
             self.majorTicks = tick_list
+            self._major_locator = FixedLocator(ticks)
+            if labels is not None:
+                self._major_formatter = FixedFormatter(list(labels))
 
     def set_ticklabels(self, labels, minor=False, **kwargs):
         ticks = self.minorTicks if minor else self.majorTicks
@@ -2402,6 +2410,8 @@ class Axes:
         return ys
 
     def set_xticks(self, ticks, labels=None, **kwargs):
+        from matplotlib.ticker import FixedLocator
+        self.xaxis.set_major_locator(FixedLocator(ticks))
         self.xaxis.set_ticks(ticks, labels)
         if labels is not None:
             self._xticklabels = list(labels)
@@ -2410,6 +2420,8 @@ class Axes:
         return self.xaxis.get_ticks()
 
     def set_yticks(self, ticks, labels=None, **kwargs):
+        from matplotlib.ticker import FixedLocator
+        self.yaxis.set_major_locator(FixedLocator(ticks))
         self.yaxis.set_ticks(ticks, labels)
         if labels is not None:
             self._yticklabels = list(labels)
@@ -3038,6 +3050,7 @@ class Axes:
         self.yaxis = YAxis(self)
         self._grid = False
         self._legend_obj = None
+        self._legend = False
         self._color_idx = 0
         self._facecolor = 'white'
         # Clear typed artist lists

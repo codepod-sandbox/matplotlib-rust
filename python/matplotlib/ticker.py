@@ -471,7 +471,7 @@ class _UnicodeMinusFormat(string.Formatter):
     """
 
     def format_field(self, value, format_spec):
-        return Formatter.fix_minus(super().format_field(value, format_spec))
+        return super().format_field(value, format_spec)
 
 
 class StrMethodFormatter(Formatter):
@@ -744,7 +744,7 @@ class ScalarFormatter(Formatter):
 
     def format_data_short(self, value):
         # docstring inherited
-        if value is np.ma.masked:
+        if hasattr(np.ma, 'masked') and value is np.ma.masked:
             return ""
         if isinstance(value, Integral):
             fmt = "%d"
@@ -765,8 +765,11 @@ class ScalarFormatter(Formatter):
                 delta = abs(neighbor_values - value).max()
             else:
                 # Rough approximation: no more than 1e4 divisions.
-                a, b = self.axis.get_view_interval()
-                delta = (b - a) / 1e4
+                if self.axis is None:
+                    delta = abs(value) / 1e4 or 1e-4
+                else:
+                    a, b = self.axis.get_view_interval()
+                    delta = (b - a) / 1e4
             fmt = f"%-#.{_g_sig_digits(value, delta)}g"
         return self._format_maybe_minus_and_locale(fmt, value)
 
@@ -825,6 +828,9 @@ class ScalarFormatter(Formatter):
     def _compute_offset(self):
         locs = self.locs
         # Restrict to visible ticks.
+        if self.axis is None:
+            self.offset = 0
+            return
         vmin, vmax = sorted(self.axis.get_view_interval())
         locs = np.asarray(locs)
         locs = locs[(vmin <= locs) & (locs <= vmax)]
@@ -873,7 +879,12 @@ class ScalarFormatter(Formatter):
             self.orderOfMagnitude = self._powerlimits[0]
             return
         # restrict to visible ticks
-        vmin, vmax = sorted(self.axis.get_view_interval())
+        if self.axis is not None:
+            vmin, vmax = sorted(self.axis.get_view_interval())
+        else:
+            locs_arr = np.asarray(self.locs)
+            vmin = float(locs_arr.min()) if len(locs_arr) else 0.0
+            vmax = float(locs_arr.max()) if len(locs_arr) else 1.0
         locs = np.asarray(self.locs)
         locs = locs[(vmin <= locs) & (locs <= vmax)]
         locs = np.abs(locs)
@@ -1265,7 +1276,7 @@ class PercentFormatter(Formatter):
         else:
             ax_min, ax_max = 0, self.xmax
         display_range = abs(ax_max - ax_min)
-        return self.fix_minus(self.format_pct(x, display_range))
+        return self.format_pct(x, display_range)
 
     def format_pct(self, x, display_range):
         """
@@ -1353,6 +1364,7 @@ class Locator(TickHelper):
     # This parameter is set to cause locators to raise an error if too
     # many ticks are generated.
     MAXTICKS = 1000
+    numticks = MAXTICKS
 
     def tick_values(self, vmin, vmax):
         """
@@ -1653,6 +1665,10 @@ class MultipleLocator(Locator):
         if offset is not None:
             self._offset = offset
 
+    @property
+    def _base(self):
+        return self._edge.step if self._edge is not None else 0
+
     def __call__(self):
         """Return the locations of the ticks."""
         vmin, vmax = self.axis.get_view_interval()
@@ -1667,8 +1683,8 @@ class MultipleLocator(Locator):
         vmin -= self._offset
         vmax -= self._offset
         vmin = self._edge.ge(vmin) * step
-        n = (vmax - vmin + 0.001 * step) // step
-        locs = vmin - step + np.arange(0, n + 3) * step + self._offset
+        n = int((vmax - vmin + 0.001 * step) / step)
+        locs = vmin + np.arange(0, n + 1) * step + self._offset
         return self.raise_if_exceeds(locs)
 
     def view_limits(self, dmin, dmax):
@@ -1813,12 +1829,13 @@ class MaxNLocator(Locator):
             steps = np.concatenate([np.array([1.0]), steps])
         if steps[-1] != 10:
             steps = np.concatenate([steps, np.array([10.0])])
-        return steps
+        return list(steps)
 
     @staticmethod
     def _staircase(steps):
         # Make an extended staircase within which the needed step will be
         # found.  This is probably much larger than necessary.
+        steps = np.asarray(steps, dtype=float)
         return np.concatenate([0.1 * steps[:-1], steps, np.array([10 * steps[1]])])
 
     def set_params(self, **kwargs):
@@ -1855,7 +1872,7 @@ class MaxNLocator(Locator):
         if 'steps' in kwargs:
             steps = kwargs.pop('steps')
             if steps is None:
-                self._steps = np.array([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10])
+                self._steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
             else:
                 self._steps = self._validate_steps(steps)
             self._extended_steps = self._staircase(self._steps)
@@ -2107,15 +2124,16 @@ class LogLocator(Locator):
             self._subs = subs
         else:
             try:
-                self._subs = np.asarray(subs, dtype=float)
+                arr = np.asarray(subs, dtype=float)
             except ValueError as e:
                 raise ValueError("subs must be None, 'all', 'auto' or "
                                  "a sequence of floats, not "
                                  f"{subs}.") from e
-            if self._subs.ndim != 1:
+            if arr.ndim != 1:
                 raise ValueError("A sequence passed to subs must be "
                                  "1-dimensional, not "
-                                 f"{self._subs.ndim}-dimensional.")
+                                 f"{arr.ndim}-dimensional.")
+            self._subs = tuple(float(arr[i]) for i in range(len(arr)))
 
     def __call__(self):
         """Return the locations of the ticks."""

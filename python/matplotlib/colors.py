@@ -739,6 +739,11 @@ class Normalize:
 
         if isinstance(value, (list, tuple)):
             return [self._normalize_scalar(v, vmin, vmax, clip) for v in value]
+        if hasattr(value, '__len__') or hasattr(value, 'shape'):
+            arr = np.asarray(value, dtype=float)
+            flat = arr.flatten().tolist()
+            result = [self._normalize_scalar(v, vmin, vmax, clip) for v in flat]
+            return np.array(result).reshape(arr.shape)
         return self._normalize_scalar(value, vmin, vmax, clip)
 
     def _normalize_scalar(self, value, vmin, vmax, clip):
@@ -954,8 +959,8 @@ class Colormap:
         # Clip to valid LUT range
         Xc = np.clip(X, 0.0, 1.0)
 
-        # Map to LUT indices
-        idx = (Xc * (self.N - 1) + 0.5).astype('int64')
+        # Map to LUT indices (consistent with _init using i/N)
+        idx = (Xc * self.N).astype('int64')
         idx = np.clip(idx, 0, self.N - 1)
 
         # Index into LUT
@@ -1011,7 +1016,7 @@ class Colormap:
 
     def set_bad(self, color='k', alpha=None):
         """Set the color for masked/NaN values."""
-        self._rgba_bad = list(to_rgba(color, alpha=alpha))
+        self._rgba_bad = tuple(to_rgba(color, alpha=alpha))
 
     def set_under(self, color='k', alpha=None):
         """Set the color for out-of-range low values."""
@@ -1057,10 +1062,10 @@ class Colormap:
 
     def _init(self):
         """Initialize the LUT (override in subclasses)."""
-        # Base class: create a simple grayscale LUT
+        # Base class: create a simple grayscale LUT (i/N so LUT[128]=0.5 for N=256)
         rows = []
         for i in range(self.N):
-            t = i / max(self.N - 1, 1)
+            t = i / self.N
             rows.append([t, t, t, 1.0])
         bad = list(self._rgba_bad) if self._rgba_bad else [0.0, 0.0, 0.0, 0.0]
         under = list(self._rgba_under) if self._rgba_under is not None else [0.0, 0.0, 0.0, 1.0]
@@ -1328,32 +1333,50 @@ class TwoSlopeNorm(Normalize):
 
     def __call__(self, value, clip=None):
         import math
+        # Convert to flat list for processing
+        if hasattr(value, 'flatten'):
+            flat = [float(v) for v in value.flatten().tolist()]
+            is_array = True
+            arr_shape = value.shape
+        elif isinstance(value, (list, tuple)):
+            flat = [float(v) for v in value]
+            is_array = False
+        else:
+            flat = [float(value)]
+            is_array = False
+
         # Autoscale vmin/vmax from the value if not set
         if self.vmin is None or self.vmax is None:
-            if isinstance(value, (list, tuple)):
-                flat = [float(v) for v in value]
-            else:
-                flat = [float(value)]
             data_min = min(flat)
             data_max = max(flat)
             if self.vmin is None:
-                self.vmin = min(data_min, self.vcenter - 1e-10)
+                self.vmin = data_min
             if self.vmax is None:
-                self.vmax = max(data_max, self.vcenter + 1e-10)
+                self.vmax = data_max
+            # Mirror: if all data above vcenter, set vmin symmetrically
+            if float(self.vmin) >= self.vcenter:
+                self.vmin = 2 * self.vcenter - float(self.vmax)
+            # Mirror: if all data below vcenter, set vmax symmetrically
+            if float(self.vmax) <= self.vcenter:
+                self.vmax = 2 * self.vcenter - float(self.vmin)
+            # Safety: ensure vmin < vcenter < vmax
+            if float(self.vmin) >= self.vcenter:
+                self.vmin = self.vcenter - 1e-10
+            if float(self.vmax) <= self.vcenter:
+                self.vmax = self.vcenter + 1e-10
 
         vmin = float(self.vmin)
         vmax = float(self.vmax)
         vc = self.vcenter
 
-        if isinstance(value, (list, tuple)):
-            result = [self._map_value(float(v), vmin, vmax, vc) for v in value]
-            if self.clip:
-                result = [max(0.0, min(1.0, r)) for r in result]
-            return result
+        result = [self._map_value(v, vmin, vmax, vc) for v in flat]
+        if self.clip:
+            result = [max(0.0, min(1.0, r)) for r in result]
 
-        result = self._map_value(float(value), vmin, vmax, vc)
-        if self.clip and not math.isnan(result):
-            result = max(0.0, min(1.0, result))
+        if is_array:
+            return np.array(result).reshape(arr_shape)
+        if len(result) == 1 and not isinstance(value, (list, tuple)):
+            return result[0]
         return result
 
     def inverse(self, value):
@@ -1420,47 +1443,6 @@ class CenteredNorm(Normalize):
         if scalar:
             return float(out.tolist()[0])
         return out.reshape(arr.shape)
-        if vmin is not None and vmin >= vcenter:
-            raise ValueError("vmin must be less than vcenter")
-        if vmax is not None and vmax <= vcenter:
-            raise ValueError("vmax must be greater than vcenter")
-        self.vcenter = vcenter
-
-    def __call__(self, value, clip=None):
-        # Auto-scale if needed
-        if isinstance(value, (list, tuple)):
-            data = [float(v) for v in value]
-        else:
-            data = [float(value)]
-
-        if self.vmin is None or self.vmax is None:
-            self.autoscale_None(data)
-
-        if self.vmin is None or self.vmax is None:
-            raise ValueError(
-                "TwoSlopeNorm requires vmin and vmax to be set")
-
-        vmin, vmax = float(self.vmin), float(self.vmax)
-        vc = float(self.vcenter)
-
-        # Ensure vmin < vcenter < vmax, adjusting symmetrically if needed
-        if vmin >= vc:
-            vmin = vc - (vmax - vc)
-            self.vmin = vmin
-        if vmax <= vc:
-            vmax = vc + (vc - vmin)
-            self.vmax = vmax
-
-        if isinstance(value, (list, tuple)):
-            return [self._two_slope(v, vmin, vmax, vc) for v in value]
-        return self._two_slope(value, vmin, vmax, vc)
-
-    def _two_slope(self, value, vmin, vmax, vc):
-        value = float(value)
-        if value < vc:
-            return 0.5 * (value - vmin) / (vc - vmin)
-        else:
-            return 0.5 + 0.5 * (value - vc) / (vmax - vc)
 
     def inverse(self, value):
         if self.vmin is None or self.vmax is None:

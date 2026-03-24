@@ -534,6 +534,14 @@ class ColormapRegistry:
             )
         self._cmaps[name] = cmap
 
+    def __call__(self, name=None, lut=None):
+        """Get a colormap by name (like get_cmap)."""
+        return self.get_cmap(name, lut)
+
+    def unregister(self, name):
+        """Unregister a colormap by name."""
+        self._cmaps.pop(name, None)
+
     def get_cmap(self, name=None, lut=None):
         """Look up a colormap by name (or return the default).
 
@@ -557,7 +565,7 @@ class ColormapRegistry:
         elif isinstance(name, str):
             if name not in self._cmaps:
                 raise ValueError(
-                    f"Unknown colormap {name!r}. "
+                    f"{name!r} is not a known colormap. "
                     f"Use cm._colormaps to see available names."
                 )
             cmap = self._cmaps[name]
@@ -655,6 +663,11 @@ def _build_registry():
             except NotImplementedError:
                 pass
 
+    # Aliases (after _r generation so grey_r == gray_r)
+    for alias, canonical in [('grey', 'gray'), ('grey_r', 'gray_r')]:
+        if canonical in cmaps:
+            cmaps[alias] = cmaps[canonical]
+
     return ColormapRegistry(cmaps)
 
 
@@ -676,19 +689,7 @@ def get_cmap(name=None, lut=None):
     -------
     Colormap
     """
-    if name is None:
-        name = 'viridis'
-    # Accept any colormap-like object (handles both cm.Colormap and colors.Colormap)
-    if hasattr(name, 'N') and hasattr(name, '_rgba_bad') and not isinstance(name, str):
-        if lut is not None:
-            return name.resampled(lut)
-        return name
-    if name not in _cmap_registry:
-        raise ValueError(f"'{name}' is not a known colormap name")
-    cmap = _cmap_registry[name]
-    if lut is not None:
-        cmap = cmap.resampled(lut)
-    return cmap
+    return _colormaps.get_cmap(name, lut)
 
 
 def register_cmap(name=None, cmap=None):
@@ -705,44 +706,8 @@ def register_cmap(name=None, cmap=None):
         raise ValueError("A Colormap must be provided")
     if name is None:
         name = cmap.name
+    _colormaps.register(cmap, name=name, force=True)
     _cmap_registry[name] = cmap
-
-
-class ColormapRegistry:
-    """A dict-like registry of colormaps."""
-
-    def __getitem__(self, name):
-        return get_cmap(name)
-
-    def __contains__(self, name):
-        return name in _cmap_registry
-
-    def __iter__(self):
-        return iter(sorted(_cmap_registry))
-
-    def __len__(self):
-        return len(_cmap_registry)
-
-    def __call__(self, name=None, lut=None):
-        """Get a colormap by name (like get_cmap)."""
-        return get_cmap(name, lut)
-
-    def register(self, cmap, name=None, force=False):
-        """Register a colormap."""
-        if name is None:
-            name = cmap.name
-        if name in _cmap_registry and not force:
-            raise ValueError(
-                f"'{name}' is already registered. Use force=True to override.")
-        _cmap_registry[name] = cmap
-
-    def unregister(self, name):
-        """Unregister a colormap."""
-        _cmap_registry.pop(name, None)
-
-
-# Module-level registry instance
-_colormaps = ColormapRegistry()
 
 
 # ===================================================================
@@ -843,7 +808,9 @@ class ScalarMappable:
 
     def autoscale(self):
         """Autoscale the norm from the current array."""
-        if self._A is not None and self._norm is not None:
+        if self._A is not None:
+            if self._norm is None:
+                self._norm = Normalize()
             self._norm.autoscale(self._A)
 
     def autoscale_None(self):
