@@ -377,3 +377,161 @@ class TestScalarMappableExtended:
         sm = cm.ScalarMappable(norm=Normalize(0, 10), cmap='viridis')
         result = sm.to_rgba([0.0, 5.0, 10.0])
         assert result is not None
+
+
+# ===================================================================
+# LinearSegmentedColormap tests
+# ===================================================================
+
+class TestLinearSegmentedColormap:
+    def test_from_list_basic(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('my_cmap', ['blue', 'red'])
+        assert cmap.name == 'my_cmap'
+
+    def test_from_list_N(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('my_cmap', ['blue', 'red'], N=128)
+        assert cmap.N == 128
+
+    def test_call_scalar(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
+        result = cmap(0.5)
+        assert len(result) == 4  # RGBA tuple
+
+    def test_call_zero(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
+        result = cmap(0.0)
+        assert len(result) == 4
+
+    def test_call_one(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
+        result = cmap(1.0)
+        assert len(result) == 4
+
+    def test_reversed(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
+        rev = cmap.reversed()
+        assert 'reversed' in rev.name or rev.name != cmap.name
+
+    def test_resampled(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
+        new_cmap = cmap.resampled(64)
+        assert new_cmap.N == 64
+
+    def test_eq_same_name(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        c1 = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
+        c2 = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
+        assert c1 == c2
+
+    def test_eq_different_name(self):
+        from matplotlib.colors import LinearSegmentedColormap
+        c1 = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
+        c2 = LinearSegmentedColormap.from_list('lr2', ['blue', 'red'])
+        assert c1 != c2
+
+
+# ===================================================================
+# Colormap bad/under/over tests
+# ===================================================================
+
+class TestColormapBadUnderOver:
+    def test_get_bad_default(self):
+        cmap = cm.get_cmap('viridis')
+        bad = cmap.get_bad()
+        assert bad is not None
+
+    def test_set_bad(self):
+        from matplotlib.colors import ListedColormap
+        cmap = ListedColormap(['red', 'blue'], name='test_bu')
+        cmap.set_bad('white')
+        bad = cmap.get_bad()
+        assert bad is not None
+
+    def test_get_under_default(self):
+        cmap = cm.get_cmap('viridis')
+        under = cmap.get_under()
+        assert under is not None
+
+    def test_set_under(self):
+        from matplotlib.colors import ListedColormap
+        cmap = ListedColormap(['red', 'blue'], name='test_su')
+        cmap.set_under('white')
+        under = cmap.get_under()
+        assert under is not None
+
+    def test_get_over_default(self):
+        cmap = cm.get_cmap('viridis')
+        over = cmap.get_over()
+        assert over is not None
+
+    def test_set_over(self):
+        from matplotlib.colors import ListedColormap
+        cmap = ListedColormap(['red', 'blue'], name='test_so')
+        cmap.set_over('black')
+        over = cmap.get_over()
+        assert over is not None
+
+    def test_colors_property(self):
+        from matplotlib.colors import ListedColormap
+        cmap = ListedColormap(['red', 'green', 'blue'], name='test_cp')
+        colors = cmap.colors
+        assert len(colors) == 3
+
+
+# ===================================================================
+# get_cmap and colormaps registry integration
+# ===================================================================
+
+class TestGetCmapIntegration:
+    def test_get_cmap_viridis(self):
+        cmap = cm.get_cmap('viridis')
+        assert cmap.name == 'viridis'
+
+    def test_get_cmap_plasma(self):
+        cmap = cm.get_cmap('plasma')
+        assert cmap.name == 'plasma'
+
+    def test_get_cmap_jet(self):
+        cmap = cm.get_cmap('jet')
+        assert cmap.name == 'jet'
+
+    def test_get_cmap_gray(self):
+        cmap = cm.get_cmap('gray')
+        assert cmap.name == 'gray'
+
+    def test_get_cmap_hot(self):
+        cmap = cm.get_cmap('hot')
+        assert cmap.name == 'hot'
+
+    def test_get_cmap_cool(self):
+        cmap = cm.get_cmap('cool')
+        assert cmap.name == 'cool'
+
+    def test_get_cmap_spring(self):
+        cmap = cm.get_cmap('spring')
+        assert cmap.name == 'spring'
+
+    def test_get_cmap_n_default(self):
+        cmap = cm.get_cmap('viridis')
+        assert cmap.N == 256
+
+    def test_get_cmap_n_custom(self):
+        cmap = cm.get_cmap('viridis', 128)
+        assert cmap.N == 128
+
+    def test_colormap_hash(self):
+        cmap = cm.get_cmap('viridis')
+        assert hash(cmap) is not None
+
+    def test_colormap_copy(self):
+        cmap = cm.get_cmap('viridis')
+        cmap_copy = cmap.copy()
+        assert cmap_copy.name == cmap.name
+        assert cmap_copy is not cmap
