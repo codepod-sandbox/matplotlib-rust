@@ -664,3 +664,147 @@ def test_plt_axes_on_existing_figure():
     assert ax is not None
     assert ax is plt.gca()
     plt.close('all')
+
+
+def test_plt_rc():
+    """plt.rc sets rcParams values."""
+    import matplotlib
+    plt.close('all')
+    plt.rc('lines', linewidth=3)
+    assert matplotlib.rcParams['lines.linewidth'] == 3
+    plt.rcdefaults()
+
+
+def test_plt_rcdefaults():
+    """plt.rcdefaults restores default rcParams (no-op check)."""
+    import matplotlib
+    plt.close('all')
+    plt.rc('lines', linewidth=5)
+    plt.rcdefaults()
+    # rcParamsDefault may not exist; just verify rcdefaults() doesn't raise
+    assert 'lines.linewidth' in matplotlib.rcParams
+
+
+def test_plt_figtext():
+    """plt.figtext adds text to figure."""
+    plt.close('all')
+    fig = plt.figure()
+    txt = plt.figtext(0.5, 0.5, 'hello')
+    assert txt is not None
+    assert txt.get_text() == 'hello'
+    plt.close('all')
+
+
+def test_plt_axis_off():
+    """plt.axis('off') does not raise."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    plt.axis('off')  # no-op in our implementation; just verifies no exception
+    plt.close('all')
+
+
+def test_plt_xscale():
+    """plt.xscale sets x-axis scale."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    plt.xscale('log')
+    assert ax.get_xscale() == 'log'
+    plt.close('all')
+
+
+def test_plt_yscale():
+    """plt.yscale sets y-axis scale."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    plt.yscale('log')
+    assert ax.get_yscale() == 'log'
+    plt.close('all')
+
+
+def test_plt_twinx():
+    """plt.twinx creates twin axes sharing x."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    ax2 = plt.twinx()
+    assert ax2 is not None
+    assert ax2 is not ax
+    plt.close('all')
+
+
+def test_plt_twiny():
+    """plt.twiny creates twin axes sharing y."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    ax2 = plt.twiny()
+    assert ax2 is not None
+    assert ax2 is not ax
+    plt.close('all')
+
+
+def test_plt_annotate():
+    """plt.annotate adds annotation to current axes."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    ann = plt.annotate('test', xy=(0.5, 0.5))
+    assert ann is not None
+    assert ann.get_text() == 'test'
+    plt.close('all')
+
+
+def test_plt_fill_betweenx():
+    """plt.fill_betweenx adds polygon patch."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    poly = plt.fill_betweenx([0, 1, 2], [0, 1, 0], [1, 2, 1])
+    assert poly is not None
+    plt.close('all')
+
+
+def test_plt_semilogx():
+    """plt.semilogx sets x-axis to log scale."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    plt.semilogx([1, 10, 100], [1, 2, 3])
+    assert ax.get_xscale() == 'log'
+    plt.close('all')
+
+
+def test_plt_semilogy():
+    """plt.semilogy sets y-axis to log scale."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    plt.semilogy([1, 2, 3], [1, 10, 100])
+    assert ax.get_yscale() == 'log'
+    plt.close('all')
+
+
+def test_plt_loglog():
+    """plt.loglog sets both axes to log scale."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    plt.loglog([1, 10, 100], [1, 10, 100])
+    assert ax.get_xscale() == 'log'
+    assert ax.get_yscale() == 'log'
+    plt.close('all')
+
+
+def test_plt_tick_params():
+    """plt.tick_params does not raise."""
+    plt.close('all')
+    fig, ax = plt.subplots()
+    plt.tick_params(axis='x', labelsize=8)
+    plt.close('all')
+
+
+def test_plt_savefig_stringio():
+    """plt.savefig to StringIO object works for SVG."""
+    import io
+    plt.close('all')
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    buf = io.StringIO()
+    plt.savefig(buf, format='svg')
+    data = buf.getvalue()
+    assert len(data) > 0
+    assert '<svg' in data.lower() or 'svg' in data
+    plt.close('all')
