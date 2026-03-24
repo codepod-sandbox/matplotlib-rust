@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import matplotlib.pyplot as plt
-from matplotlib.collections import PathCollection
+from matplotlib.collections import PathCollection, LineCollection, PolyCollection, EventCollection
 
 
 # ---------------------------------------------------------------------------
@@ -162,3 +162,207 @@ def test_pathcollection_default_sizes():
     """PathCollection default sizes is [20.0]."""
     pc = PathCollection()
     assert pc.get_sizes() == [20.0]
+
+
+# ===================================================================
+# LineCollection tests
+# ===================================================================
+
+class TestLineCollection:
+    def _segs(self):
+        return [[(0, 0), (1, 1)], [(1, 0), (2, 1)]]
+
+    def test_basic_construction(self):
+        lc = LineCollection(self._segs())
+        assert isinstance(lc, LineCollection)
+
+    def test_get_segments(self):
+        segs = self._segs()
+        lc = LineCollection(segs)
+        result = lc.get_segments()
+        assert len(result) == 2
+
+    def test_set_segments(self):
+        lc = LineCollection([])
+        lc.set_segments(self._segs())
+        assert len(lc.get_segments()) == 2
+
+    def test_set_verts_alias(self):
+        lc = LineCollection([])
+        lc.set_verts(self._segs())
+        assert len(lc.get_segments()) == 2
+
+    def test_get_paths(self):
+        lc = LineCollection(self._segs())
+        paths = lc.get_paths()
+        assert len(paths) == 2
+
+    def test_set_paths(self):
+        lc = LineCollection([])
+        lc.set_paths(self._segs())
+        assert len(lc.get_paths()) == 2
+
+    def test_linewidths_scalar(self):
+        lc = LineCollection(self._segs(), linewidths=2.0)
+        assert lc._linewidths == [2.0]
+
+    def test_linewidths_list(self):
+        lc = LineCollection(self._segs(), linewidths=[1, 2])
+        assert lc._linewidths == [1, 2]
+
+    def test_colors_string(self):
+        lc = LineCollection(self._segs(), colors='red')
+        assert lc._edgecolors == ['red']
+
+    def test_colors_list(self):
+        lc = LineCollection(self._segs(), colors=['red', 'blue'])
+        assert lc._edgecolors == ['red', 'blue']
+
+    def test_get_color_default(self):
+        lc = LineCollection(self._segs())
+        c = lc.get_color()
+        assert isinstance(c, list)
+
+    def test_set_color_string(self):
+        lc = LineCollection(self._segs())
+        lc.set_color('green')
+        assert lc._edgecolors == ['green']
+
+    def test_set_color_list(self):
+        lc = LineCollection(self._segs())
+        lc.set_color(['red', 'blue'])
+        assert lc._edgecolors == ['red', 'blue']
+
+    def test_get_colors_alias(self):
+        lc = LineCollection(self._segs(), colors='cyan')
+        assert lc.get_colors() == ['cyan']
+
+    def test_label(self):
+        lc = LineCollection(self._segs(), label='my_lc')
+        assert lc.get_label() == 'my_lc'
+
+    def test_empty_segments(self):
+        lc = LineCollection([])
+        assert lc.get_segments() == []
+
+    def test_add_to_axes(self):
+        lc = LineCollection(self._segs())
+        fig, ax = plt.subplots()
+        ax.add_collection(lc)
+        assert lc in ax.collections
+        plt.close('all')
+
+    def test_linestyles_string(self):
+        lc = LineCollection(self._segs(), linestyles='dashed')
+        assert lc._linestyles == ['dashed']
+
+    def test_linestyles_list(self):
+        lc = LineCollection(self._segs(), linestyles=['solid', 'dashed'])
+        assert lc._linestyles == ['solid', 'dashed']
+
+
+# ===================================================================
+# PolyCollection tests
+# ===================================================================
+
+class TestPolyCollection:
+    def _verts(self):
+        return [[(0, 0), (1, 0), (0.5, 1)], [(1, 0), (2, 0), (1.5, 1)]]
+
+    def test_basic_construction(self):
+        pc = PolyCollection(self._verts())
+        assert isinstance(pc, PolyCollection)
+
+    def test_get_verts(self):
+        verts = self._verts()
+        pc = PolyCollection(verts)
+        result = pc.get_verts()
+        assert len(result) == 2
+
+    def test_set_verts(self):
+        pc = PolyCollection([])
+        pc.set_verts(self._verts())
+        assert len(pc.get_verts()) == 2
+
+    def test_empty_verts(self):
+        pc = PolyCollection([])
+        assert pc.get_verts() == []
+
+    def test_none_verts(self):
+        pc = PolyCollection(None)
+        assert pc.get_verts() == []
+
+    def test_facecolor(self):
+        pc = PolyCollection(self._verts(), facecolor='red')
+        assert pc.get_facecolor() is not None
+
+    def test_add_to_axes(self):
+        pc = PolyCollection(self._verts())
+        fig, ax = plt.subplots()
+        ax.add_collection(pc)
+        assert pc in ax.collections
+        plt.close('all')
+
+
+# ===================================================================
+# EventCollection tests
+# ===================================================================
+
+class TestEventCollection:
+    def test_basic_construction(self):
+        ec = EventCollection([1, 2, 3])
+        assert isinstance(ec, EventCollection)
+
+    def test_get_positions(self):
+        ec = EventCollection([1, 2, 3])
+        assert ec.get_positions() == [1, 2, 3]
+
+    def test_set_positions(self):
+        ec = EventCollection([])
+        ec.set_positions([4, 5, 6])
+        assert ec.get_positions() == [4, 5, 6]
+
+    def test_orientation_default(self):
+        ec = EventCollection([1, 2])
+        assert ec.get_orientation() == 'horizontal'
+
+    def test_orientation_vertical(self):
+        ec = EventCollection([1, 2], orientation='vertical')
+        assert ec.get_orientation() == 'vertical'
+
+    def test_set_orientation(self):
+        ec = EventCollection([1, 2])
+        ec.set_orientation('vertical')
+        assert ec.get_orientation() == 'vertical'
+
+    def test_lineoffset_default(self):
+        ec = EventCollection([1, 2])
+        assert ec.get_lineoffset() == 0
+
+    def test_lineoffset_custom(self):
+        ec = EventCollection([1, 2], lineoffset=0.5)
+        assert ec.get_lineoffset() == 0.5
+
+    def test_set_lineoffset(self):
+        ec = EventCollection([1, 2])
+        ec.set_lineoffset(2.0)
+        assert ec.get_lineoffset() == 2.0
+
+    def test_empty_positions(self):
+        ec = EventCollection([])
+        assert ec.get_positions() == []
+
+    def test_none_positions(self):
+        ec = EventCollection(None)
+        assert ec.get_positions() == []
+
+    def test_color(self):
+        ec = EventCollection([1, 2], color='blue')
+        assert ec._edgecolors == ['blue']
+
+    def test_add_to_axes(self):
+        ec = EventCollection([1, 2, 3, 4, 5])
+        fig, ax = plt.subplots()
+        ax.add_collection(ec)
+        assert ec in ax.collections
+        plt.close('all')
