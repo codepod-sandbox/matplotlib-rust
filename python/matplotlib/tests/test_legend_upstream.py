@@ -446,3 +446,161 @@ def test_axes_legend_returns_legend_object():
     assert isinstance(leg, Legend)
     assert ax._legend_obj is leg
     plt.close('all')
+
+
+# ===================================================================
+# Extended Legend tests (upstream-inspired)
+# ===================================================================
+
+class TestLegendExtendedProperties:
+    def test_shadow_default_false(self):
+        """Legend shadow is False by default."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        assert leg.get_shadow() is False
+        plt.close('all')
+
+    def test_set_shadow(self):
+        """Legend.set_shadow changes shadow."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        leg.set_shadow(True)
+        assert leg.get_shadow() is True
+        plt.close('all')
+
+    def test_fancybox_default(self):
+        """Legend fancybox is settable."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        # default may be None or False
+        assert leg.get_fancybox() in (None, False)
+        plt.close('all')
+
+    def test_set_fancybox(self):
+        """Legend.set_fancybox changes fancybox."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        leg.set_fancybox(True)
+        assert leg.get_fancybox() is True
+        plt.close('all')
+
+    def test_framealpha_default(self):
+        """Legend framealpha is settable."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        leg.set_framealpha(0.5)
+        assert leg.get_framealpha() == 0.5
+        plt.close('all')
+
+    def test_edgecolor_set(self):
+        """Legend.set_edgecolor changes edge color."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        leg.set_edgecolor('red')
+        assert leg.get_edgecolor() == 'red'
+        plt.close('all')
+
+    def test_facecolor_set(self):
+        """Legend.set_facecolor changes face color."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        leg.set_facecolor('white')
+        assert leg.get_facecolor() == 'white'
+        plt.close('all')
+
+    def test_get_lines(self):
+        """Legend.get_lines returns lines."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='line1')
+        ax.plot([1, 2], [2, 1], label='line2')
+        leg = ax.legend()
+        lines = leg.get_lines()
+        assert isinstance(lines, list)
+        assert len(lines) >= 1
+        plt.close('all')
+
+    def test_get_patches(self):
+        """Legend.get_patches returns list."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar([1, 2], [3, 4], label='bars')
+        leg = ax.legend()
+        patches = leg.get_patches()
+        assert isinstance(patches, list)
+        plt.close('all')
+
+    def test_get_texts(self):
+        """Legend.get_texts returns text labels."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='alpha')
+        ax.plot([1, 2], [2, 1], label='beta')
+        leg = ax.legend()
+        texts = leg.get_texts()
+        text_strings = [t.get_text() for t in texts]
+        assert 'alpha' in text_strings
+        assert 'beta' in text_strings
+        plt.close('all')
+
+    def test_get_handles(self):
+        """Legend.get_handles returns artists."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        handles = leg.get_handles()
+        assert len(handles) == 1
+        plt.close('all')
+
+    def test_frame_on_default_true(self):
+        """Legend frame_on is True by default."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        assert leg.get_frame_on() is True
+        plt.close('all')
+
+    def test_set_frame_on(self):
+        """Legend.set_frame_on changes frame_on."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        leg.set_frame_on(False)
+        assert leg.get_frame_on() is False
+        plt.close('all')
+
+    def test_legend_handles_alias(self):
+        """Legend.legend_handles is alias for get_handles."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        assert leg.legend_handles == leg.get_handles()
+        plt.close('all')
+
+    def test_legend_repr(self):
+        """Legend repr contains 'Legend'."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [1, 2], label='x')
+        leg = ax.legend()
+        r = repr(leg)
+        assert 'Legend' in r
+        plt.close('all')

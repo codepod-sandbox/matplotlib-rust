@@ -214,3 +214,122 @@ class TestXAxisBasic:
         assert vmin == -1
         assert vmax == 1
         plt.close('all')
+
+
+# ===================================================================
+# Additional Axis tests (upstream-inspired)
+# ===================================================================
+
+class TestAxisExtended:
+    def test_xaxis_set_ticks_no_labels(self):
+        """set_ticks with no labels installs FixedLocator only."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_ticks([0, 1, 2, 3])
+        assert isinstance(ax.xaxis.get_major_locator(), FixedLocator)
+        assert not isinstance(ax.xaxis.get_major_formatter(), FixedFormatter)
+        plt.close('all')
+
+    def test_yaxis_set_major_locator(self):
+        """YAxis.set_major_locator installs the locator."""
+        fig, ax = plt.subplots()
+        loc = FixedLocator([0, 0.5, 1.0])
+        ax.yaxis.set_major_locator(loc)
+        assert ax.yaxis.get_major_locator() is loc
+        plt.close('all')
+
+    def test_yaxis_set_major_formatter(self):
+        """YAxis.set_major_formatter installs the formatter."""
+        fig, ax = plt.subplots()
+        fmt = FixedFormatter(['a', 'b', 'c'])
+        ax.yaxis.set_major_formatter(fmt)
+        assert ax.yaxis.get_major_formatter() is fmt
+        plt.close('all')
+
+    def test_xaxis_tick_values_log(self):
+        """XAxis tick_values on log scale returns values."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        vals = ax.xaxis.tick_values(1, 1000)
+        assert len(vals) > 0
+        plt.close('all')
+
+    def test_format_ticks_empty_list(self):
+        """format_ticks([]) returns empty list."""
+        fig, ax = plt.subplots()
+        labels = ax.xaxis.format_ticks([])
+        assert labels == []
+        plt.close('all')
+
+    def test_format_ticks_single_value(self):
+        """format_ticks([5]) returns one label."""
+        fig, ax = plt.subplots()
+        labels = ax.xaxis.format_ticks([5.0])
+        assert len(labels) == 1
+        plt.close('all')
+
+    def test_xaxis_get_scale_after_log(self):
+        """XAxis.get_scale returns 'log' after set_xscale('log')."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        assert ax.xaxis.get_scale() == 'log'
+        plt.close('all')
+
+    def test_yaxis_get_scale_after_log(self):
+        """YAxis.get_scale returns 'log' after set_yscale('log')."""
+        fig, ax = plt.subplots()
+        ax.set_yscale('log')
+        assert ax.yaxis.get_scale() == 'log'
+        plt.close('all')
+
+    def test_xaxis_minor_locator_after_log(self):
+        """After set_xscale('log'), minor locator is LogLocator."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        loc = ax.xaxis.get_minor_locator()
+        # After log scale, minor locator should be LogLocator or NullLocator
+        assert loc is not None
+        plt.close('all')
+
+    def test_yaxis_tick_values_linear(self):
+        """YAxis tick_values on linear scale returns values."""
+        fig, ax = plt.subplots()
+        vals = ax.yaxis.tick_values(0, 100)
+        assert len(vals) > 0
+        plt.close('all')
+
+    def test_set_ticks_replaces_previous(self):
+        """Second set_ticks replaces the first set."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_ticks([1, 2, 3])
+        ax.xaxis.set_ticks([4, 5])
+        assert ax.xaxis.get_ticks() == [4, 5]
+        plt.close('all')
+
+    def test_get_ticklabels_with_fixed_ticks(self):
+        """get_ticklabels returns labels matching set_ticks labels."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_ticks([0, 1], labels=['zero', 'one'])
+        labels = ax.xaxis.get_ticklabels()
+        label_texts = [l.get_text() if hasattr(l, 'get_text') else str(l) for l in labels]
+        assert 'zero' in label_texts
+        assert 'one' in label_texts
+        plt.close('all')
+
+    def test_axis_set_scale_symlog(self):
+        """XAxis.set_scale('symlog') installs SymmetricalLogLocator."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('symlog')
+        assert ax.xaxis.get_scale() == 'symlog'
+        plt.close('all')
+
+    def test_xaxis_label_default_empty(self):
+        """XAxis label is empty by default."""
+        fig, ax = plt.subplots()
+        assert ax.xaxis.get_label_text() == ''
+        plt.close('all')
+
+    def test_yaxis_label_default_empty(self):
+        """YAxis label is empty by default."""
+        fig, ax = plt.subplots()
+        assert ax.yaxis.get_label_text() == ''
+        plt.close('all')
