@@ -124,3 +124,131 @@ def test_imshow_png():
     assert has_green, "Expected green pixel from imshow"
     assert has_blue, "Expected blue pixel from imshow"
     plt.close(fig)
+
+
+# ===================================================================
+# Additional rendering tests (upstream-inspired)
+# ===================================================================
+
+def test_line_svg_has_polyline():
+    """A simple plot produces a polyline in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2], [0, 1, 0])
+    svg = fig.to_svg()
+    assert '<polyline' in svg or 'polyline' in svg
+    plt.close('all')
+
+
+def test_scatter_svg_has_path():
+    """Scatter plot produces path elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.scatter([0, 1, 2], [0, 1, 0])
+    svg = fig.to_svg()
+    assert '<circle' in svg or 'circle' in svg or '<path' in svg
+    plt.close('all')
+
+
+def test_text_svg_has_text():
+    """Text added to axes appears in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.text(0.5, 0.5, 'hello')
+    svg = fig.to_svg()
+    assert 'hello' in svg
+    plt.close('all')
+
+
+def test_title_svg():
+    """Axes title appears in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.set_title('My Title')
+    svg = fig.to_svg()
+    assert 'My Title' in svg
+    plt.close('all')
+
+
+def test_xlabel_svg():
+    """X-axis label appears in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.set_xlabel('X Axis')
+    svg = fig.to_svg()
+    assert 'X Axis' in svg
+    plt.close('all')
+
+
+def test_ylabel_svg():
+    """Y-axis label appears in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.set_ylabel('Y Axis')
+    svg = fig.to_svg()
+    assert 'Y Axis' in svg
+    plt.close('all')
+
+
+def test_legend_svg():
+    """Legend label appears in SVG output."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1], label='data series')
+    ax.legend()
+    svg = fig.to_svg()
+    assert 'data series' in svg
+    plt.close('all')
+
+
+def test_bar_svg_has_rect():
+    """Bar chart produces rect elements in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.bar([1, 2, 3], [4, 5, 6])
+    svg = fig.to_svg()
+    assert '<rect' in svg
+    plt.close('all')
+
+
+def test_dashed_line_svg():
+    """Dashed line produces stroke-dasharray in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1], linestyle='--')
+    svg = fig.to_svg()
+    assert 'stroke-dasharray' in svg
+    plt.close('all')
+
+
+def test_colored_line_svg():
+    """Colored line has stroke attribute in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1], color='red')
+    svg = fig.to_svg()
+    # Red is #ff0000 or rgb(255,0,0)
+    assert 'stroke' in svg
+    plt.close('all')
+
+
+def test_svg_contains_svg_tag():
+    """Every figure SVG output contains svg element."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    svg = fig.to_svg()
+    assert '<svg' in svg
+    plt.close('all')
+
+
+def test_multiple_lines_svg():
+    """Multiple lines produce multiple polylines in SVG."""
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1], label='line1')
+    ax.plot([0, 1], [1, 0], label='line2')
+    svg = fig.to_svg()
+    # Should have at least 2 polylines
+    count = svg.count('<polyline')
+    assert count >= 2
+    plt.close('all')
