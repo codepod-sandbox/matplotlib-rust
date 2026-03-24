@@ -560,3 +560,128 @@ def test_line_empty_data():
     x, y = line.get_data()
     assert x == []
     assert y == []
+
+
+# ---------------------------------------------------------------------------
+# Line2D marker edge/face color and related properties
+# ---------------------------------------------------------------------------
+
+class TestLine2DMarkerProperties:
+    def test_markeredgecolor_default(self):
+        line = Line2D([0], [0])
+        mec = line.get_markeredgecolor()
+        assert mec is not None
+
+    def test_set_markeredgecolor(self):
+        line = Line2D([0], [0])
+        line.set_markeredgecolor('red')
+        assert line.get_markeredgecolor() == 'red'
+
+    def test_markerfacecolor_default(self):
+        line = Line2D([0], [0])
+        mfc = line.get_markerfacecolor()
+        assert mfc is not None
+
+    def test_set_markerfacecolor(self):
+        line = Line2D([0], [0])
+        line.set_markerfacecolor('blue')
+        assert line.get_markerfacecolor() == 'blue'
+
+    def test_markerfacecoloralt_default(self):
+        line = Line2D([0], [0])
+        mfca = line.get_markerfacecoloralt()
+        assert mfca is not None
+
+    def test_set_markerfacecoloralt(self):
+        line = Line2D([0], [0])
+        line.set_markerfacecoloralt('green')
+        assert line.get_markerfacecoloralt() == 'green'
+
+    def test_markeredgewidth_default(self):
+        line = Line2D([0], [0])
+        mew = line.get_markeredgewidth()
+        assert mew is not None
+
+    def test_set_markeredgewidth(self):
+        line = Line2D([0], [0])
+        line.set_markeredgewidth(2.0)
+        assert line.get_markeredgewidth() == 2.0
+
+    def test_markevery_default_none(self):
+        line = Line2D([0], [0])
+        assert line.get_markevery() is None
+
+    def test_set_markevery(self):
+        line = Line2D([0], [0])
+        line.set_markevery(2)
+        assert line.get_markevery() == 2
+
+    def test_set_markevery_none(self):
+        line = Line2D([0], [0])
+        line.set_markevery(2)
+        line.set_markevery(None)
+        assert line.get_markevery() is None
+
+    def test_antialiased_default(self):
+        line = Line2D([0], [0])
+        aa = line.get_antialiased()
+        assert isinstance(aa, bool)
+
+    def test_set_antialiased(self):
+        line = Line2D([0], [0])
+        line.set_antialiased(False)
+        assert line.get_antialiased() is False
+        line.set_antialiased(True)
+        assert line.get_antialiased() is True
+
+    def test_solid_capstyle_default(self):
+        line = Line2D([0], [0])
+        cs = line.get_solid_capstyle()
+        assert cs is None  # default is None (unset)
+
+    def test_set_solid_capstyle(self):
+        line = Line2D([0], [0])
+        line.set_solid_capstyle('round')
+        assert line.get_solid_capstyle() == 'round'
+
+    def test_solid_joinstyle_default(self):
+        line = Line2D([0], [0])
+        js = line.get_solid_joinstyle()
+        assert js is None  # default is None (unset)
+
+    def test_set_solid_joinstyle(self):
+        line = Line2D([0], [0])
+        line.set_solid_joinstyle('bevel')
+        assert line.get_solid_joinstyle() == 'bevel'
+
+    def test_dash_capstyle_default(self):
+        line = Line2D([0], [0])
+        cs = line.get_dash_capstyle()
+        assert cs is None  # default is None (unset)
+
+    def test_set_dash_capstyle(self):
+        line = Line2D([0], [0])
+        line.set_dash_capstyle('butt')
+        assert line.get_dash_capstyle() == 'butt'
+
+    def test_dash_joinstyle_default(self):
+        line = Line2D([0], [0])
+        js = line.get_dash_joinstyle()
+        assert js is None  # default is None (unset)
+
+    def test_set_dash_joinstyle(self):
+        line = Line2D([0], [0])
+        line.set_dash_joinstyle('round')
+        assert line.get_dash_joinstyle() == 'round'
+
+    def test_get_xydata(self):
+        line = Line2D([1, 2, 3], [4, 5, 6])
+        xy = line.get_xydata()
+        assert len(xy) == 3
+        assert xy[0][0] == 1
+        assert xy[0][1] == 4
+
+    def test_get_xydata_empty(self):
+        line = Line2D([], [])
+        xy = line.get_xydata()
+        assert len(xy) == 0

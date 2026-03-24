@@ -410,3 +410,106 @@ def test_annotation_set_text():
     ann = Annotation('old', xy=(0, 0))
     ann.set_text('new')
     assert ann.get_text() == 'new'
+
+
+# ===================================================================
+# Text extended property tests
+# ===================================================================
+
+class TestTextExtendedProperties:
+    def test_fontstyle_default(self):
+        t = Text()
+        assert t.get_fontstyle() == 'normal'
+
+    def test_set_fontstyle(self):
+        t = Text()
+        t.set_fontstyle('italic')
+        assert t.get_fontstyle() == 'italic'
+
+    def test_fontfamily_default(self):
+        t = Text()
+        family = t.get_fontfamily()
+        assert family is None  # default is None (no family specified)
+
+    def test_set_fontfamily(self):
+        t = Text()
+        t.set_fontfamily('monospace')
+        assert t.get_fontfamily() == 'monospace'
+
+    def test_fontname_default(self):
+        t = Text()
+        name = t.get_fontname()
+        assert name is None  # default is None
+
+    def test_fontvariant_default(self):
+        t = Text()
+        assert t.get_fontvariant() == 'normal'
+
+    def test_set_fontvariant(self):
+        t = Text()
+        t.set_fontvariant('small-caps')
+        assert t.get_fontvariant() == 'small-caps'
+
+    def test_fontstretch_default(self):
+        t = Text()
+        stretch = t.get_fontstretch()
+        assert stretch is not None
+
+    def test_set_fontstretch(self):
+        t = Text()
+        t.set_fontstretch('condensed')
+        assert t.get_fontstretch() == 'condensed'
+
+    def test_stretch_alias(self):
+        t = Text()
+        t.set_stretch('expanded')
+        assert t.get_stretch() == 'expanded'
+
+    def test_wrap_default_false(self):
+        t = Text()
+        assert t.get_wrap() is False
+
+    def test_set_wrap(self):
+        t = Text()
+        t.set_wrap(True)
+        assert t.get_wrap() is True
+
+    def test_usetex_default_false(self):
+        t = Text()
+        assert t.get_usetex() is False  # default is False
+
+    def test_set_usetex(self):
+        t = Text()
+        t.set_usetex(True)
+        assert t.get_usetex() is True
+
+    def test_math_fontfamily_default(self):
+        t = Text()
+        mff = t.get_math_fontfamily()
+        assert mff is not None
+
+    def test_set_math_fontfamily(self):
+        t = Text()
+        t.set_math_fontfamily('stix')
+        assert t.get_math_fontfamily() == 'stix'
+
+    def test_position_default(self):
+        t = Text()
+        pos = t.get_position()
+        assert pos == (0, 0)
+
+    def test_set_position(self):
+        t = Text()
+        t.set_position((3.0, 4.0))
+        assert t.get_position() == (3.0, 4.0)
+
+    def test_weight_alias(self):
+        t = Text()
+        t.set_weight('bold')
+        assert t.get_weight() == 'bold'
+        assert t.get_fontweight() == 'bold'
+
+    def test_repr(self):
+        t = Text(1, 2, 'hello')
+        r = repr(t)
+        assert 'hello' in r or 'Text' in r
