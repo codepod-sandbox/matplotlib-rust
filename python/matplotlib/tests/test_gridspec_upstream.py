@@ -1,0 +1,433 @@
+"""
+Upstream matplotlib tests for GridSpec, SubplotSpec, and GridSpecFromSubplotSpec.
+
+Ported from lib/matplotlib/tests/test_gridspec.py and related test files.
+"""
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec, SubplotSpec, GridSpecFromSubplotSpec, _SubplotParams
+
+
+# ===================================================================
+# GridSpec construction
+# ===================================================================
+
+def test_gridspec_basic_construction():
+    """GridSpec(2, 3) stores nrows and ncols."""
+    gs = GridSpec(2, 3)
+    assert gs.nrows == 2
+    assert gs.ncols == 3
+
+
+def test_gridspec_get_geometry():
+    """get_geometry returns (nrows, ncols)."""
+    gs = GridSpec(4, 5)
+    assert gs.get_geometry() == (4, 5)
+
+
+def test_gridspec_1x1():
+    """GridSpec(1, 1) works."""
+    gs = GridSpec(1, 1)
+    assert gs.nrows == 1
+    assert gs.ncols == 1
+
+
+def test_gridspec_repr():
+    """GridSpec repr is descriptive."""
+    gs = GridSpec(2, 3)
+    r = repr(gs)
+    assert '2' in r and '3' in r
+
+
+def test_gridspec_figure_none_by_default():
+    """GridSpec has no figure by default."""
+    gs = GridSpec(2, 2)
+    assert gs.figure is None
+
+
+def test_gridspec_figure_kwarg():
+    """GridSpec stores figure kwarg."""
+    fig = plt.figure()
+    gs = GridSpec(2, 2, figure=fig)
+    assert gs.figure is fig
+    plt.close(fig)
+
+
+# ===================================================================
+# GridSpec width/height ratios
+# ===================================================================
+
+def test_gridspec_width_ratios():
+    """GridSpec stores width_ratios."""
+    gs = GridSpec(2, 3, width_ratios=[1, 2, 1])
+    assert gs.get_width_ratios() == [1, 2, 1]
+
+
+def test_gridspec_height_ratios():
+    """GridSpec stores height_ratios."""
+    gs = GridSpec(3, 2, height_ratios=[1, 2, 1])
+    assert gs.get_height_ratios() == [1, 2, 1]
+
+
+def test_gridspec_no_ratios_returns_none():
+    """Without ratios, get_width_ratios/get_height_ratios return None."""
+    gs = GridSpec(2, 2)
+    assert gs.get_width_ratios() is None
+    assert gs.get_height_ratios() is None
+
+
+# ===================================================================
+# GridSpec indexing — SubplotSpec creation
+# ===================================================================
+
+def test_gridspec_single_cell():
+    """gs[0, 0] returns a SubplotSpec."""
+    gs = GridSpec(2, 3)
+    ss = gs[0, 0]
+    assert isinstance(ss, SubplotSpec)
+
+
+def test_gridspec_single_cell_rowspan():
+    """gs[0, 0] has rowspan (0, 1)."""
+    gs = GridSpec(2, 3)
+    ss = gs[0, 0]
+    assert ss.rowspan == (0, 1)
+
+
+def test_gridspec_single_cell_colspan():
+    """gs[0, 0] has colspan (0, 1)."""
+    gs = GridSpec(2, 3)
+    ss = gs[0, 0]
+    assert ss.colspan == (0, 1)
+
+
+def test_gridspec_row_slice():
+    """gs[0, :] spans full row."""
+    gs = GridSpec(2, 3)
+    ss = gs[0, :]
+    assert ss.rowspan == (0, 1)
+    assert ss.colspan == (0, 3)
+
+
+def test_gridspec_col_slice():
+    """gs[:, 0] spans full column."""
+    gs = GridSpec(2, 3)
+    ss = gs[:, 0]
+    assert ss.rowspan == (0, 2)
+    assert ss.colspan == (0, 1)
+
+
+def test_gridspec_partial_col_slice():
+    """gs[0, 1:3] spans columns 1 to 3."""
+    gs = GridSpec(2, 3)
+    ss = gs[0, 1:3]
+    assert ss.rowspan == (0, 1)
+    assert ss.colspan == (1, 3)
+
+
+def test_gridspec_block():
+    """gs[0:2, 1:3] spans rows 0-2 and cols 1-3."""
+    gs = GridSpec(3, 4)
+    ss = gs[0:2, 1:3]
+    assert ss.rowspan == (0, 2)
+    assert ss.colspan == (1, 3)
+
+
+def test_gridspec_flat_int():
+    """gs[0] maps to row 0, col 0."""
+    gs = GridSpec(2, 3)
+    ss = gs[0]
+    assert ss.rowspan == (0, 1)
+    assert ss.colspan == (0, 1)
+
+
+def test_gridspec_flat_int_index_2():
+    """gs[2] maps to row 0, col 2 in 2-col grid."""
+    gs = GridSpec(2, 3)
+    ss = gs[2]
+    assert ss.rowspan == (0, 1)
+    assert ss.colspan == (2, 3)
+
+
+def test_gridspec_flat_int_index_3():
+    """gs[3] maps to row 1, col 0 in 3-col grid."""
+    gs = GridSpec(2, 3)
+    ss = gs[3]
+    assert ss.rowspan == (1, 2)
+    assert ss.colspan == (0, 1)
+
+
+def test_gridspec_negative_row():
+    """gs[-1, 0] uses last row."""
+    gs = GridSpec(3, 2)
+    ss = gs[-1, 0]
+    assert ss.rowspan == (2, 3)
+
+
+def test_gridspec_negative_col():
+    """gs[0, -1] uses last column."""
+    gs = GridSpec(2, 3)
+    ss = gs[0, -1]
+    assert ss.colspan == (2, 3)
+
+
+def test_gridspec_invalid_index_raises():
+    """gs['bad'] raises IndexError."""
+    gs = GridSpec(2, 2)
+    with pytest.raises((IndexError, TypeError)):
+        gs['bad']
+
+
+# ===================================================================
+# SubplotSpec properties
+# ===================================================================
+
+def test_subplotspec_get_gridspec():
+    """SubplotSpec.get_gridspec returns the GridSpec."""
+    gs = GridSpec(2, 3)
+    ss = gs[0, 0]
+    assert ss.get_gridspec() is gs
+
+
+def test_subplotspec_num1():
+    """SubplotSpec.num1 is flat start index."""
+    gs = GridSpec(2, 3)
+    ss = gs[1, 1]
+    # row 1, col 1 → flat index = 1*3 + 1 = 4
+    assert ss.num1 == 4
+
+
+def test_subplotspec_num2():
+    """SubplotSpec.num2 is flat end index."""
+    gs = GridSpec(2, 3)
+    ss = gs[1, 1]
+    # (row_stop-1)*ncols + (col_stop-1) = (2-1)*3 + (2-1) = 4
+    assert ss.num2 == 4
+
+
+def test_subplotspec_num1_topleft():
+    """SubplotSpec for top-left cell has num1=0."""
+    gs = GridSpec(3, 4)
+    ss = gs[0, 0]
+    assert ss.num1 == 0
+
+
+def test_subplotspec_repr():
+    """SubplotSpec repr is descriptive."""
+    gs = GridSpec(2, 2)
+    ss = gs[0, 1]
+    r = repr(ss)
+    assert 'SubplotSpec' in r
+
+
+def test_subplotspec_get_position():
+    """SubplotSpec.get_position returns (x0, y0, w, h)."""
+    gs = GridSpec(2, 2)
+    ss = gs[0, 0]
+    pos = ss.get_position()
+    assert len(pos) == 4
+    x0, y0, w, h = pos
+    assert w == 0.5
+    assert h == 0.5
+    assert x0 == 0.0
+    assert abs(y0 - 0.5) < 1e-10  # top row: y0 = 1 - 1/2 = 0.5
+
+
+def test_subplotspec_get_position_bottom_right():
+    """SubplotSpec position of bottom-right cell in 2x2."""
+    gs = GridSpec(2, 2)
+    ss = gs[1, 1]
+    x0, y0, w, h = ss.get_position()
+    assert abs(x0 - 0.5) < 1e-10
+    assert abs(y0 - 0.0) < 1e-10
+    assert abs(w - 0.5) < 1e-10
+    assert abs(h - 0.5) < 1e-10
+
+
+def test_subplotspec_full_width_position():
+    """SubplotSpec spanning full width has w=1."""
+    gs = GridSpec(2, 3)
+    ss = gs[0, :]
+    x0, y0, w, h = ss.get_position()
+    assert abs(w - 1.0) < 1e-10
+
+
+# ===================================================================
+# GridSpec update
+# ===================================================================
+
+def test_gridspec_update_hspace():
+    """GridSpec.update sets _hspace."""
+    gs = GridSpec(2, 2)
+    gs.update(hspace=0.5)
+    assert gs._hspace == 0.5
+
+
+def test_gridspec_update_wspace():
+    """GridSpec.update sets _wspace."""
+    gs = GridSpec(2, 2)
+    gs.update(wspace=0.3)
+    assert gs._wspace == 0.3
+
+
+def test_gridspec_get_subplot_params():
+    """GridSpec.get_subplot_params returns _SubplotParams."""
+    gs = GridSpec(2, 2, hspace=0.4, wspace=0.3)
+    params = gs.get_subplot_params()
+    assert isinstance(params, _SubplotParams)
+
+
+def test_gridspec_tight_layout_noop():
+    """GridSpec.tight_layout does not raise."""
+    gs = GridSpec(2, 2)
+    gs.tight_layout()  # should not raise
+
+
+# ===================================================================
+# GridSpec.subplots integration
+# ===================================================================
+
+def test_gridspec_subplots_no_figure_raises():
+    """GridSpec.subplots without figure raises ValueError."""
+    gs = GridSpec(2, 2)
+    with pytest.raises(ValueError):
+        gs.subplots()
+
+
+def test_gridspec_subplots_2x2():
+    """GridSpec with figure returns 2x2 axes list."""
+    fig = plt.figure()
+    gs = GridSpec(2, 2, figure=fig)
+    axes = gs.subplots()
+    assert len(axes) == 2
+    assert len(axes[0]) == 2
+    plt.close(fig)
+
+
+def test_gridspec_subplots_1x1_returns_single():
+    """GridSpec(1, 1).subplots() returns a single Axes."""
+    fig = plt.figure()
+    gs = GridSpec(1, 1, figure=fig)
+    ax = gs.subplots()
+    assert not isinstance(ax, list)
+    plt.close(fig)
+
+
+def test_gridspec_subplots_1xN_returns_1d():
+    """GridSpec(1, 3).subplots() returns a flat list."""
+    fig = plt.figure()
+    gs = GridSpec(1, 3, figure=fig)
+    axes = gs.subplots()
+    assert len(axes) == 3
+    plt.close(fig)
+
+
+def test_gridspec_subplots_Nx1_returns_1d():
+    """GridSpec(3, 1).subplots() returns a flat list."""
+    fig = plt.figure()
+    gs = GridSpec(3, 1, figure=fig)
+    axes = gs.subplots()
+    assert len(axes) == 3
+    plt.close(fig)
+
+
+# ===================================================================
+# GridSpec via plt.subplots / fig.add_subplot
+# ===================================================================
+
+def test_add_subplot_with_subplotspec():
+    """fig.add_subplot(SubplotSpec) creates an axes."""
+    fig = plt.figure()
+    gs = GridSpec(2, 2)
+    ax = fig.add_subplot(gs[0, 0])
+    assert ax is not None
+    plt.close(fig)
+
+
+def test_gridspec_multiple_subplots():
+    """Multiple subplots from GridSpec are in ax list."""
+    fig = plt.figure()
+    gs = GridSpec(2, 2)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[1, :])
+    assert len(fig.axes) == 3
+    plt.close(fig)
+
+
+def test_plt_subplots_returns_gridspec_axes():
+    """plt.subplots(2, 2) creates 4 axes via GridSpec."""
+    fig, axes = plt.subplots(2, 2)
+    assert len(axes) == 2
+    assert len(axes[0]) == 2
+    plt.close(fig)
+
+
+# ===================================================================
+# GridSpecFromSubplotSpec
+# ===================================================================
+
+def test_gridspec_from_subplotspec_construction():
+    """GridSpecFromSubplotSpec can be created."""
+    gs = GridSpec(2, 2)
+    ss = gs[0, 0]
+    sub_gs = GridSpecFromSubplotSpec(2, 2, subplot_spec=ss)
+    assert sub_gs.nrows == 2
+    assert sub_gs.ncols == 2
+
+
+def test_gridspec_from_subplotspec_stores_spec():
+    """GridSpecFromSubplotSpec stores _subplot_spec."""
+    gs = GridSpec(2, 2)
+    ss = gs[0, 1]
+    sub_gs = GridSpecFromSubplotSpec(3, 3, subplot_spec=ss)
+    assert sub_gs._subplot_spec is ss
+
+
+def test_gridspec_from_subplotspec_indexing():
+    """GridSpecFromSubplotSpec supports indexing."""
+    gs = GridSpec(2, 2)
+    ss = gs[1, 0]
+    sub_gs = GridSpecFromSubplotSpec(2, 2, subplot_spec=ss)
+    sub_ss = sub_gs[0, 0]
+    assert isinstance(sub_ss, SubplotSpec)
+
+
+# ===================================================================
+# _SubplotParams
+# ===================================================================
+
+def test_subplot_params_defaults():
+    """_SubplotParams defaults are set."""
+    p = _SubplotParams()
+    assert p.left == 0.125
+    assert p.right == 0.9
+    assert p.top == 0.88
+    assert p.bottom == 0.11
+    assert p.hspace == 0.2
+    assert p.wspace == 0.2
+
+
+def test_subplot_params_custom():
+    """_SubplotParams stores custom values."""
+    p = _SubplotParams(left=0.1, right=0.95, top=0.9, bottom=0.05,
+                      hspace=0.3, wspace=0.4)
+    assert p.left == 0.1
+    assert p.right == 0.95
+
+
+# ===================================================================
+# GridSpec hspace/wspace kwargs
+# ===================================================================
+
+def test_gridspec_hspace_kwarg():
+    """GridSpec(hspace=0.5) stores hspace."""
+    gs = GridSpec(2, 2, hspace=0.5)
+    assert gs._hspace == 0.5
+
+
+def test_gridspec_wspace_kwarg():
+    """GridSpec(wspace=0.3) stores wspace."""
+    gs = GridSpec(2, 2, wspace=0.3)
+    assert gs._wspace == 0.3
