@@ -686,3 +686,206 @@ def test_normalize_callbacks():
     # Should be able to connect/disconnect
     cid = n.callbacks.connect('changed', lambda: None)
     n.callbacks.disconnect(cid)
+
+
+# ===================================================================
+# CenteredNorm tests
+# ===================================================================
+
+class TestCenteredNorm:
+    def test_basic_vcenter_zero(self):
+        """CenteredNorm default vcenter=0, halfrange from data."""
+        n = mcolors.CenteredNorm()
+        assert n.vcenter == 0.0
+
+    def test_vcenter_custom(self):
+        """Custom vcenter is stored."""
+        n = mcolors.CenteredNorm(vcenter=5.0)
+        assert n.vcenter == 5.0
+
+    def test_halfrange_provided(self):
+        """Provided halfrange is stored."""
+        n = mcolors.CenteredNorm(vcenter=0.0, halfrange=2.0)
+        assert n._halfrange == 2.0
+
+    def test_center_maps_to_half(self):
+        """vcenter maps to 0.5."""
+        n = mcolors.CenteredNorm(vcenter=0.0, halfrange=5.0)
+        result = n(0.0)
+        assert abs(result - 0.5) < 1e-10
+
+    def test_max_maps_to_one(self):
+        """vcenter + halfrange maps to 1.0."""
+        n = mcolors.CenteredNorm(vcenter=0.0, halfrange=5.0)
+        result = n(5.0)
+        assert abs(result - 1.0) < 1e-10
+
+    def test_min_maps_to_zero(self):
+        """vcenter - halfrange maps to 0.0."""
+        n = mcolors.CenteredNorm(vcenter=0.0, halfrange=5.0)
+        result = n(-5.0)
+        assert abs(result - 0.0) < 1e-10
+
+    def test_nonzero_vcenter(self):
+        """Non-zero vcenter shifts the map."""
+        n = mcolors.CenteredNorm(vcenter=10.0, halfrange=5.0)
+        assert abs(n(10.0) - 0.5) < 1e-10
+        assert abs(n(15.0) - 1.0) < 1e-10
+
+    def test_halfrange_from_data(self):
+        """halfrange=None infers from data max deviation."""
+        n = mcolors.CenteredNorm(vcenter=0.0)
+        result = n([-10.0, 0.0, 10.0])
+        # 0 should still map near 0.5
+        assert abs(result[1] - 0.5) < 1e-10
+
+    def test_list_input(self):
+        """CenteredNorm works on list input."""
+        n = mcolors.CenteredNorm(vcenter=0.0, halfrange=1.0)
+        result = n([-1.0, 0.0, 1.0])
+        assert len(result) == 3
+
+    def test_monotonic(self):
+        """CenteredNorm is monotonically increasing."""
+        n = mcolors.CenteredNorm(vcenter=0.0, halfrange=10.0)
+        values = [-10.0, -5.0, 0.0, 5.0, 10.0]
+        normalized = [n(v) for v in values]
+        for i in range(1, len(normalized)):
+            assert normalized[i] > normalized[i - 1]
+
+
+# ===================================================================
+# PowerNorm tests
+# ===================================================================
+
+class TestPowerNorm:
+    def test_basic(self):
+        """PowerNorm gamma=1 is linear."""
+        n = mcolors.PowerNorm(gamma=1.0, vmin=0, vmax=10)
+        assert abs(n(5.0) - 0.5) < 1e-10
+
+    def test_gamma_2(self):
+        """PowerNorm gamma=2: midpoint maps to 0.25."""
+        n = mcolors.PowerNorm(gamma=2.0, vmin=0, vmax=1)
+        result = n(0.5)
+        assert abs(result - 0.25) < 1e-10
+
+    def test_vmin_maps_to_zero(self):
+        """vmin always maps to 0."""
+        n = mcolors.PowerNorm(gamma=0.5, vmin=1, vmax=4)
+        assert abs(n(1.0) - 0.0) < 1e-10
+
+    def test_vmax_maps_to_one(self):
+        """vmax always maps to 1."""
+        n = mcolors.PowerNorm(gamma=0.5, vmin=0, vmax=1)
+        assert abs(n(1.0) - 1.0) < 1e-10
+
+    def test_no_vmin_raises(self):
+        """PowerNorm without vmin raises ValueError."""
+        n = mcolors.PowerNorm(gamma=1.0)
+        with pytest.raises(ValueError):
+            n(5.0)
+
+    def test_inverse_gamma_1(self):
+        """Inverse of linear norm is itself."""
+        n = mcolors.PowerNorm(gamma=1.0, vmin=0, vmax=10)
+        assert abs(n.inverse(0.5) - 5.0) < 1e-10
+
+    def test_inverse_round_trip(self):
+        """forward then inverse returns original."""
+        n = mcolors.PowerNorm(gamma=2.0, vmin=0, vmax=10)
+        for x in [1.0, 3.0, 5.0, 7.0, 9.0]:
+            fwd = n(x)
+            inv = n.inverse(fwd)
+            assert abs(inv - x) < 1e-6
+
+    def test_list_input(self):
+        """PowerNorm works on lists."""
+        n = mcolors.PowerNorm(gamma=1.0, vmin=0, vmax=10)
+        result = n([0.0, 5.0, 10.0])
+        assert len(result) == 3
+
+    def test_repr(self):
+        n = mcolors.PowerNorm(gamma=2.0, vmin=0, vmax=10)
+        r = repr(n)
+        assert 'PowerNorm' in r
+
+    def test_gamma_stored(self):
+        n = mcolors.PowerNorm(gamma=3.0)
+        assert n.gamma == 3.0
+
+
+# ===================================================================
+# NoNorm tests
+# ===================================================================
+
+class TestNoNorm:
+    def test_passthrough_scalar(self):
+        """NoNorm returns value unchanged."""
+        n = mcolors.NoNorm()
+        assert n(5.0) == 5.0
+
+    def test_passthrough_zero(self):
+        n = mcolors.NoNorm()
+        assert n(0.0) == 0.0
+
+    def test_passthrough_negative(self):
+        n = mcolors.NoNorm()
+        assert n(-3.0) == -3.0
+
+    def test_passthrough_list(self):
+        n = mcolors.NoNorm()
+        result = n([1.0, 2.0, 3.0])
+        assert result == [1.0, 2.0, 3.0]
+
+    def test_inverse_passthrough(self):
+        n = mcolors.NoNorm()
+        assert n.inverse(0.7) == 0.7
+
+    def test_inverse_list(self):
+        n = mcolors.NoNorm()
+        result = n.inverse([0.2, 0.5, 0.8])
+        assert result == [0.2, 0.5, 0.8]
+
+    def test_is_normalize_subclass(self):
+        n = mcolors.NoNorm()
+        assert isinstance(n, mcolors.Normalize)
+
+
+# ===================================================================
+# BoundaryNorm extended tests
+# ===================================================================
+
+class TestBoundaryNormExtended:
+    def test_in_range(self):
+        """Values within boundaries are mapped to (0, 1)."""
+        n = mcolors.BoundaryNorm([0, 1, 2, 3], 3)
+        result = n(1.5)
+        assert 0.0 <= result <= 1.0
+
+    def test_non_monotonic_raises(self):
+        """Non-monotonic boundaries raise ValueError."""
+        with pytest.raises(ValueError):
+            mcolors.BoundaryNorm([0, 2, 1], 2)
+
+    def test_vmin_vmax_set(self):
+        """vmin and vmax are first and last boundaries."""
+        n = mcolors.BoundaryNorm([0, 5, 10], 2)
+        assert n.vmin == 0
+        assert n.vmax == 10
+
+    def test_inverse_raises(self):
+        """BoundaryNorm inverse raises ValueError."""
+        n = mcolors.BoundaryNorm([0, 1, 2], 2)
+        with pytest.raises(ValueError):
+            n.inverse(0.5)
+
+    def test_repr(self):
+        n = mcolors.BoundaryNorm([0, 1, 2], 2)
+        assert 'BoundaryNorm' in repr(n)
+
+    def test_list_input(self):
+        n = mcolors.BoundaryNorm([0, 1, 2, 3], 3)
+        result = n([0.5, 1.5, 2.5])
+        assert isinstance(result, list)
+        assert len(result) == 3
