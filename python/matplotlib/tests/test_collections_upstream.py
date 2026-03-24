@@ -366,3 +366,143 @@ class TestEventCollection:
         ax.add_collection(ec)
         assert ec in ax.collections
         plt.close('all')
+
+    def test_linelength_default(self):
+        ec = EventCollection([1, 2])
+        assert ec.get_linelength() == 1
+
+    def test_linelength_custom(self):
+        ec = EventCollection([1, 2], linelength=2.0)
+        assert ec.get_linelength() == 2.0
+
+    def test_set_linelength(self):
+        ec = EventCollection([1, 2])
+        ec.set_linelength(3.0)
+        assert ec.get_linelength() == 3.0
+
+    def test_label(self):
+        ec = EventCollection([1, 2], label='events')
+        assert ec.get_label() == 'events'
+
+
+# ===================================================================
+# Collection base class tests
+# ===================================================================
+
+class TestCollectionBase:
+    def test_default_linewidths(self):
+        """Collection default linewidths is [1.0]."""
+        from matplotlib.collections import Collection
+        # Use PathCollection as concrete subclass
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        assert pc.get_linewidths() == [1.0]
+
+    def test_set_linewidth_scalar(self):
+        """set_linewidth with scalar stores as list."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_linewidth(2.5)
+        assert pc.get_linewidths() == [2.5]
+
+    def test_set_linewidths_list(self):
+        """set_linewidths with list stores all values."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_linewidths([1.0, 2.0, 3.0])
+        assert pc.get_linewidths() == [1.0, 2.0, 3.0]
+
+    def test_default_linestyles(self):
+        """Collection default linestyles is ['solid']."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        assert pc.get_linestyles() == ['solid']
+
+    def test_set_linestyle_string(self):
+        """set_linestyle with string stores as list."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_linestyle('dashed')
+        assert pc.get_linestyles() == ['dashed']
+
+    def test_set_linestyle_list(self):
+        """set_linestyle with list stores all values."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_linestyle(['solid', 'dashed'])
+        assert pc.get_linestyles() == ['solid', 'dashed']
+
+    def test_get_set_array(self):
+        """get_array/set_array roundtrip."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        assert pc.get_array() is None
+        pc.set_array([1, 2, 3])
+        assert pc.get_array() == [1, 2, 3]
+
+    def test_get_set_paths(self):
+        """get_paths/set_paths roundtrip."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_paths([[0, 1, 2]])
+        paths = pc.get_paths()
+        assert len(paths) == 1
+
+    def test_set_color_sets_both(self):
+        """set_color sets both facecolors and edgecolors."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_color('red')
+        assert pc.get_facecolors() == ['red']
+        assert pc.get_edgecolors() == ['red']
+
+    def test_set_edgecolor_none_clears(self):
+        """set_edgecolor(None) clears edgecolors."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection(edgecolors=['red'])
+        pc.set_edgecolor(None)
+        assert pc.get_edgecolors() == []
+
+    def test_set_facecolor_none_clears(self):
+        """set_facecolor(None) clears facecolors."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection(facecolors=['blue'])
+        pc.set_facecolor(None)
+        assert pc.get_facecolors() == []
+
+    def test_set_offsets_list(self):
+        """set_offsets stores list of offsets."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_offsets([(1, 2), (3, 4)])
+        assert len(pc.get_offsets()) == 2
+
+    def test_get_linestyle_alias(self):
+        """get_linestyle is alias for get_linestyles."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_linestyle('dotted')
+        assert pc.get_linestyle() == ['dotted']
+        assert pc.get_linestyles() == ['dotted']
+
+    def test_get_linewidth_alias(self):
+        """get_linewidth is alias for get_linewidths."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_linewidth(3.0)
+        assert pc.get_linewidth() == [3.0]
+        assert pc.get_linewidths() == [3.0]
+
+    def test_get_facecolor_alias(self):
+        """get_facecolor is alias for get_facecolors."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection(facecolors=['red'])
+        assert pc.get_facecolor() == ['red']
+        assert pc.get_facecolors() == ['red']
+
+    def test_get_edgecolor_alias(self):
+        """get_edgecolor is alias for get_edgecolors."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection(edgecolors=['blue'])
+        assert pc.get_edgecolor() == ['blue']
+        assert pc.get_edgecolors() == ['blue']
