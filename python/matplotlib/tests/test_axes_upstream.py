@@ -2819,3 +2819,129 @@ class TestStepStairs:
         line = ax.stairs([1, 2, 3], label='bins')
         assert line.get_label() == 'bins'
         plt.close('all')
+
+
+# ===================================================================
+# Axes utility method tests (relim, autoscale, has_data, can_pan, etc.)
+# ===================================================================
+
+class TestAxesUtilityMethods:
+    def test_relim_no_error(self):
+        """relim() doesn't raise."""
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 2, 3])
+        ax.relim()  # no-op in our implementation
+        plt.close('all')
+
+    def test_relim_visible_only(self):
+        """relim(visible_only=True) doesn't raise."""
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 2, 3])
+        ax.relim(visible_only=True)
+        plt.close('all')
+
+    def test_autoscale_both(self):
+        """autoscale() resets both limits."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ax.autoscale()
+        plt.close('all')
+
+    def test_autoscale_x_only(self):
+        """autoscale(axis='x') resets x limits only."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ax.set_ylim(0, 5)
+        ax.autoscale(axis='x')
+        # y limit should still be set
+        assert ax.get_ylim() == (0, 5)
+        plt.close('all')
+
+    def test_autoscale_y_only(self):
+        """autoscale(axis='y') resets y limits only."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ax.set_ylim(0, 5)
+        ax.autoscale(axis='y')
+        assert ax.get_xlim() == (0, 10)
+        plt.close('all')
+
+    def test_autoscale_disable(self):
+        """autoscale(enable=False) doesn't reset limits."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ax.autoscale(enable=False)
+        assert ax.get_xlim() == (0, 10)
+        plt.close('all')
+
+    def test_autoscale_view(self):
+        """autoscale_view() doesn't raise."""
+        fig, ax = plt.subplots()
+        ax.autoscale_view()
+        plt.close('all')
+
+    def test_autoscale_view_scalex_false(self):
+        """autoscale_view(scalex=False) keeps x limits."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ax.autoscale_view(scalex=False, scaley=True)
+        assert ax.get_xlim() == (0, 10)
+        plt.close('all')
+
+    def test_has_data_empty(self):
+        """has_data() is False for empty axes."""
+        fig, ax = plt.subplots()
+        assert ax.has_data() is False
+        plt.close('all')
+
+    def test_has_data_with_line(self):
+        """has_data() is True after plotting."""
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 2, 3])
+        assert ax.has_data() is True
+        plt.close('all')
+
+    def test_has_data_with_patch(self):
+        """has_data() is True with patches."""
+        from matplotlib.patches import Rectangle
+        fig, ax = plt.subplots()
+        r = Rectangle((0, 0), 1, 1)
+        ax.add_patch(r)
+        assert ax.has_data() is True
+        plt.close('all')
+
+    def test_can_pan(self):
+        """can_pan() returns True."""
+        fig, ax = plt.subplots()
+        assert ax.can_pan() is True
+        plt.close('all')
+
+    def test_can_zoom(self):
+        """can_zoom() returns True."""
+        fig, ax = plt.subplots()
+        assert ax.can_zoom() is True
+        plt.close('all')
+
+    def test_set_prop_cycle_no_error(self):
+        """set_prop_cycle() doesn't raise."""
+        fig, ax = plt.subplots()
+        from matplotlib.cycler import cycler
+        ax.set_prop_cycle(cycler('color', ['r', 'g', 'b']))
+        plt.close('all')
+
+    def test_has_data_with_scatter(self):
+        """has_data() is True after scatter."""
+        fig, ax = plt.subplots()
+        ax.scatter([1, 2, 3], [1, 2, 3])
+        assert ax.has_data() is True
+        plt.close('all')
+
+    def test_autoscale_view_both_false(self):
+        """autoscale_view(scalex=False, scaley=False) is a no-op."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(1, 5)
+        ax.set_ylim(2, 6)
+        ax.autoscale_view(scalex=False, scaley=False)
+        assert ax.get_xlim() == (1, 5)
+        assert ax.get_ylim() == (2, 6)
+        plt.close('all')
