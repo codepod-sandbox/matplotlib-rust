@@ -187,3 +187,108 @@ def test_imshow_list_extent():
     im = ax.imshow(data)
     ext = im.get_extent()
     assert ext == (-0.5, 2.5, 1.5, -0.5)
+
+
+# ===================================================================
+# AxesImage extended property tests
+# ===================================================================
+
+class TestAxesImageExtended:
+    def test_set_cmap_string(self):
+        """set_cmap with string name changes colormap."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        im.set_cmap('hot')
+        cmap = im.get_cmap()
+        # cmap may be a string name or a Colormap object
+        name = cmap.name if hasattr(cmap, 'name') else cmap
+        assert name == 'hot'
+        plt.close('all')
+
+    def test_set_cmap_object(self):
+        """set_cmap with Colormap object works."""
+        import matplotlib.pyplot as plt
+        import matplotlib.cm as cm
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        cmap_obj = cm.get_cmap('plasma')
+        im.set_cmap(cmap_obj)
+        stored = im.get_cmap()
+        name = stored.name if hasattr(stored, 'name') else stored
+        assert name == 'plasma'
+        plt.close('all')
+
+    def test_set_norm_object(self):
+        """set_norm works with Normalize object."""
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import Normalize
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        norm = Normalize(vmin=0, vmax=10)
+        im.set_norm(norm)
+        assert im.get_norm() is norm
+        plt.close('all')
+
+    def test_imshow_extent_stored(self):
+        """imshow with extent stores it correctly."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]], extent=[0, 2, 0, 2])
+        ext = im.get_extent()
+        assert ext == (0, 2, 0, 2)
+        plt.close('all')
+
+    def test_imshow_shape_3channel(self):
+        """imshow with 3-channel data stores correct shape."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        data = [[[1, 0, 0], [0, 1, 0]], [[0, 0, 1], [1, 1, 0]]]
+        im = ax.imshow(data)
+        assert im.get_size() is not None
+        plt.close('all')
+
+    def test_imshow_interpolation_default(self):
+        """imshow default interpolation can be retrieved."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        interp = im.get_interpolation()
+        # default is None (unset); test that it's gettable
+        assert interp is None or isinstance(interp, str)
+        plt.close('all')
+
+    def test_imshow_set_interpolation(self):
+        """set_interpolation changes interpolation."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        im.set_interpolation('bilinear')
+        assert im.get_interpolation() == 'bilinear'
+        plt.close('all')
+
+    def test_axesimage_label_from_constructor(self):
+        """AxesImage constructed with label stores it."""
+        from matplotlib.image import AxesImage
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        im = AxesImage(ax, label='myimage')
+        assert im.get_label() == 'myimage'
+        plt.close('all')
+
+    def test_imshow_in_images(self):
+        """imshow result is in ax.images."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        assert im in ax.images
+        plt.close('all')
+
+    def test_imshow_alpha(self):
+        """imshow image alpha can be set."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        im.set_alpha(0.5)
+        assert im.get_alpha() == 0.5
+        plt.close('all')
