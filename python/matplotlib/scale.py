@@ -11,6 +11,8 @@ import numpy.ma as ma
 class ScaleBase:
     """Abstract base for axis scales."""
 
+    name = ''
+
     def forward(self, values):
         """Transform data values to display space."""
         raise NotImplementedError
@@ -19,8 +21,21 @@ class ScaleBase:
         """Transform display space back to data values."""
         raise NotImplementedError
 
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.name == other
+        return type(self) is type(other)
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __repr__(self):
+        return f'{type(self).__name__}()'
+
 
 class LinearScale(ScaleBase):
+    name = 'linear'
+
     def forward(self, values):
         return np.asarray(values, dtype=float)
 
@@ -29,6 +44,8 @@ class LinearScale(ScaleBase):
 
 
 class LogScale(ScaleBase):
+    name = 'log'
+
     def __init__(self, base=10.0, nonpositive='mask'):
         self.base = float(base)
         self._nonpositive = nonpositive
@@ -47,6 +64,8 @@ class LogScale(ScaleBase):
 
 
 class SymmetricalLogScale(ScaleBase):
+    name = 'symlog'
+
     def __init__(self, base=10.0, linthresh=2.0, linscale=1.0):
         self.base = float(base)
         self.linthresh = float(linthresh)
