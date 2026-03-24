@@ -284,3 +284,146 @@ class TestSubplotLayout:
         ax3 = fig.add_subplot(gs[1, 1])
         assert len(fig.axes) == 3
         plt.close('all')
+
+
+# ===================================================================
+# Additional subplot tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.gridspec import GridSpec
+
+
+class TestSubplotsParametric:
+    """Parametric tests for subplots creation."""
+
+    @pytest.mark.parametrize('nrows,ncols,expected_total', [
+        (1, 1, 1),
+        (1, 2, 2),
+        (2, 1, 2),
+        (2, 3, 6),
+        (3, 3, 9),
+    ])
+    def test_subplots_total_count(self, nrows, ncols, expected_total):
+        """plt.subplots creates the correct total number of axes."""
+        fig, axes = plt.subplots(nrows, ncols)
+        # Count via fig.get_axes()
+        all_axes = fig.get_axes()
+        assert len(all_axes) == expected_total
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (2, 2), (3, 2), (2, 3), (4, 4)
+    ])
+    def test_subplots_all_axes_instances(self, nrows, ncols):
+        """All created axes are Axes instances."""
+        fig, axes = plt.subplots(nrows, ncols)
+        for ax in fig.get_axes():
+            assert isinstance(ax, Axes)
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [
+        (6, 4), (10, 8), (4, 3)
+    ])
+    def test_subplots_figsize(self, figsize):
+        """plt.subplots passes figsize to figure."""
+        w, h = figsize
+        fig, axes = plt.subplots(figsize=figsize)
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 100, 150])
+    def test_subplots_dpi(self, dpi):
+        """plt.subplots passes dpi to figure."""
+        fig, axes = plt.subplots(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
+
+
+class TestAxesProperties:
+    """Tests for axes object properties."""
+
+    def test_axes_get_xlim_default(self):
+        """Default xlim is (0, 1)."""
+        fig, ax = plt.subplots()
+        xmin, xmax = ax.get_xlim()
+        assert xmin == 0.0
+        assert xmax == 1.0
+        plt.close('all')
+
+    def test_axes_get_ylim_default(self):
+        """Default ylim is (0, 1)."""
+        fig, ax = plt.subplots()
+        ymin, ymax = ax.get_ylim()
+        assert ymin == 0.0
+        assert ymax == 1.0
+        plt.close('all')
+
+    def test_axes_set_xlim_returns_tuple(self):
+        """set_xlim returns the new limits."""
+        fig, ax = plt.subplots()
+        result = ax.set_xlim(0, 10)
+        assert result == (0, 10)
+        plt.close('all')
+
+    def test_axes_set_ylim_returns_tuple(self):
+        """set_ylim returns the new limits."""
+        fig, ax = plt.subplots()
+        result = ax.set_ylim(-1, 1)
+        assert result == (-1, 1)
+        plt.close('all')
+
+    def test_axes_title_default_empty(self):
+        """Axes title is empty by default."""
+        fig, ax = plt.subplots()
+        assert ax.get_title() == ''
+        plt.close('all')
+
+    def test_axes_xlabel_default_empty(self):
+        """Axes xlabel is empty by default."""
+        fig, ax = plt.subplots()
+        assert ax.get_xlabel() == ''
+        plt.close('all')
+
+    def test_axes_ylabel_default_empty(self):
+        """Axes ylabel is empty by default."""
+        fig, ax = plt.subplots()
+        assert ax.get_ylabel() == ''
+        plt.close('all')
+
+    def test_axes_lines_empty_default(self):
+        """Axes lines list is empty by default."""
+        fig, ax = plt.subplots()
+        assert ax.lines == []
+        plt.close('all')
+
+    def test_axes_patches_list(self):
+        """Axes patches is a list."""
+        fig, ax = plt.subplots()
+        assert isinstance(ax.patches, list)
+        plt.close('all')
+
+    def test_axes_texts_empty_default(self):
+        """Axes texts list is empty by default."""
+        fig, ax = plt.subplots()
+        assert ax.texts == []
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_axes_set_xscale(self, scale):
+        """Axes.set_xscale works for standard scales."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_axes_set_yscale(self, scale):
+        """Axes.set_yscale works for standard scales."""
+        fig, ax = plt.subplots()
+        ax.set_yscale(scale)
+        assert ax.get_yscale() == scale
+        plt.close('all')

@@ -403,3 +403,113 @@ class TestArtistIntegration:
         pc = PathCollection(visible=False, alpha=0.3)
         assert pc.get_visible() is False
         assert pc.get_alpha() == 0.3
+
+
+# ===================================================================
+# Additional collection tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.collections import PathCollection, PolyCollection
+
+
+class TestScatterCollection:
+    """Tests for scatter plot PathCollection."""
+
+    def test_scatter_returns_pathcollection(self):
+        """ax.scatter returns a PathCollection."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [4, 5, 6])
+        assert isinstance(sc, PathCollection)
+        plt.close('all')
+
+    def test_scatter_in_collections(self):
+        """scatter adds collection to ax.collections."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [4, 5, 6])
+        assert sc in ax.collections
+        plt.close('all')
+
+    def test_scatter_offsets_match_input(self):
+        """scatter PathCollection offsets match input x,y."""
+        fig, ax = plt.subplots()
+        xs = [1.0, 2.0, 3.0]
+        ys = [4.0, 5.0, 6.0]
+        sc = ax.scatter(xs, ys)
+        offsets = sc.get_offsets()
+        assert len(offsets) == 3
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 5, 10, 50])
+    def test_scatter_n_points(self, n):
+        """scatter with n points creates n offsets."""
+        fig, ax = plt.subplots()
+        xs = list(range(n))
+        ys = list(range(n))
+        sc = ax.scatter(xs, ys)
+        assert len(sc.get_offsets()) == n
+        plt.close('all')
+
+    def test_scatter_label(self):
+        """scatter label is stored."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1], [1], label='my_scatter')
+        assert sc.get_label() == 'my_scatter'
+        plt.close('all')
+
+    def test_scatter_alpha(self):
+        """scatter alpha is settable."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2], [3, 4])
+        sc.set_alpha(0.5)
+        assert abs(sc.get_alpha() - 0.5) < 1e-10
+        plt.close('all')
+
+    def test_scatter_visible_default(self):
+        """scatter collection is visible by default."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1], [1])
+        assert sc.get_visible() is True
+        plt.close('all')
+
+
+class TestPathCollectionParametric:
+    """Parametric tests for PathCollection."""
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green'])
+    def test_scatter_color(self, color):
+        """scatter facecolor can be specified."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2], [3, 4], color=color)
+        fc = sc.get_facecolor()
+        assert len(fc) > 0
+        plt.close('all')
+
+    @pytest.mark.parametrize('size', [10, 50, 100, 200])
+    def test_scatter_sizes(self, size):
+        """scatter size sets marker sizes."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [4, 5, 6], s=size)
+        sizes = sc.get_sizes()
+        assert len(sizes) == 1  # single size applied to all
+        assert abs(sizes[0] - size) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.9, 1.0])
+    def test_collection_alpha(self, alpha):
+        """Collection alpha is settable."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2], [3, 4])
+        sc.set_alpha(alpha)
+        assert abs(sc.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('zorder', [0, 1, 3, 5])
+    def test_collection_zorder(self, zorder):
+        """Collection zorder is settable."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1], [1])
+        sc.set_zorder(zorder)
+        assert sc.get_zorder() == zorder
+        plt.close('all')

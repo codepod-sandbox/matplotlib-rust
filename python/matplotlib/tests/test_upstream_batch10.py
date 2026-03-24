@@ -92,3 +92,119 @@ class TestRcParamsParametric:
     ])
     def test_default_value(self, key, expected):
         assert matplotlib.rcParams[key] == expected
+
+
+class TestAxisLimitsParametric:
+    """Parametrized tests for axis limits."""
+
+    @pytest.mark.parametrize('xmin,xmax', [
+        (0, 1), (-1, 1), (0, 100), (-100, 100), (0.001, 0.002), (-1e6, 1e6)
+    ])
+    def test_xlim_roundtrip(self, xmin, xmax):
+        """set_xlim / get_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got_min, got_max = ax.get_xlim()
+        assert abs(got_min - xmin) < 1e-10
+        assert abs(got_max - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [
+        (0, 1), (-1, 1), (0, 100), (-100, 100)
+    ])
+    def test_ylim_roundtrip(self, ymin, ymax):
+        """set_ylim / get_ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got_min, got_max = ax.get_ylim()
+        assert abs(got_min - ymin) < 1e-10
+        assert abs(got_max - ymax) < 1e-10
+        plt.close('all')
+
+
+class TestMarkerParametric:
+    """Parametrized tests for line markers."""
+
+    @pytest.mark.parametrize('marker', [
+        'o', 's', '^', 'v', '<', '>', 'D', 'd', 'p', 'h', 'H', '8', '*',
+        '+', 'x', 'X', '1', '2', '3', '4', '.', ',', 'None'
+    ])
+    def test_marker_set_get(self, marker):
+        """set_marker stores the marker."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0], [0])
+        line.set_marker(marker)
+        assert line.get_marker() == marker
+
+
+class TestColorParametric:
+    """Parametrized tests for color operations."""
+
+    @pytest.mark.parametrize('color', [
+        'red', 'green', 'blue', 'black', 'white', 'yellow', 'cyan', 'magenta',
+        '#ff0000', '#00ff00', '#0000ff', 'r', 'g', 'b', 'k', 'w', 'y', 'c', 'm'
+    ])
+    def test_line_color_roundtrip(self, color):
+        """Line2D color stores and returns the color."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0], [0], color=color)
+        assert line.get_color() == color
+
+    @pytest.mark.parametrize('color', [
+        'red', 'blue', 'green', 'yellow', 'black', 'white',
+        '#abcdef', '#123456'
+    ])
+    def test_patch_facecolor_set(self, color):
+        """Rectangle accepts facecolor without raising."""
+        from matplotlib.patches import Rectangle
+        r = Rectangle((0, 0), 1, 1, facecolor=color)
+        fc = r.get_facecolor()
+        # get_facecolor returns RGBA tuple (normalized)
+        assert len(fc) == 4
+        assert all(0.0 <= v <= 1.0 for v in fc)
+
+
+class TestLinestyleParametric:
+    """Parametrized tests for line styles."""
+
+    @pytest.mark.parametrize('ls', ['-', '--', '-.', ':', 'solid', 'dashed', 'dashdot', 'dotted'])
+    def test_linestyle_set_get(self, ls):
+        """Line2D linestyle stores the style."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0], [0])
+        line.set_linestyle(ls)
+        assert line.get_linestyle() == ls
+
+
+class TestFigureSizeParametric:
+    """Parametrized tests for figure size."""
+
+    @pytest.mark.parametrize('w,h', [
+        (6.4, 4.8), (8, 6), (10, 10), (4, 3), (12, 8), (2, 2)
+    ])
+    def test_figsize_roundtrip(self, w, h):
+        """set_figwidth/height roundtrip."""
+        fig = plt.figure(figsize=(w, h))
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+
+class TestAlphaParametric:
+    """Parametrized tests for alpha values."""
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0])
+    def test_line_alpha_roundtrip(self, alpha):
+        """Line2D alpha stores correctly."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0], [0])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.1, 0.5, 1.0])
+    def test_patch_alpha_roundtrip(self, alpha):
+        """Rectangle alpha stores correctly."""
+        from matplotlib.patches import Rectangle
+        r = Rectangle((0, 0), 1, 1)
+        r.set_alpha(alpha)
+        assert abs(r.get_alpha() - alpha) < 1e-10

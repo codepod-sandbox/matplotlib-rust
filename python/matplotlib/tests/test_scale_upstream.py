@@ -261,3 +261,100 @@ def test_func_scale_log():
     vals = np.array([1.0, 10.0, 100.0])
     result = s.forward(vals)
     np.testing.assert_allclose(result, [0.0, 1.0, 2.0], atol=1e-10)
+
+
+# ===================================================================
+# Parametrized scale tests (upstream-inspired batch)
+# ===================================================================
+
+import math
+import pytest
+import numpy as np
+
+
+class TestLogScaleParametric:
+    """Parametrized tests for LogScale with different bases."""
+
+    @pytest.mark.parametrize('base,input_val,expected', [
+        (10, 1.0, 0.0),
+        (10, 10.0, 1.0),
+        (10, 100.0, 2.0),
+        (2, 1.0, 0.0),
+        (2, 2.0, 1.0),
+        (2, 8.0, 3.0),
+        (math.e, math.e, 1.0),
+    ])
+    def test_log_forward_values(self, base, input_val, expected):
+        from matplotlib.scale import LogScale
+        s = LogScale(base=base)
+        result = s.forward(np.array([input_val]))
+        assert abs(float(result[0]) - expected) < 1e-8
+
+    @pytest.mark.parametrize('base,log_val,expected', [
+        (10, 0.0, 1.0),
+        (10, 1.0, 10.0),
+        (10, 2.0, 100.0),
+        (2, 0.0, 1.0),
+        (2, 3.0, 8.0),
+    ])
+    def test_log_inverse_values(self, base, log_val, expected):
+        from matplotlib.scale import LogScale
+        s = LogScale(base=base)
+        result = s.inverse(np.array([log_val]))
+        assert abs(float(result[0]) - expected) < 1e-8
+
+    @pytest.mark.parametrize('base', [2, math.e, 10, 100])
+    def test_log_roundtrip(self, base):
+        from matplotlib.scale import LogScale
+        s = LogScale(base=base)
+        vals = np.array([1.0, 2.0, 5.0, 10.0])
+        roundtripped = s.inverse(s.forward(vals))
+        np.testing.assert_allclose(roundtripped, vals, rtol=1e-8)
+
+
+class TestSymlogParametric:
+    """Parametrized tests for SymmetricalLogScale."""
+
+    @pytest.mark.parametrize('linthresh', [0.1, 1.0, 10.0, 100.0])
+    def test_symlog_zero_invariant(self, linthresh):
+        """Zero always maps to zero regardless of linthresh."""
+        from matplotlib.scale import SymmetricalLogScale
+        s = SymmetricalLogScale(base=10, linthresh=linthresh)
+        assert abs(float(s.forward(np.array([0.0]))[0])) < 1e-10
+
+    @pytest.mark.parametrize('val', [-100.0, -10.0, -1.0, 1.0, 10.0, 100.0])
+    def test_symlog_roundtrip_values(self, val):
+        """SymmetricalLogScale is a roundtrip for any value."""
+        from matplotlib.scale import SymmetricalLogScale
+        s = SymmetricalLogScale(base=10, linthresh=1.0)
+        rt = s.inverse(s.forward(np.array([val])))
+        assert abs(float(rt[0]) - val) < 1e-8
+
+    @pytest.mark.parametrize('val', [1.0, 10.0, 100.0])
+    def test_symlog_symmetric(self, val):
+        """SymmetricalLogScale maps +val and -val symmetrically."""
+        from matplotlib.scale import SymmetricalLogScale
+        s = SymmetricalLogScale(base=10, linthresh=1.0)
+        pos = float(s.forward(np.array([val]))[0])
+        neg = float(s.forward(np.array([-val]))[0])
+        assert abs(pos + neg) < 1e-8
+
+
+class TestLinearScaleParametric:
+    """Parametrized tests for LinearScale."""
+
+    @pytest.mark.parametrize('val', [-1000.0, -1.0, 0.0, 1.0, 1000.0, 1e-10, 1e10])
+    def test_linear_forward_identity(self, val):
+        """LinearScale forward is identity for any value."""
+        from matplotlib.scale import LinearScale
+        s = LinearScale()
+        result = s.forward(np.array([val]))
+        assert abs(float(result[0]) - val) < abs(val) * 1e-10 + 1e-15
+
+    @pytest.mark.parametrize('val', [-100.0, 0.0, 0.5, 1.0, 100.0])
+    def test_linear_inverse_identity(self, val):
+        """LinearScale inverse is identity for any value."""
+        from matplotlib.scale import LinearScale
+        s = LinearScale()
+        result = s.inverse(np.array([val]))
+        assert abs(float(result[0]) - val) < abs(val) * 1e-10 + 1e-15

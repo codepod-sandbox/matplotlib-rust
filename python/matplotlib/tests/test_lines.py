@@ -203,3 +203,111 @@ class TestLine2DArtist:
         line.remove()
         assert line not in ax.lines
         plt.close('all')
+
+
+# ===================================================================
+# Additional Line2D tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+
+class TestLine2DParametric:
+    """Parametric tests for Line2D properties."""
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black', '#ff0000'])
+    def test_line_colors(self, color):
+        """Line2D accepts named and hex colors."""
+        line = Line2D([0, 1], [0, 1], color=color)
+        assert line.get_color() == color
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 1.5, 2.0, 3.0, 5.0])
+    def test_line_linewidths(self, lw):
+        """Line2D linewidth is settable to various values."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_linewidth(lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('ls', ['-', '--', '-.', ':'])
+    def test_line_linestyles(self, ls):
+        """Line2D linestyle is settable."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_linestyle(ls)
+        assert line.get_linestyle() == ls
+
+    @pytest.mark.parametrize('ms', [1, 3, 5, 6, 8, 10, 12])
+    def test_marker_sizes(self, ms):
+        """Line2D markersize is settable."""
+        line = Line2D([0, 1], [0, 1], marker='o', markersize=ms)
+        assert abs(line.get_markersize() - ms) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_line_alpha(self, alpha):
+        """Line2D alpha is settable."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_line_zorder(self, zorder):
+        """Line2D zorder is settable."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+
+class TestLine2DInAxes:
+    """Tests for Line2D behavior within axes."""
+
+    def test_plot_line_in_ax_lines(self):
+        """ax.plot adds line to ax.lines."""
+        fig, ax = plt.subplots()
+        lines = ax.plot([1, 2, 3], [4, 5, 6])
+        assert lines[0] in ax.lines
+        plt.close('all')
+
+    def test_multiple_plots_accumulate(self):
+        """Multiple ax.plot calls accumulate in ax.lines."""
+        fig, ax = plt.subplots()
+        for i in range(5):
+            ax.plot([i], [i])
+        assert len(ax.lines) == 5
+        plt.close('all')
+
+    def test_line_label_in_legend(self):
+        """Labeled line appears in legend handles."""
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='series_A')
+        leg = ax.legend()
+        texts = [t.get_text() for t in leg.get_texts()]
+        assert 'series_A' in texts
+        plt.close('all')
+
+    def test_xdata_ydata_match_input(self):
+        """Line2D stores x and y data from plot."""
+        fig, ax = plt.subplots()
+        xs = [1.0, 2.0, 3.0]
+        ys = [4.0, 5.0, 6.0]
+        lines = ax.plot(xs, ys)
+        assert list(lines[0].get_xdata()) == xs
+        assert list(lines[0].get_ydata()) == ys
+        plt.close('all')
+
+    def test_axhline_y_value(self):
+        """axhline line has correct y value."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(0.5)
+        # axhline creates a horizontal line at y=0.5
+        ydata = line.get_ydata()
+        assert all(abs(y - 0.5) < 1e-10 for y in ydata)
+        plt.close('all')
+
+    def test_axvline_x_value(self):
+        """axvline line has correct x value."""
+        fig, ax = plt.subplots()
+        line = ax.axvline(0.3)
+        xdata = line.get_xdata()
+        assert all(abs(x - 0.3) < 1e-10 for x in xdata)
+        plt.close('all')

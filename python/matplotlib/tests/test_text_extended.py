@@ -204,3 +204,100 @@ class TestAnnotationExtended:
     def test_annotation_fontstyle(self):
         ann = Annotation('note', xy=(1, 2), fontstyle='italic')
         assert ann.get_fontstyle() == 'italic'
+
+
+# ===================================================================
+# Additional text parametric tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.text import Text
+
+
+class TestTextParametric:
+    """Parametric tests for Text properties."""
+
+    @pytest.mark.parametrize('fontsize', [6, 8, 10, 12, 14, 16, 18, 24])
+    def test_text_fontsize(self, fontsize):
+        """Text fontsize can be set to various sizes."""
+        t = Text(0, 0, 'test')
+        t.set_fontsize(fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('rotation', [0, 30, 45, 90, 180, 270])
+    def test_text_rotation(self, rotation):
+        """Text rotation is settable."""
+        t = Text(0, 0, 'test')
+        t.set_rotation(rotation)
+        assert abs(t.get_rotation() - rotation) < 1e-10
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_text_horizontalalignment(self, ha):
+        """Text horizontalalignment is settable."""
+        t = Text(0, 0, 'test')
+        t.set_horizontalalignment(ha)
+        assert t.get_horizontalalignment() == ha
+
+    @pytest.mark.parametrize('va', ['top', 'center', 'bottom', 'baseline'])
+    def test_text_verticalalignment(self, va):
+        """Text verticalalignment is settable."""
+        t = Text(0, 0, 'test')
+        t.set_verticalalignment(va)
+        assert t.get_verticalalignment() == va
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_text_alpha(self, alpha):
+        """Text alpha is settable."""
+        t = Text(0, 0, 'test')
+        t.set_alpha(alpha)
+        assert abs(t.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('zorder', [1, 2, 3, 5, 10])
+    def test_text_zorder(self, zorder):
+        """Text zorder is settable."""
+        t = Text(0, 0, 'test')
+        t.set_zorder(zorder)
+        assert t.get_zorder() == zorder
+
+    @pytest.mark.parametrize('text', ['hello', 'world', 'matplotlib', ''])
+    def test_text_content(self, text):
+        """Text stores string content."""
+        t = Text(0, 0, text)
+        assert t.get_text() == text
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (1, 2), (-3, 4), (0.5, 0.5)])
+    def test_text_position(self, x, y):
+        """Text position is stored correctly."""
+        t = Text(x, y, 'test')
+        pos = t.get_position()
+        assert abs(pos[0] - x) < 1e-10
+        assert abs(pos[1] - y) < 1e-10
+
+
+class TestTextAxesParametric:
+    """Parametric tests for ax.text behavior."""
+
+    @pytest.mark.parametrize('text', ['label1', 'label2', 'My Label'])
+    def test_ax_text_content(self, text):
+        """ax.text stores text content."""
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, text)
+        assert t.get_text() == text
+        plt.close('all')
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14])
+    def test_ax_text_fontsize(self, fontsize):
+        """ax.text fontsize is set correctly."""
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+        plt.close('all')
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_ax_text_ha(self, ha):
+        """ax.text horizontal alignment is stored."""
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', ha=ha)
+        assert t.get_horizontalalignment() == ha
+        plt.close('all')

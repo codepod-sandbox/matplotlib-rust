@@ -190,3 +190,123 @@ class TestAnnotationExtended:
         pos = ann.get_position()
         assert pos[0] == 5
         assert pos[1] == 7
+
+
+# ===================================================================
+# Additional annotation tests (upstream-inspired batch)
+# ===================================================================
+
+import matplotlib.pyplot as plt
+from matplotlib.text import Annotation
+import pytest
+
+
+class TestAnnotationCoords:
+    """Tests for annotation coordinate systems."""
+
+    def test_annotation_xy_coords_data(self):
+        """xycoords='data' uses data coordinates."""
+        ann = Annotation('test', xy=(3, 4), xycoords='data')
+        assert ann.xy == (3, 4)
+
+    def test_annotation_xytext_offset_points(self):
+        """textcoords='offset points' stores offset."""
+        ann = Annotation('test', xy=(0, 0), xytext=(10, 20),
+                         textcoords='offset points')
+        assert ann.xyann == (10, 20)
+
+    def test_annotation_xy_direct_assignment(self):
+        """xy attribute can be assigned directly."""
+        ann = Annotation('test', xy=(1, 2))
+        ann.xy = (5, 6)
+        assert ann.xy == (5, 6)
+
+    def test_annotation_xy_float(self):
+        """Annotation accepts float coordinates."""
+        ann = Annotation('val', xy=(1.5, 2.7))
+        assert abs(ann.xy[0] - 1.5) < 1e-10
+        assert abs(ann.xy[1] - 2.7) < 1e-10
+
+    def test_annotation_negative_coords(self):
+        """Annotation accepts negative coordinates."""
+        ann = Annotation('neg', xy=(-3, -7))
+        assert ann.xy[0] == -3
+        assert ann.xy[1] == -7
+
+
+class TestAnnotationArrowStyles:
+    """Tests for annotation arrow rendering."""
+
+    @pytest.mark.parametrize('style', ['->', '<-', '<->', '-'])
+    def test_arrowstyle_renders(self, style):
+        """Each arrowstyle renders without error."""
+        fig, ax = plt.subplots()
+        ann = ax.annotate('pt', xy=(0.5, 0.5), xytext=(0.2, 0.8),
+                          arrowprops=dict(arrowstyle=style))
+        assert ann is not None
+        plt.close('all')
+
+    def test_annotation_arrow_patch_stored(self):
+        """Annotation with arrowprops stores arrow_patch."""
+        fig, ax = plt.subplots()
+        ann = ax.annotate('x', xy=(0.5, 0.5), xytext=(0.2, 0.8),
+                          arrowprops=dict(arrowstyle='->'))
+        assert ann.arrow_patch is not None
+        plt.close('all')
+
+    def test_annotation_no_arrow_has_none_patch(self):
+        """Annotation without arrowprops has arrow_patch=None."""
+        ann = Annotation('text', xy=(1, 1))
+        assert ann.arrow_patch is None
+
+
+class TestAnnotationAxesInteraction:
+    """Tests for annotation behavior within axes."""
+
+    def test_multiple_annotations(self):
+        """Multiple annotations can be added to same axes."""
+        fig, ax = plt.subplots()
+        ann1 = ax.annotate('first', xy=(0.2, 0.2))
+        ann2 = ax.annotate('second', xy=(0.8, 0.8))
+        assert ann1 in ax.texts
+        assert ann2 in ax.texts
+        plt.close('all')
+
+    def test_annotation_text_content_in_svg(self):
+        """Annotation text appears in SVG output."""
+        fig, ax = plt.subplots()
+        ax.annotate('UNIQUE_ANNOT', xy=(0.5, 0.5))
+        svg = fig.to_svg()
+        assert 'UNIQUE_ANNOT' in svg
+        plt.close('all')
+
+    def test_annotation_is_instance_of_text(self):
+        """Annotation is a subclass of Text."""
+        from matplotlib.text import Text
+        ann = Annotation('test', xy=(0, 0))
+        assert isinstance(ann, Text)
+
+    def test_annotation_zorder_default(self):
+        """Annotation has default zorder of 3."""
+        ann = Annotation('test', xy=(0, 0))
+        assert ann.get_zorder() == 3
+
+    def test_annotation_zorder_settable(self):
+        """Annotation zorder can be set."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_zorder(5)
+        assert ann.get_zorder() == 5
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_annotation_ha(self, ha):
+        """Annotation horizontalalignment is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_ha(ha)
+        assert ann.get_ha() == ha
+
+    @pytest.mark.parametrize('va', ['top', 'center', 'bottom', 'baseline'])
+    def test_annotation_va(self, va):
+        """Annotation verticalalignment is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_va(va)
+        assert ann.get_va() == va
