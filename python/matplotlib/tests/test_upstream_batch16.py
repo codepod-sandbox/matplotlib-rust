@@ -518,3 +518,96 @@ class TestAxesScale:
         ax.semilogy([1, 2, 3], [1, 10, 100])
         assert ax.get_xscale() == 'linear'
         assert ax.get_yscale() == 'log'
+
+
+# ===================================================================
+# Extended parametric tests for batch16
+# ===================================================================
+
+class TestBatch16Parametric:
+    """Parametric tests for batch16: log/linear scale, plot types."""
+
+    @pytest.mark.parametrize('data', [
+        ([1, 10, 100], [1, 10, 100]),
+        ([1, 100, 10000], [1, 2, 3]),
+        ([0.1, 1, 10], [0.1, 1, 10]),
+    ])
+    def test_loglog_data(self, data):
+        """loglog sets both scales to log."""
+        x, y = data
+        fig, ax = plt.subplots()
+        ax.loglog(x, y)
+        assert ax.get_xscale() == 'log'
+        assert ax.get_yscale() == 'log'
+        plt.close('all')
+
+    @pytest.mark.parametrize('data', [
+        ([1, 10, 100], [1, 2, 3]),
+        ([0.1, 1, 10, 100], [0, 1, 2, 3]),
+        ([1, 1000], [0, 1]),
+    ])
+    def test_semilogx_data(self, data):
+        """semilogx sets xscale=log, yscale=linear."""
+        x, y = data
+        fig, ax = plt.subplots()
+        ax.semilogx(x, y)
+        assert ax.get_xscale() == 'log'
+        assert ax.get_yscale() == 'linear'
+        plt.close('all')
+
+    @pytest.mark.parametrize('data', [
+        ([1, 2, 3], [1, 10, 100]),
+        ([0, 1, 2, 3], [0.1, 1, 10, 100]),
+        ([0, 1], [1, 1000]),
+    ])
+    def test_semilogy_data(self, data):
+        """semilogy sets xscale=linear, yscale=log."""
+        x, y = data
+        fig, ax = plt.subplots()
+        ax.semilogy(x, y)
+        assert ax.get_xscale() == 'linear'
+        assert ax.get_yscale() == 'log'
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100), (-10, 10)])
+    def test_linear_xlim(self, xmin, xmax):
+        """Linear scale xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_lines_various(self, n):
+        """n plot calls creates n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title A', '', 'Test'])
+    def test_title_roundtrip(self, title):
+        """set_title/get_title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_roundtrip(self, scale):
+        """set_xscale/get_xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins(self, bins):
+        """hist returns correct bin count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
