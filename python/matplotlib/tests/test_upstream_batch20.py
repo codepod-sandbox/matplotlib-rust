@@ -574,3 +574,87 @@ class TestScatterParametric:
         sc = ax.scatter([1, 2, 3], [1, 2, 3], s=s)
         assert sc is not None
         plt.close('all')
+
+
+# ===================================================================
+# More parametric tests for batch20
+# ===================================================================
+
+class TestBatch20Parametric2:
+    """More parametric tests for batch20."""
+
+    @pytest.mark.parametrize('n', [3, 5, 10, 20])
+    def test_scatter_n2(self, n):
+        """scatter with n points."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20, 50])
+    def test_hist_bins2(self, bins):
+        """hist bins count."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n2(self, n):
+        """bar creates n patches."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_xlim2(self, xmin, xmax):
+        """xlim roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale2(self, scale):
+        """xscale roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 1.0])
+    def test_line_alpha2(self, alpha):
+        """line alpha stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_linewidth2(self, lw):
+        """linewidth stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('shape', [(4, 4), (8, 8), (10, 5)])
+    def test_imshow_shape2(self, shape):
+        """imshow accepts various shapes."""
+        import numpy as np
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        data = np.zeros(shape)
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')

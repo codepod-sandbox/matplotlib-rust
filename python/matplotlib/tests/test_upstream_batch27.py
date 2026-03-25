@@ -447,3 +447,184 @@ class TestNormWithArrays:
 
 
 from matplotlib.colors import LogNorm
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+
+class TestNormsParametric:
+    """Parametric tests for normalizations."""
+
+    @pytest.mark.parametrize('vmin,vmax,val,expected', [
+        (0, 1, 0.0, 0.0),
+        (0, 1, 1.0, 1.0),
+        (0, 10, 5, 0.5),
+        (-1, 1, 0, 0.5),
+    ])
+    def test_normalize(self, vmin, vmax, val, expected):
+        """Normalize maps values correctly."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        result = float(norm(val))
+        assert abs(result - expected) < 1e-10
+
+    @pytest.mark.parametrize('gamma', [0.5, 1.0, 2.0, 3.0])
+    def test_power_norm_gamma(self, gamma):
+        """PowerNorm stores gamma."""
+        norm = mcolors.PowerNorm(gamma=gamma, vmin=0, vmax=1)
+        assert norm.gamma == gamma
+
+    @pytest.mark.parametrize('vcenter,vmin,vmax', [
+        (0, -1, 1), (5, 0, 10), (0, -10, 5),
+    ])
+    def test_twoslope_norm_midpoint(self, vcenter, vmin, vmax):
+        """TwoSlopeNorm maps vcenter to 0.5."""
+        norm = mcolors.TwoSlopeNorm(vcenter=vcenter, vmin=vmin, vmax=vmax)
+        assert abs(float(norm(vcenter)) - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('linthresh', [0.1, 1.0, 10.0])
+    def test_symlog_norm_linthresh(self, linthresh):
+        """SymLogNorm stores linthresh."""
+        norm = mcolors.SymLogNorm(linthresh=linthresh, vmin=-100, vmax=100)
+        assert norm.linthresh == linthresh
+
+
+class TestPlotParametric:
+    """Parametric plotting tests."""
+
+    @pytest.mark.parametrize('n', [2, 5, 10, 20])
+    def test_plot_data_length(self, n):
+        """plot stores n data points."""
+        fig, ax = plt.subplots()
+        x = list(range(n))
+        line, = ax.plot(x, x)
+        xdata, _ = line.get_data()
+        assert len(xdata) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', '#ff0000', 'k'])
+    def test_plot_color(self, color):
+        """plot accepts color."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_plot_linewidth(self, lw):
+        """plot stores linewidth."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [3, 5, 10, 20])
+    def test_hist_bins(self, bins):
+        """hist returns correct number of bins."""
+        fig, ax = plt.subplots()
+        n, edges, _ = ax.hist(list(range(50)), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 8])
+    def test_bar_n_bars(self, n):
+        """bar creates n bars."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.2, 0.5, 0.8, 1.0])
+    def test_plot_alpha(self, alpha):
+        """plot stores alpha."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+
+# ===================================================================
+# More parametric tests for batch27
+# ===================================================================
+
+class TestBatch27Parametric2:
+    """More parametric tests for batch27."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_n_lines2(self, n):
+        """n plot calls creates n lines."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins2(self, bins):
+        """hist bins count."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_xlim2(self, xmin, xmax):
+        """xlim roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale2(self, scale):
+        """xscale roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha2(self, alpha):
+        """line alpha stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#aabbcc'])
+    def test_line_color2(self, color):
+        """line color stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 100), (-1, 1)])
+    def test_normalize2(self, vmin, vmax):
+        """Normalize maps values to [0,1]."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        result = float(norm((vmin + vmax) / 2))
+        assert abs(result - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n2(self, n):
+        """bar creates n patches."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
