@@ -608,3 +608,52 @@ class TestGridSpecUpstreamParametric:
         sub = GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ss)
         assert sub.nrows == nrows
         assert sub.ncols == ncols
+
+
+class TestGridSpecUpstreamParametric2:
+    """More parametric tests for gridspec_upstream."""
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (1, 2), (2, 1), (2, 2), (3, 3)])
+    def test_gridspec_size2(self, nrows, ncols):
+        """GridSpec has correct nrows and ncols."""
+        gs = GridSpec(nrows, ncols)
+        assert gs.nrows == nrows
+        assert gs.ncols == ncols
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (2, 2), (3, 3)])
+    def test_gridspec_from_subplotspec(self, nrows, ncols):
+        """GridSpecFromSubplotSpec has correct dimensions."""
+        parent = GridSpec(2, 2)
+        ss = parent[0, 0]
+        sub = GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ss)
+        assert sub.nrows == nrows
+        assert sub.ncols == ncols
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 2), (2, 1), (2, 2), (3, 2)])
+    def test_gridspec_fig_axes(self, nrows, ncols):
+        """Figure with gridspec has nrows*ncols axes."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        gs = GridSpec(nrows, ncols)
+        for r in range(nrows):
+            for c in range(ncols):
+                fig.add_subplot(gs[r, c])
+        assert len(fig.axes) == nrows * ncols
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4])
+    def test_gridspec_subplot_indexing(self, n):
+        """GridSpec returns subplot specs."""
+        gs = GridSpec(n, n)
+        for i in range(n):
+            for j in range(n):
+                ss = gs[i, j]
+                assert ss is not None
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6, 4), (8, 6)])
+    def test_gridspec_figure_size(self, figsize):
+        """Figure with gridspec stores figsize."""
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 2, figsize=figsize)
+        size = fig.get_size_inches()
+        assert abs(size[0] - figsize[0]) < 1e-10
+        plt.close('all')

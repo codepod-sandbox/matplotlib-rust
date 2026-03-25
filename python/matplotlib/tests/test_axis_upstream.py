@@ -557,3 +557,73 @@ class TestAxisUpstreamParametric2:
         got = ax.xaxis.get_ticklocs()
         assert len(got) == n
         plt.close('all')
+
+
+class TestAxisUpstreamParametric3:
+    """More parametric tests for axis_upstream."""
+
+    @pytest.mark.parametrize('n', [2, 3, 5, 10])
+    def test_set_n_ticks(self, n):
+        """Setting n ticks on xaxis."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_ticks(list(range(n)))
+        got = ax.xaxis.get_ticklocs()
+        assert len(got) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X', 'Time (s)', ''])
+    def test_xlabel(self, label):
+        """xlabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(label)
+        assert ax.get_xlabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100)])
+    def test_xlim(self, lo, hi):
+        """xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(lo, hi)
+        assert ax.get_xlim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_axis_visible(self, visible):
+        """Axis visibility."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_visible(visible)
+        assert ax.xaxis.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 5])
+    def test_yticks(self, n):
+        """Setting n yticks."""
+        fig, ax = plt.subplots()
+        ax.yaxis.set_ticks(list(range(n)))
+        got = ax.yaxis.get_ticklocs()
+        assert len(got) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['Y', 'Amplitude', ''])
+    def test_ylabel(self, label):
+        """ylabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylabel(label)
+        assert ax.get_ylabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100)])
+    def test_ylim(self, lo, hi):
+        """ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(lo, hi)
+        assert ax.get_ylim() == (lo, hi)
+        plt.close('all')
