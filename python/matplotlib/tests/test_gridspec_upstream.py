@@ -657,3 +657,61 @@ class TestGridSpecUpstreamParametric2:
         size = fig.get_size_inches()
         assert abs(size[0] - figsize[0]) < 1e-10
         plt.close('all')
+
+
+class TestGridSpecUpstreamParametric3:
+    """Further parametric GridSpec tests."""
+
+    @pytest.mark.parametrize('rows,cols', [(1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 3)])
+    def test_gridspec_shape(self, rows, cols):
+        """GridSpec has correct number of subplots."""
+        gs = GridSpec(rows, cols)
+        fig = plt.figure()
+        axes = [fig.add_subplot(gs[i, j]) for i in range(rows) for j in range(cols)]
+        assert len(axes) == rows * cols
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6])
+    def test_gridspec_n_plots(self, n):
+        """GridSpec 1×n creates n subplots."""
+        gs = GridSpec(1, n)
+        fig = plt.figure()
+        axes = [fig.add_subplot(gs[0, i]) for i in range(n)]
+        assert len(axes) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('hspace', [0.1, 0.2, 0.3, 0.5])
+    def test_gridspec_hspace(self, hspace):
+        """GridSpec with hspace renders without error."""
+        gs = GridSpec(2, 2, hspace=hspace)
+        fig = plt.figure()
+        for i in range(2):
+            for j in range(2):
+                ax = fig.add_subplot(gs[i, j])
+                ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('wspace', [0.1, 0.2, 0.3, 0.5])
+    def test_gridspec_wspace(self, wspace):
+        """GridSpec with wspace renders without error."""
+        gs = GridSpec(2, 2, wspace=wspace)
+        fig = plt.figure()
+        for i in range(2):
+            for j in range(2):
+                ax = fig.add_subplot(gs[i, j])
+                ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Row 1', 'Top', 'Signal', 'A', ''])
+    def test_subplot_in_grid_title(self, title):
+        """Subplot within GridSpec can have title."""
+        gs = GridSpec(2, 2)
+        fig = plt.figure()
+        ax = fig.add_subplot(gs[0, 0])
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
