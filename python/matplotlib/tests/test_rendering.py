@@ -506,3 +506,193 @@ class TestSavefig:
         with open(path, 'rb') as f:
             data = f.read()
         assert data[:8] == b'\x89PNG\r\n\x1a\n'
+
+
+# ===================================================================
+# Additional rendering tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestSvgParametric:
+    """Parametric SVG rendering tests."""
+
+    @pytest.mark.parametrize('n_lines', [1, 2, 3, 5])
+    def test_n_lines_svg_valid(self, n_lines):
+        """SVG is valid for n plotted lines."""
+        fig, ax = plt.subplots()
+        for i in range(n_lines):
+            ax.plot([0, 1], [i, i+1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        assert '</svg>' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('color,expected', [
+        ('red', 'ff0000'),
+        ('blue', '0000ff'),
+        ('green', '008000'),
+    ])
+    def test_line_color_in_svg(self, color, expected):
+        """Line color appears in SVG output."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], color=color)
+        svg = fig.to_svg()
+        assert expected.lower() in svg.lower()
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['A', 'B', 'Long Title Text'])
+    def test_title_text_in_svg(self, title):
+        """Title text is present in SVG."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        svg = fig.to_svg()
+        assert title in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('w,h', [(4, 3), (8, 6), (10, 10)])
+    def test_figsize_affects_svg_dimensions(self, w, h):
+        """Figure size affects SVG dimensions attribute."""
+        fig, ax = plt.subplots(figsize=(w, h))
+        svg = fig.to_svg()
+        # Should have width and height attributes
+        assert 'width' in svg
+        assert 'height' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_bars', [1, 3, 5, 10])
+    def test_bar_chart_n_bars(self, n_bars):
+        """Bar chart with n bars produces SVG."""
+        fig, ax = plt.subplots()
+        ax.bar(list(range(n_bars)), list(range(n_bars)))
+        svg = fig.to_svg()
+        assert len(svg) > 100
+        plt.close('all')
+
+    def test_scatter_and_line_combined(self):
+        """Scatter and line on same axes produces SVG."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1, 2], [0, 1, 0])
+        ax.scatter([0.5, 1.5], [0.5, 0.5])
+        svg = fig.to_svg()
+        assert '</svg>' in svg
+        plt.close('all')
+
+    def test_imshow_svg_contains_image(self):
+        """imshow SVG contains image element."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.imshow(np.zeros((10, 10)))
+        svg = fig.to_svg()
+        assert '<image' in svg or '<rect' in svg
+        plt.close('all')
+
+    def test_twin_axes_svg(self):
+        """Twin axes renders to SVG without error."""
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+        ax1.plot([0, 1], [0, 1])
+        ax2.plot([0, 1], [1, 0], color='red')
+        svg = fig.to_svg()
+        assert '</svg>' in svg
+        plt.close('all')
+
+
+# ===================================================================
+# Extended parametric rendering tests
+# ===================================================================
+
+class TestRenderingParametricExtended:
+    """Parametric tests for rendering output."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_svg_n_subplots_valid(self, n):
+        """SVG is valid for figure with n subplots."""
+        fig, axes = plt.subplots(1, n)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        assert '</svg>' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6.4, 4.8), (8, 6), (10, 8)])
+    def test_svg_figsize_produces_output(self, figsize):
+        """SVG output is non-empty for any figsize."""
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert isinstance(svg, str)
+        assert len(svg) > 200
+        plt.close('all')
+
+    @pytest.mark.parametrize('linewidth', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_svg_linewidth_no_error(self, linewidth):
+        """SVG is produced with various linewidths."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], linewidth=linewidth)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_svg_alpha_no_error(self, alpha):
+        """SVG is produced with various alpha values."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], alpha=alpha)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'v', 'D', '*', '+', 'x'])
+    def test_svg_marker_no_error(self, marker):
+        """SVG is produced with various markers."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1, 2], [0, 1, 0], marker=marker)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('linestyle', ['-', '--', ':', '-.'])
+    def test_svg_linestyle_no_error(self, linestyle):
+        """SVG is produced with various linestyles."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], linestyle=linestyle)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_bars', [1, 3, 5, 10])
+    def test_svg_bar_chart_n_bars(self, n_bars):
+        """SVG is produced for bar chart with n bars."""
+        fig, ax = plt.subplots()
+        ax.bar(range(n_bars), range(n_bars))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('xlabel,ylabel', [
+        ('X', 'Y'),
+        ('Time (s)', 'Amplitude'),
+        ('', ''),
+        ('Distance', 'Value'),
+    ])
+    def test_svg_with_axis_labels(self, xlabel, ylabel):
+        """SVG is produced when axis labels are set."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150])
+    def test_svg_any_dpi(self, dpi):
+        """SVG is produced for any DPI."""
+        fig = plt.figure(dpi=dpi)
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')

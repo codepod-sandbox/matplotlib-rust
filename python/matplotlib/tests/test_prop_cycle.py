@@ -205,3 +205,101 @@ class TestCyclerIntegration:
         else:
             assert isinstance(pc, list)
             assert len(pc) > 0
+
+
+# ===================================================================
+# Extended parametric tests for prop_cycle
+# ===================================================================
+
+class TestPropCycleParametric:
+    """Parametric tests for cycler and prop cycle."""
+
+    @pytest.mark.parametrize('colors', [
+        ['r', 'g', 'b'],
+        ['red', 'blue', 'green', 'orange'],
+        ['#ff0000', '#00ff00', '#0000ff'],
+        ['cyan', 'magenta', 'yellow'],
+    ])
+    def test_cycler_colors_len(self, colors):
+        """Cycler length matches colors list."""
+        c = cycler(color=colors)
+        assert len(c) == len(colors)
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8, 10])
+    def test_cycler_int_values_len(self, n):
+        """Cycler with int range has correct length."""
+        c = cycler(color=range(n))
+        assert len(c) == n
+
+    @pytest.mark.parametrize('key', ['color', 'linewidth', 'marker', 'linestyle', 'alpha'])
+    def test_cycler_key_in_keys(self, key):
+        """Cycler key is in .keys property."""
+        c = cycler(key, [1, 2, 3])
+        assert key in c.keys
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5, 6])
+    def test_cycler_iter_yields_n_dicts(self, n):
+        """Iterating cycler yields n dicts."""
+        c = cycler(color=range(n))
+        items = list(c)
+        assert len(items) == n
+        for item in items:
+            assert isinstance(item, dict)
+
+    @pytest.mark.parametrize('colors', [
+        ['r', 'g'],
+        ['red', 'blue', 'green'],
+        ['#aabbcc', '#ddeeff', '#112233', '#445566'],
+    ])
+    def test_cycler_iter_values_match(self, colors):
+        """Cycler iteration values match input colors."""
+        c = cycler(color=colors)
+        items = list(c)
+        for i, item in enumerate(items):
+            assert item['color'] == colors[i]
+
+    @pytest.mark.parametrize('lw_list', [
+        [1, 2],
+        [0.5, 1.0, 1.5, 2.0],
+        [1, 2, 3, 4, 5],
+    ])
+    def test_cycler_linewidth(self, lw_list):
+        """Cycler with linewidth has correct length and keys."""
+        c = cycler(linewidth=lw_list)
+        assert len(c) == len(lw_list)
+        assert 'linewidth' in c.keys
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5])
+    def test_prop_cycle_set_and_cycle(self, n):
+        """Axes prop cycle produces n distinct colors for n lines."""
+        import matplotlib.pyplot as plt
+        colors = [f'#{i*30:02x}{i*10:02x}{i*5:02x}' for i in range(1, n+1)]
+        fig, ax = plt.subplots()
+        ax.set_prop_cycle(cycler(color=colors))
+        lines = [ax.plot([0, 1], [i, i+1])[0] for i in range(n)]
+        line_colors = [l.get_color() for l in lines]
+        assert len(set(line_colors)) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('multiplier', [2, 3])
+    def test_cycler_mul_length(self, multiplier):
+        """Cycler * int gives multiplied length."""
+        c = cycler(color=['r', 'g', 'b'])
+        c2 = c * multiplier
+        assert len(c2) == 3 * multiplier
+
+    def test_cycler_product_has_both_keys(self):
+        """Cycler * Cycler product has keys from both."""
+        c1 = cycler(color=['r', 'g'])
+        c2 = cycler(linewidth=[1, 2])
+        c3 = c1 * c2
+        assert 'color' in c3.keys
+        assert 'linewidth' in c3.keys
+
+    @pytest.mark.parametrize('n', [2, 3, 4])
+    def test_cycler_product_length(self, n):
+        """Cycler product has n*n entries."""
+        c1 = cycler(color=range(n))
+        c2 = cycler(linewidth=range(n))
+        c3 = c1 * c2
+        assert len(c3) == n * n

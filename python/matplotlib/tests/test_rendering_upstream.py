@@ -549,3 +549,89 @@ class TestSVGStructure:
         svg_with_legend = fig.to_svg()
         assert len(svg_with_legend) >= len(svg_no_legend)
         plt.close('all')
+
+
+# ===================================================================
+# Extended parametric rendering tests
+# ===================================================================
+
+class TestRenderingParametricExtended2:
+    """Extended parametric tests for SVG rendering."""
+
+    @pytest.mark.parametrize('n_lines', [1, 2, 3, 5, 10])
+    def test_svg_n_lines_produces_output(self, n_lines):
+        """SVG contains content for n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n_lines):
+            ax.plot([0, 1], [i, i+1])
+        svg = fig.to_svg()
+        assert isinstance(svg, str)
+        assert len(svg) > 100
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6.4, 4.8), (8, 6), (10, 4)])
+    def test_svg_any_figsize(self, figsize):
+        """SVG is produced for any figsize."""
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        assert '</svg>' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Test Title', '', 'My Plot', 'Long Title With Spaces'])
+    def test_svg_with_axes_title(self, title):
+        """SVG is produced when axes title is set."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert isinstance(svg, str)
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_svg_histogram_bins(self, bins):
+        """SVG is produced for histogram with various bins."""
+        fig, ax = plt.subplots()
+        ax.hist(list(range(50)), bins=bins)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [3, 5, 10, 20])
+    def test_svg_scatter_n_points(self, n):
+        """SVG is produced for scatter with n points."""
+        fig, ax = plt.subplots()
+        ax.scatter(range(n), range(n))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_svg_with_scale(self, scale):
+        """SVG is produced with each scale type."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        ax.plot([1, 2, 3], [1, 4, 9])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 2), (2, 1), (2, 2)])
+    def test_svg_multiple_subplots_grid(self, nrows, ncols):
+        """SVG is produced for subplot grids."""
+        fig, axes = plt.subplots(nrows, ncols)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        assert '</svg>' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000'])
+    def test_svg_colored_line(self, color):
+        """SVG is produced with various line colors."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], color=color)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')

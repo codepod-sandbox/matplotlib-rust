@@ -288,3 +288,199 @@ class TestSavefig:
         content = svg_path.read_text()
         # Confirm it wrote SVG content (not PNG binary)
         assert '<svg' in content
+
+
+# ===================================================================
+# Additional figure tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+
+
+class TestFigureParametric:
+    """Parametric tests for Figure properties."""
+
+    @pytest.mark.parametrize('w,h', [
+        (4, 3), (6.4, 4.8), (8, 6), (10, 10), (16, 9), (3, 3)
+    ])
+    def test_figure_size_roundtrip(self, w, h):
+        """Figure size set via constructor is retrievable."""
+        fig = plt.figure(figsize=(w, h))
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 100, 150, 200, 300])
+    def test_figure_dpi_roundtrip(self, dpi):
+        """Figure DPI set via constructor is retrievable."""
+        fig = plt.figure(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (1, 1), (1, 2), (2, 1), (2, 2), (3, 2)
+    ])
+    def test_figure_subplots_count(self, nrows, ncols):
+        """plt.subplots creates nrows*ncols axes."""
+        fig, _ = plt.subplots(nrows, ncols)
+        assert len(fig.get_axes()) == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', [
+        'My Figure', 'Test', 'Long Title With Many Words', ''
+    ])
+    def test_figure_suptitle_roundtrip(self, title):
+        """suptitle is retrievable after setting."""
+        fig = plt.figure()
+        fig.suptitle(title)
+        assert fig.get_suptitle() == title
+        plt.close('all')
+
+    def test_figure_set_figwidth(self):
+        """set_figwidth updates width."""
+        fig = plt.figure()
+        fig.set_figwidth(12.0)
+        assert abs(fig.get_figwidth() - 12.0) < 1e-10
+        plt.close('all')
+
+    def test_figure_set_figheight(self):
+        """set_figheight updates height."""
+        fig = plt.figure()
+        fig.set_figheight(8.0)
+        assert abs(fig.get_figheight() - 8.0) < 1e-10
+        plt.close('all')
+
+    def test_figure_set_dpi(self):
+        """set_dpi updates DPI."""
+        fig = plt.figure()
+        fig.set_dpi(150)
+        assert fig.get_dpi() == 150
+        plt.close('all')
+
+    def test_figure_to_svg_not_empty(self):
+        """to_svg produces non-empty output."""
+        fig = plt.figure()
+        svg = fig.to_svg()
+        assert len(svg) > 0
+        assert '</svg>' in svg
+        plt.close('all')
+
+    def test_figure_axes_are_axes_type(self):
+        """All axes in figure are Axes instances."""
+        from matplotlib.axes import Axes
+        fig, ax = plt.subplots()
+        for a in fig.get_axes():
+            assert isinstance(a, Axes)
+        plt.close('all')
+
+    def test_figure_clear_empties_axes(self):
+        """clear() removes all axes."""
+        fig, _ = plt.subplots(2, 2)
+        fig.clear()
+        assert len(fig.get_axes()) == 0
+        plt.close('all')
+
+    def test_figure_legend_after_plot(self):
+        """figlegend can be created after labeled plot."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = fig.legend()
+        assert leg is not None
+        plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for Figure
+# ===================================================================
+
+class TestFigureParametric:
+    """Parametric tests for Figure."""
+
+    @pytest.mark.parametrize('w,h', [
+        (4, 3), (6.4, 4.8), (8, 6), (10, 10), (12, 4), (3, 10),
+    ])
+    def test_figure_size_wh(self, w, h):
+        """Figure stores correct figwidth and figheight."""
+        fig = plt.figure(figsize=(w, h))
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200, 300])
+    def test_figure_dpi_stored(self, dpi):
+        """Figure stores DPI correctly."""
+        fig = plt.figure(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 6])
+    def test_figure_add_subplots_count(self, n):
+        """Figure has n axes after n add_subplot calls."""
+        fig = plt.figure()
+        for i in range(n):
+            fig.add_subplot(1, n, i + 1)
+        assert len(fig.get_axes()) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Main Title', 'Figure Overview', 'My Plot', '', 'Test 123'])
+    def test_figure_suptitle_stored(self, title):
+        """Figure suptitle is stored and retrieved."""
+        fig = plt.figure()
+        fig.suptitle(title)
+        assert fig.get_suptitle() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (1, 1), (2, 2), (1, 3), (3, 1), (2, 3), (3, 3),
+    ])
+    def test_subplots_axes_count(self, nrows, ncols):
+        """plt.subplots creates nrows*ncols axes."""
+        fig, axes = plt.subplots(nrows, ncols)
+        assert len(fig.get_axes()) == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('w,h', [(4, 3), (8, 6), (10, 4), (5, 5)])
+    def test_set_size_inches(self, w, h):
+        """Figure.set_size_inches stores the new size."""
+        fig = plt.figure()
+        fig.set_size_inches(w, h)
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('num', [1, 2, 3, 10, 42])
+    def test_figure_number_stored(self, num):
+        """Figure stores its assigned number."""
+        fig = plt.figure(num)
+        assert fig.number == num
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4])
+    def test_clf_removes_all_axes(self, n):
+        """clf() removes all n axes."""
+        fig = plt.figure()
+        for i in range(n):
+            fig.add_subplot(1, n, i + 1)
+        assert len(fig.get_axes()) == n
+        fig.clf()
+        assert len(fig.get_axes()) == 0
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['line1', 'data', '', 'series_a'])
+    def test_axes_plot_label(self, label):
+        """Lines in figure axes store labels."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], label=label)
+        assert line.get_label() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title A', 'Title B', '', 'Long Title Here'])
+    def test_axes_title_in_figure(self, title):
+        """Axes title set via add_subplot is stored."""
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
