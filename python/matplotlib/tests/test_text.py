@@ -722,3 +722,25 @@ class TestTextParametric3:
         t = Text(0, 0, 'hello')
         t.set_zorder(zorder)
         assert t.get_zorder() == zorder
+
+
+class TestTextParametric4:
+    """More parametric text tests."""
+
+    @pytest.mark.parametrize('fontsize', range(4, 48, 4))
+    def test_fontsize_range(self, fontsize):
+        """Text fontsize roundtrips for range of sizes."""
+        t = Text(0, 0, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('x', [-100, -10, -1, 0, 1, 10, 100, 1000])
+    def test_text_x_position(self, x):
+        """Text x position roundtrips."""
+        t = Text(x, 0, 'test')
+        assert abs(t.get_position()[0] - x) < 1e-9
+
+    @pytest.mark.parametrize('y', [-100, -10, -1, 0, 1, 10, 100, 1000])
+    def test_text_y_position(self, y):
+        """Text y position roundtrips."""
+        t = Text(0, y, 'test')
+        assert abs(t.get_position()[1] - y) < 1e-9

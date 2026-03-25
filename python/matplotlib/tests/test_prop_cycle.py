@@ -471,3 +471,28 @@ class TestPropCycleParametric4:
         for i in range(n):
             ax.plot([0, 1], [i, i])
         assert len(ax.lines) == n
+
+
+class TestPropCycleParametric5:
+    """More parametric prop_cycle tests."""
+
+    @pytest.mark.parametrize('n', range(1, 16))
+    def test_cycler_length_range(self, n):
+        """Cycler length n for n in 1..15."""
+        c = cycler(linewidth=list(range(n)))
+        assert len(c) == n
+
+    @pytest.mark.parametrize('colors', [
+        ['r'], ['r', 'g'], ['r', 'g', 'b'], ['r', 'g', 'b', 'c'],
+        ['r', 'g', 'b', 'c', 'm'], ['r', 'g', 'b', 'c', 'm', 'y'],
+    ])
+    def test_prop_cycle_colors(self, colors):
+        """Color cycler has correct length."""
+        c = cycler(color=colors)
+        assert len(c) == len(colors)
+
+    @pytest.mark.parametrize('lw', [0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 10.0])
+    def test_cycler_linewidth(self, lw):
+        """Linewidth cycler stores correct value."""
+        c = cycler(linewidth=[lw])
+        assert list(c)[0]['linewidth'] == lw
