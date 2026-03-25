@@ -580,3 +580,91 @@ class TestScaleUpstreamParametric2:
         assert line.get_marker() == marker
         plt.close("all")
 
+
+
+class TestScaleUpstreamParametric3:
+    """Further parametric scale tests."""
+
+    @pytest.mark.parametrize('base', [2, 10, 'e'])
+    def test_log_scale_base(self, base):
+        """Log scale with various bases renders."""
+        import matplotlib.pyplot as plt
+        import math
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3, 4, 5], [1, 10, 100, 1000, 10000])
+        if base == 'e':
+            ax.set_yscale('log', base=math.e)
+        else:
+            ax.set_yscale('log', base=base)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_renders(self, scale):
+        """X-axis scale renders without error."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 4, 8, 16], [1, 2, 3, 4, 5])
+        ax.set_xscale(scale)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_yscale_renders(self, scale):
+        """Y-axis scale renders without error."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3, 4, 5], [1, 10, 100, 1000, 10000])
+        ax.set_yscale(scale)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('linthresh', [0.01, 0.1, 1.0, 10.0])
+    def test_symlog_linthresh(self, linthresh):
+        """Symlog scale with linthresh renders."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([-10, -1, 0, 1, 10], [-100, -1, 0, 1, 100])
+        ax.set_xscale('symlog', linthresh=linthresh)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_loglog_n_lines(self, n):
+        """Loglog with n lines renders."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(1, n + 1):
+            ax.loglog([1, 10, 100], [i, i*10, i*100])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('xlim', [(0.1, 10), (1, 100), (0.01, 1), (1, 1000)])
+    def test_log_scale_xlim(self, xlim):
+        """Log scale with xlim set renders."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([xlim[0], xlim[1]], [0, 1])
+        ax.set_xscale('log')
+        ax.set_xlim(xlim)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('semilog_type', ['x', 'y'])
+    def test_semilog(self, semilog_type):
+        """Semilog renders for both axes."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        if semilog_type == 'x':
+            ax.semilogx([1, 10, 100], [1, 2, 3])
+        else:
+            ax.semilogy([1, 2, 3], [1, 10, 100])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')

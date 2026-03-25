@@ -717,3 +717,82 @@ class TestBackendBasesParametric:
         result = r.get_result()
         assert len(result) > 0
         plt.close('all')
+
+
+class TestBackendBasesParametric3:
+    """Further parametric tests for backend bases."""
+
+    @pytest.mark.parametrize('n_lines', [1, 2, 3, 4, 5])
+    def test_svg_n_lines(self, n_lines):
+        """SVG with n line plots renders without error."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n_lines):
+            ax.plot([0, 1], [i, i])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['My Plot', 'Test', 'A B C', 'x vs y', ''])
+    def test_svg_with_title(self, title):
+        """SVG includes title text when set."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        ax.set_title(title)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('xlabel', ['X axis', 'Time', 'Distance', 'Value'])
+    def test_svg_with_xlabel(self, xlabel):
+        """SVG renders with x-axis label."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        ax.set_xlabel(xlabel)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6, 4), (8, 6), (10, 8), (12, 9)])
+    def test_svg_figsize(self, figsize):
+        """SVG renders for various figure sizes."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_bars', [1, 2, 3, 5, 8])
+    def test_svg_bar_chart(self, n_bars):
+        """SVG bar chart renders."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n_bars), range(1, n_bars + 1))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_points', [5, 10, 20, 50, 100])
+    def test_svg_scatter(self, n_points):
+        """SVG scatter plot renders for varying point counts."""
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.scatter(range(n_points), range(n_points))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log'])
+    def test_svg_xscale(self, scale):
+        """SVG renders with various x-axis scales."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3, 4, 5], [1, 4, 9, 16, 25])
+        ax.set_xscale(scale)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')

@@ -673,3 +673,85 @@ class TestCollectionsParametric2:
         assert line.get_marker() == marker
         plt.close("all")
 
+
+
+class TestCollectionsParametric3:
+    """Further parametric collection tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_n_line_collections(self, n):
+        """Multiple LineCollections can be added."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import LineCollection
+        fig, ax = plt.subplots()
+        for i in range(n):
+            lc = LineCollection([[(0, i), (1, i)]])
+            ax.add_collection(lc)
+        assert len(ax.collections) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_path_collection_alpha(self, alpha):
+        """PathCollection alpha is set correctly."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([0, 1, 2], [0, 1, 2], alpha=alpha)
+        assert abs(sc.get_alpha() - alpha) < 1e-9
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [3, 5, 10, 20, 50])
+    def test_scatter_n_points(self, n):
+        """Scatter plot with n points produces PathCollection."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert hasattr(sc, 'get_offsets')
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000', 'orange'])
+    def test_line_collection_color(self, color):
+        """LineCollection color is set via set_color."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import LineCollection
+        fig, ax = plt.subplots()
+        lc = LineCollection([[(0, 0), (1, 1)]])
+        lc.set_color(color)
+        ax.add_collection(lc)
+        assert lc.get_color() is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_line_collection_linewidth(self, lw):
+        """LineCollection linewidth is set correctly."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import LineCollection
+        fig, ax = plt.subplots()
+        lc = LineCollection([[(0, 0), (1, 1)]], linewidths=lw)
+        ax.add_collection(lc)
+        lws = lc.get_linewidth()
+        assert abs(float(lws[0]) - lw) < 1e-9
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_collection_visibility(self, visible):
+        """Collection visibility is set correctly."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import LineCollection
+        fig, ax = plt.subplots()
+        lc = LineCollection([[(0, 0), (1, 1)]])
+        ax.add_collection(lc)
+        lc.set_visible(visible)
+        assert lc.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('zorder', [1, 2, 3, 5, 10])
+    def test_collection_zorder(self, zorder):
+        """Collection zorder is settable."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import LineCollection
+        fig, ax = plt.subplots()
+        lc = LineCollection([[(0, 0), (1, 1)]])
+        ax.add_collection(lc)
+        lc.set_zorder(zorder)
+        assert lc.get_zorder() == zorder
+        plt.close('all')

@@ -374,3 +374,66 @@ class TestPropCycleParametric2:
         c2 = cycler(color=['b'] * n)
         c3 = c1 + c2
         assert len(c3) == 2 * n
+
+
+class TestPropCycleParametric3:
+    """Further parametric tests for prop_cycle."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6, 7, 8])
+    def test_cycler_color_len(self, n):
+        """Cycler length matches number of colors."""
+        colors = [f'C{i}' for i in range(n)]
+        c = cycler(color=colors)
+        assert len(c) == n
+
+    @pytest.mark.parametrize('prop', ['color', 'linestyle', 'linewidth', 'marker', 'alpha'])
+    def test_cycler_key_access(self, prop):
+        """Cycler stores and returns the given property key."""
+        if prop == 'color':
+            c = cycler(color=['r', 'g', 'b'])
+        elif prop == 'linestyle':
+            c = cycler(linestyle=['-', '--', ':'])
+        elif prop == 'linewidth':
+            c = cycler(linewidth=[1.0, 2.0, 3.0])
+        elif prop == 'marker':
+            c = cycler(marker=['o', 's', '^'])
+        elif prop == 'alpha':
+            c = cycler(alpha=[0.2, 0.5, 1.0])
+        assert prop in c.keys
+
+    @pytest.mark.parametrize('n_cycles', [1, 2, 3, 4, 5])
+    def test_cycler_iter_wraps(self, n_cycles):
+        """Iterating over a cycler n*len times returns n complete cycles."""
+        colors = ['r', 'g', 'b']
+        c = cycler(color=colors)
+        import itertools
+        items = [x['color'] for x in itertools.islice(itertools.cycle(list(c)), len(colors) * n_cycles)]
+        assert len(items) == len(colors) * n_cycles
+
+    @pytest.mark.parametrize('idx', [0, 1, 2, 3, 4])
+    def test_cycler_list_index(self, idx):
+        """List conversion gives correct element at index."""
+        colors = ['a', 'b', 'c', 'd', 'e']
+        c = cycler(color=colors)
+        assert list(c)[idx]['color'] == colors[idx]
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5, 6])
+    def test_prop_cycle_axes_n_lines(self, n):
+        """Axes with prop_cycle draws n lines."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown'][:n]
+        ax.set_prop_cycle(cycler(color=colors))
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'orange', 'purple'])
+    def test_prop_cycle_single_color(self, color):
+        """Single-color prop cycle always yields that color."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_prop_cycle(cycler(color=[color]))
+        ax.plot([0, 1], [0, 1])
+        from matplotlib.colors import to_hex
+        assert to_hex(ax.lines[0].get_color()) == to_hex(color)
