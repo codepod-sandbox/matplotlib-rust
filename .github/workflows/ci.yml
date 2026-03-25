@@ -43,7 +43,7 @@ jobs:
         run: |
           pip3 install "pytest==8.4.2" pluggy iniconfig packaging pygments py --target python/ --no-deps
           # pytester.py uses syntax RustPython can't handle; stub what legacypath needs
-          printf 'class HookRecorder: pass\nclass RunResult: pass\nclass Pytester: pass\n' > python/_pytest/pytester.py
+          printf 'class HookRecorder: pass\nclass RunResult: pass\nclass TimeoutExpired(Exception): pass\nclass Pytester:\n    CLOSE_STDIN = object()\n    TimeoutExpired = TimeoutExpired\n' > python/_pytest/pytester.py
 
       - name: Run Python tests
         run: target/debug/matplotlib-python -m pytest python/matplotlib/tests/
