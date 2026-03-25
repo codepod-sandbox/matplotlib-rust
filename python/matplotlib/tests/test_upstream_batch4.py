@@ -488,3 +488,96 @@ class TestAxesApiParametric:
         line, = ax.plot([0, 1], [0, 1], linewidth=lw)
         assert abs(line.get_linewidth() - lw) < 1e-10
         plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for batch4
+# ===================================================================
+
+class TestBatch4Parametric2:
+    """More parametric tests for batch4."""
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100), (-100, 100)])
+    def test_xlim2(self, xmin, xmax):
+        """xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100), (-1, 1)])
+    def test_ylim2(self, ymin, ymax):
+        """ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale2(self, scale):
+        """xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_yscale2(self, scale):
+        """yscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_yscale(scale)
+        assert ax.get_yscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title A', '', 'My Title', 'Test 123'])
+    def test_title2(self, title):
+        """title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_n_lines2(self, n):
+        """n plots creates n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20, 50])
+    def test_hist2(self, bins):
+        """hist bins count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_linewidth2(self, lw):
+        """Line linewidth stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'v', 'D', '*'])
+    def test_marker2(self, marker):
+        """Line marker stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_alpha2(self, alpha):
+        """Line alpha stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')

@@ -691,3 +691,82 @@ class TestAnnotationExtendedProperties:
         from matplotlib.text import Annotation
         ann = Annotation('test', xy=(0, 0))
         assert ann.get_zorder() == 3
+
+
+# ===================================================================
+# Extended parametric tests for text (upstream-style)
+# ===================================================================
+
+class TestTextUpstreamParametric:
+    """Extended parametric tests for Text and Annotation."""
+
+    @pytest.mark.parametrize('text', ['Hello', '', 'Test 123', 'Line\nBreak', 'Special!@#'])
+    def test_text_content(self, text):
+        """Text stores content correctly."""
+        from matplotlib.text import Text
+        t = Text(0, 0, text)
+        assert t.get_text() == text
+
+    @pytest.mark.parametrize('fontsize', [6, 8, 10, 12, 14, 16, 18, 24])
+    def test_text_fontsize(self, fontsize):
+        """Text stores fontsize."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000', 'black'])
+    def test_text_color(self, color):
+        """Text stores color."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test', color=color)
+        assert t.get_color() == color
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_text_alpha(self, alpha):
+        """Text alpha is stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_alpha(alpha)
+        assert abs(t.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('rotation', [0, 30, 45, 90, 180, 270])
+    def test_text_rotation(self, rotation):
+        """Text rotation is stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test', rotation=rotation)
+        assert t.get_rotation() == rotation
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_text_ha(self, ha):
+        """Text horizontal alignment is stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test', ha=ha)
+        assert t.get_horizontalalignment() == ha
+
+    @pytest.mark.parametrize('va', ['top', 'center', 'bottom', 'baseline'])
+    def test_text_va(self, va):
+        """Text vertical alignment is stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test', va=va)
+        assert t.get_verticalalignment() == va
+
+    @pytest.mark.parametrize('text', ['Note', '', 'Annotation!', 'Test 1'])
+    def test_annotation_text(self, text):
+        """Annotation stores text."""
+        from matplotlib.text import Annotation
+        ann = Annotation(text, xy=(0.5, 0.5))
+        assert ann.get_text() == text
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14, 16])
+    def test_annotation_fontsize(self, fontsize):
+        """Annotation stores fontsize."""
+        from matplotlib.text import Annotation
+        ann = Annotation('note', xy=(0, 0), fontsize=fontsize)
+        assert ann.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('rotation', [0, 45, 90, 180])
+    def test_annotation_rotation(self, rotation):
+        """Annotation stores rotation."""
+        from matplotlib.text import Annotation
+        ann = Annotation('note', xy=(0, 0), rotation=rotation)
+        assert ann.get_rotation() == float(rotation)

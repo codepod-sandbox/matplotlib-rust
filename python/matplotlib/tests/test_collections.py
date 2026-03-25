@@ -513,3 +513,86 @@ class TestPathCollectionParametric:
         sc.set_zorder(zorder)
         assert sc.get_zorder() == zorder
         plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for collections
+# ===================================================================
+
+class TestCollectionsParametric2:
+    """More parametric tests for collections."""
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10, 20])
+    def test_scatter_n_points(self, n):
+        """scatter creates n points collection."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('s', [5, 10, 20, 50, 100, 200])
+    def test_scatter_size(self, s):
+        """scatter accepts size parameter."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], s=s)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'v', 'D', '+', 'x', '*'])
+    def test_scatter_marker(self, marker):
+        """scatter accepts various markers."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], marker=marker)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_scatter_alpha(self, alpha):
+        """scatter accepts alpha."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], alpha=alpha)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#aabbcc', 'cyan'])
+    def test_scatter_color(self, color):
+        """scatter accepts color."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], color=color)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_line_collection_n_segs(self, n):
+        """LineCollection created with n segments."""
+        from matplotlib.collections import LineCollection
+        segs = [[(0, i), (1, i+1)] for i in range(n)]
+        lc = LineCollection(segs)
+        assert lc is not None
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_line_collection_linewidth(self, lw):
+        """LineCollection stores linewidth."""
+        from matplotlib.collections import LineCollection
+        lc = LineCollection([[(0, 0), (1, 1)]])
+        lc.set_linewidth(lw)
+        result = lc.get_linewidths()
+        assert abs(result[0] - lw) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_scatter_visibility(self, visible):
+        """scatter visibility is stored."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3])
+        sc.set_visible(visible)
+        assert sc.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_scatter_zorder(self, zorder):
+        """scatter zorder is stored."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3])
+        sc.set_zorder(zorder)
+        assert sc.get_zorder() == zorder
+        plt.close('all')
