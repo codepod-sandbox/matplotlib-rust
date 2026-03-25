@@ -310,3 +310,95 @@ class TestAnnotationAxesInteraction:
         ann = Annotation('test', xy=(0, 0))
         ann.set_va(va)
         assert ann.get_va() == va
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+class TestAnnotationPropertiesParametric:
+    """Parametric tests for Annotation properties."""
+
+    @pytest.mark.parametrize('text', ['hello', '', 'A longer text', '42'])
+    def test_annotation_text_roundtrip(self, text):
+        """Annotation stores text correctly."""
+        ann = Annotation(text, xy=(0, 0))
+        assert ann.get_text() == text
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (1, 2), (-3, 4), (0.5, -0.5)])
+    def test_annotation_xy(self, x, y):
+        """Annotation stores xy coordinate."""
+        ann = Annotation('test', xy=(x, y))
+        assert ann.xy == (x, y)
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14, 16])
+    def test_annotation_fontsize(self, fontsize):
+        """Annotation fontsize is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_fontsize(fontsize)
+        assert ann.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_annotation_alpha(self, alpha):
+        """Annotation alpha is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_alpha(alpha)
+        assert abs(ann.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_annotation_visible(self, visible):
+        """Annotation visible is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_visible(visible)
+        assert ann.get_visible() == visible
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black'])
+    def test_annotation_color(self, color):
+        """Annotation color is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_color(color)
+        # Color is stored in some form; check it doesn't raise
+        assert ann is not None
+
+    @pytest.mark.parametrize('rotation', [0, 45, 90, 180, 270])
+    def test_annotation_rotation(self, rotation):
+        """Annotation rotation is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_rotation(rotation)
+        assert abs(ann.get_rotation() - rotation) < 1e-10
+
+    @pytest.mark.parametrize('label', ['label1', 'my annotation', ''])
+    def test_annotation_label(self, label):
+        """Annotation label is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_label(label)
+        assert ann.get_label() == label
+
+    @pytest.mark.parametrize('zorder', [0, 1, 3, 5, 10])
+    def test_annotation_zorder(self, zorder):
+        """Annotation zorder is settable."""
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_zorder(zorder)
+        assert ann.get_zorder() == zorder
+
+
+class TestAnnotationInAxesParametric:
+    """Parametric tests for Annotation in axes."""
+
+    @pytest.mark.parametrize('text', ['A', 'B', 'C'])
+    def test_annotation_in_axes_text(self, text):
+        """ax.annotate stores text correctly."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate(text, xy=(0.5, 0.5))
+        assert ann.get_text() == text
+        plt.close('all')
+
+    @pytest.mark.parametrize('x,y', [(0.1, 0.1), (0.5, 0.5), (0.9, 0.9)])
+    def test_annotation_in_axes_xy(self, x, y):
+        """ax.annotate stores xy correctly."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate('test', xy=(x, y))
+        assert ann.xy == (x, y)
+        plt.close('all')

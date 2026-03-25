@@ -371,3 +371,100 @@ class TestCyclerAdvanced:
         bk = c.by_key()
         assert 'color' in bk
         assert 'marker' in bk
+
+
+# ===================================================================
+# Parametric tests
+# ===================================================================
+
+class TestLineCollectionParametric:
+    """Parametric tests for LineCollection."""
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_line_collection_n_segments(self, n):
+        """LineCollection stores n segments."""
+        from matplotlib.collections import LineCollection
+        segs = [[(i, 0), (i, 1)] for i in range(n)]
+        lc = LineCollection(segs)
+        assert len(lc.get_segments()) == n
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_line_collection_linewidth(self, lw):
+        """LineCollection stores linewidth."""
+        from matplotlib.collections import LineCollection
+        lc = LineCollection([[(0, 0), (1, 1)]], linewidth=lw)
+        assert lc.get_linewidth()[0] == lw
+
+    @pytest.mark.parametrize('alpha', [0.2, 0.5, 0.8, 1.0])
+    def test_line_collection_alpha(self, alpha):
+        """LineCollection.set_alpha / get_alpha roundtrip."""
+        from matplotlib.collections import LineCollection
+        lc = LineCollection([[(0, 0), (1, 1)]])
+        lc.set_alpha(alpha)
+        assert lc.get_alpha() == alpha
+
+
+class TestAxesLimitsParametric:
+    """Parametric tests for axes data limits."""
+
+    @pytest.mark.parametrize('xmin,xmax', [
+        (0, 1), (-1, 1), (0, 100), (-50, 50),
+    ])
+    def test_set_xlim_roundtrip(self, xmin, xmax):
+        """set_xlim / get_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [
+        (0, 1), (-5, 5), (0, 1000), (-100, 0),
+    ])
+    def test_set_ylim_roundtrip(self, ymin, ymax):
+        """set_ylim / get_ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('margin', [0.0, 0.05, 0.1, 0.2])
+    def test_xmargin_get(self, margin):
+        """get_xmargin returns x margin."""
+        fig, ax = plt.subplots()
+        ax.margins(x=margin)
+        assert abs(ax.get_xmargin() - margin) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('margin', [0.0, 0.05, 0.1, 0.2])
+    def test_ymargin_get(self, margin):
+        """get_ymargin returns y margin."""
+        fig, ax = plt.subplots()
+        ax.margins(y=margin)
+        assert abs(ax.get_ymargin() - margin) < 1e-10
+        plt.close('all')
+
+
+class TestRcContextParametric:
+    """Parametric tests for rc_context."""
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_rc_context_linewidth(self, lw):
+        """rc_context sets and restores lines.linewidth."""
+        import matplotlib
+        original = matplotlib.rcParams['lines.linewidth']
+        with matplotlib.rc_context({'lines.linewidth': lw}):
+            assert matplotlib.rcParams['lines.linewidth'] == lw
+        assert matplotlib.rcParams['lines.linewidth'] == original
+
+    @pytest.mark.parametrize('dpi', [72, 100, 150, 200])
+    def test_rc_context_dpi(self, dpi):
+        """rc_context sets and restores figure.dpi."""
+        import matplotlib
+        original = matplotlib.rcParams['figure.dpi']
+        with matplotlib.rc_context({'figure.dpi': dpi}):
+            assert matplotlib.rcParams['figure.dpi'] == dpi
+        assert matplotlib.rcParams['figure.dpi'] == original

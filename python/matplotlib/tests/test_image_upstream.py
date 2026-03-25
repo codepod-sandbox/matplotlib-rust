@@ -428,3 +428,100 @@ class TestImshowProperties:
         assert im1 in ax.images
         assert im2 in ax.images
         plt.close('all')
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+
+
+class TestImshowParametricExtended:
+    """Extended parametric imshow tests."""
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (2, 2), (3, 3), (4, 4), (8, 8), (16, 16),
+    ])
+    def test_imshow_shape(self, nrows, ncols):
+        """imshow accepts arrays of various shapes."""
+        fig, ax = plt.subplots()
+        data = np.zeros((nrows, ncols))
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('cmap', ['viridis', 'plasma', 'gray', 'hot', 'cool'])
+    def test_imshow_cmap(self, cmap):
+        """imshow accepts various colormaps."""
+        fig, ax = plt.subplots()
+        data = np.linspace(0, 1, 16).reshape(4, 4)
+        im = ax.imshow(data, cmap=cmap)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 1), (-1, 1), (0, 255), (-100, 100),
+    ])
+    def test_imshow_vmin_vmax(self, vmin, vmax):
+        """imshow accepts vmin and vmax."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4))
+        im = ax.imshow(data, vmin=vmin, vmax=vmax)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.25, 0.5, 0.75, 1.0])
+    def test_imshow_alpha(self, alpha):
+        """imshow accepts alpha."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4))
+        im = ax.imshow(data, alpha=alpha)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('origin', ['upper', 'lower'])
+    def test_imshow_origin(self, origin):
+        """imshow accepts origin parameter."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4))
+        im = ax.imshow(data, origin=origin)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('interpolation', ['nearest', 'bilinear', 'bicubic'])
+    def test_imshow_interpolation(self, interpolation):
+        """imshow accepts interpolation parameter."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4))
+        im = ax.imshow(data, interpolation=interpolation)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('aspect', ['equal', 'auto'])
+    def test_imshow_aspect(self, aspect):
+        """imshow accepts aspect parameter."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4))
+        im = ax.imshow(data, aspect=aspect)
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_rgb_uint8(self):
+        """imshow accepts uint8 RGB arrays."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4, 3), dtype=np.uint8)
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_rgba_float(self):
+        """imshow accepts float RGBA arrays."""
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4, 4), dtype=float)
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')

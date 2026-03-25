@@ -454,3 +454,141 @@ class TestMiscArtist:
         t = Text(0.5, 0.5, 'test text')
         # Text should be created without error
         assert t.get_text() == 'test text'
+
+
+# ===================================================================
+# Parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestAxesPropertiesParametric:
+    """Parametric tests for Axes properties."""
+
+    @pytest.mark.parametrize('xmin,xmax', [
+        (0, 1), (-1, 1), (0, 100), (-10, 10),
+    ])
+    def test_xlim_roundtrip(self, xmin, xmax):
+        """set_xlim / get_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [
+        (0, 1), (-5, 5), (0, 1000), (-100, 100),
+    ])
+    def test_ylim_roundtrip(self, ymin, ymax):
+        """set_ylim / get_ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['My Title', '', 'Long Title Here'])
+    def test_title_roundtrip(self, title):
+        """set_title / get_title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X label', '', 'Time (s)'])
+    def test_xlabel_roundtrip(self, label):
+        """set_xlabel / get_xlabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(label)
+        assert ax.get_xlabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['Y label', '', 'Amplitude'])
+    def test_ylabel_roundtrip(self, label):
+        """set_ylabel / get_ylabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylabel(label)
+        assert ax.get_ylabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_roundtrip(self, scale):
+        """set_xscale / get_xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_yscale_roundtrip(self, scale):
+        """set_yscale / get_yscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_yscale(scale)
+        assert ax.get_yscale() == scale
+        plt.close('all')
+
+
+class TestPlotTypesParametric:
+    """Parametric tests for basic plot types."""
+
+    @pytest.mark.parametrize('n', [2, 5, 10, 20])
+    def test_plot_n_points(self, n):
+        """plot with n points creates a line."""
+        fig, ax = plt.subplots()
+        x = list(range(n))
+        line, = ax.plot(x, x)
+        xdata, ydata = line.get_data()
+        assert len(xdata) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', '#00ff00', 'k'])
+    def test_plot_color(self, color):
+        """plot accepts color parameter."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 4.0])
+    def test_plot_linewidth(self, lw):
+        """plot accepts linewidth parameter."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ls', ['-', '--', ':', '-.'])
+    def test_plot_linestyle(self, ls):
+        """plot accepts linestyle parameter."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linestyle=ls)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.2, 0.5, 0.8, 1.0])
+    def test_plot_alpha(self, alpha):
+        """plot accepts alpha parameter."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 8])
+    def test_bar_n_bars(self, n):
+        """bar creates n bars."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [3, 5, 10])
+    def test_hist_bins(self, bins):
+        """hist returns correct number of bins."""
+        fig, ax = plt.subplots()
+        n, edges, patches = ax.hist(list(range(100)), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
