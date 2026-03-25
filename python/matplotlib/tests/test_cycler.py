@@ -459,3 +459,70 @@ class TestCyclerParametric2:
         c1 = cycler(alpha=range(n))
         c2 = cycler(linewidth=range(n))
         assert len(c1 * c2) == n * n
+
+
+class TestCyclerParametric3:
+    """Further parametric cycler tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6, 7, 8])
+    def test_cycler_len(self, n):
+        """Cycler length matches number of items."""
+        c = cycler(linewidth=list(range(n)))
+        assert len(c) == n
+
+    @pytest.mark.parametrize('key', ['color', 'linestyle', 'linewidth', 'marker', 'alpha'])
+    def test_cycler_single_key(self, key):
+        """Cycler with single key stores it."""
+        if key == 'color':
+            c = cycler(color=['r', 'g'])
+        elif key == 'linestyle':
+            c = cycler(linestyle=['-', '--'])
+        elif key == 'linewidth':
+            c = cycler(linewidth=[1.0, 2.0])
+        elif key == 'marker':
+            c = cycler(marker=['o', 's'])
+        elif key == 'alpha':
+            c = cycler(alpha=[0.5, 1.0])
+        assert key in c.keys
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5, 6])
+    def test_cycler_product_n(self, n):
+        """Product cycler has correct length."""
+        c1 = cycler(alpha=list(range(n)))
+        c2 = cycler(linewidth=list(range(n)))
+        assert len(c1 * c2) == n * n
+
+    @pytest.mark.parametrize('i', [0, 1, 2, 3, 4])
+    def test_cycler_item_index(self, i):
+        """Items in cycler are in order."""
+        vals = list(range(5))
+        c = cycler(linewidth=vals)
+        assert list(c)[i]['linewidth'] == vals[i]
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_cycler_concat_len(self, n):
+        """Concatenated cyclers have correct length."""
+        c1 = cycler(color=['r'] * n)
+        c2 = cycler(color=['b'] * n)
+        c3 = c1 + c2
+        assert len(c3) == 2 * n
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'orange', 'purple'])
+    def test_cycler_color_value(self, color):
+        """Cycler stores exact color value."""
+        c = cycler(color=[color])
+        assert list(c)[0]['color'] == color
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 1.5, 2.0, 3.0])
+    def test_cycler_linewidth_roundtrip(self, lw):
+        """Linewidth roundtrips through cycler."""
+        c = cycler(linewidth=[lw])
+        assert list(c)[0]['linewidth'] == lw
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5])
+    def test_cycler_keys_count(self, n):
+        """Cycler product has multiple keys."""
+        c1 = cycler(alpha=[0.5])
+        c2 = cycler(linewidth=[1.0])
+        product = c1 * c2
+        assert len(product.keys) == 2
