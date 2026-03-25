@@ -580,3 +580,126 @@ class TestAxesImshow:
         ax = fig.add_subplot(1, 1, 1)
         ax.imshow([[1, 2], [3, 4]], aspect='auto')
         assert ax.get_aspect() == 'auto'
+
+
+# ===================================================================
+# Extended parametric tests for axes
+# ===================================================================
+
+import pytest as _pytest
+
+class TestAxesUpstream2Parametric:
+    """Parametric tests for axes properties and methods."""
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100), (-1, 1), (1, 1000)])
+    def test_xlim_roundtrip(self, xmin, xmax):
+        """set_xlim / get_xlim roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100), (-10, 10), (1, 1000)])
+    def test_ylim_roundtrip(self, ymin, ymax):
+        """set_ylim / get_ylim roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_roundtrip(self, scale):
+        """set_xscale / get_xscale roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_yscale_roundtrip(self, scale):
+        """set_yscale / get_yscale roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_yscale(scale)
+        assert ax.get_yscale() == scale
+
+    @pytest.mark.parametrize('title', ['My Title', '', 'Test 123', 'Long Axes Title'])
+    def test_title_roundtrip(self, title):
+        """set_title / get_title roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_title(title)
+        assert ax.get_title() == title
+
+    @pytest.mark.parametrize('label', ['X axis', '', 'Time (s)', 'Distance [m]'])
+    def test_xlabel_roundtrip(self, label):
+        """set_xlabel / get_xlabel roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlabel(label)
+        assert ax.get_xlabel() == label
+
+    @pytest.mark.parametrize('label', ['Y axis', '', 'Amplitude', 'Value [units]'])
+    def test_ylabel_roundtrip(self, label):
+        """set_ylabel / get_ylabel roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_ylabel(label)
+        assert ax.get_ylabel() == label
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_plot_n_lines(self, n):
+        """Plotting n times creates n lines."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n_patches(self, n):
+        """bar() creates n patches."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins_count(self, bins):
+        """hist() returns correct bin count."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        n, edges, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n) == bins
+
+    @pytest.mark.parametrize('aspect', ['auto', 'equal'])
+    def test_aspect_roundtrip(self, aspect):
+        """set_aspect / get_aspect roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_aspect(aspect)
+        assert ax.get_aspect() == aspect
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_axes_visibility(self, visible):
+        """set_visible / get_visible roundtrip."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible

@@ -212,3 +212,180 @@ class TestCyclerFunctionExtended:
         c = cycler('linewidth', [0.5, 1.0, 2.0])
         widths = [item['linewidth'] for item in c]
         assert widths == [0.5, 1.0, 2.0]
+
+
+# ===================================================================
+# Additional cycler parametric tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+from matplotlib.cycler import cycler, Cycler
+
+
+class TestCyclerParametric:
+    """Parametric tests for cycler behavior."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8])
+    def test_cycler_length(self, n):
+        """Cycler length matches number of values."""
+        colors = [f'color{i}' for i in range(n)]
+        c = cycler(color=colors)
+        assert len(c) == n
+
+    @pytest.mark.parametrize('key', ['color', 'linewidth', 'linestyle', 'marker'])
+    def test_cycler_key_name(self, key):
+        """Cycler stores key name correctly."""
+        vals = ['a', 'b', 'c']
+        c = Cycler(key, vals)
+        assert key in c.keys
+
+    @pytest.mark.parametrize('values', [
+        ['red', 'blue', 'green'],
+        [1.0, 2.0, 3.0],
+        ['-', '--', '-.'],
+        ['o', 's', '^'],
+    ])
+    def test_cycler_iteration_values(self, values):
+        """Iterating cycler returns correct values."""
+        c = Cycler('prop', values)
+        result = [item['prop'] for item in c]
+        assert result == values
+
+    @pytest.mark.parametrize('n_repeats', [1, 2, 3])
+    def test_cycler_repeat_length(self, n_repeats):
+        """Cycler * n has n * original length."""
+        c = cycler(color=['red', 'blue'])
+        repeated = c * n_repeats
+        assert len(repeated) == 2 * n_repeats
+
+    @pytest.mark.parametrize('idx', [0, 1, 2])
+    def test_cycler_getitem(self, idx):
+        """Cycler supports indexing."""
+        colors = ['red', 'blue', 'green']
+        c = cycler(color=colors)
+        item = c[idx]
+        assert item['color'] == colors[idx]
+
+    def test_cycler_add_two_single_key(self):
+        """Adding two single-key cyclers concatenates values."""
+        c1 = cycler(color=['red', 'blue'])
+        c2 = cycler(color=['green', 'yellow'])
+        combined = c1 + c2
+        colors = [d['color'] for d in combined]
+        assert colors == ['red', 'blue', 'green', 'yellow']
+
+    def test_cycler_mul_preserves_values(self):
+        """Multiplying cycler repeats values in order."""
+        c = cycler(color=['red', 'blue'])
+        repeated = c * 3
+        colors = [d['color'] for d in repeated]
+        assert colors == ['red', 'blue', 'red', 'blue', 'red', 'blue']
+
+    def test_cycler_keys_attribute(self):
+        """Cycler.keys returns a set-like with key names."""
+        c = cycler(color=['red'], linewidth=[1.0])
+        keys = c.keys
+        assert 'color' in keys
+        assert 'linewidth' in keys
+
+    def test_cycler_by_key(self):
+        """Cycler.by_key returns dict mapping key to values list."""
+        c = cycler(color=['red', 'blue', 'green'])
+        bk = c.by_key()
+        assert 'color' in bk
+        assert bk['color'] == ['red', 'blue', 'green']
+
+    def test_cycler_repr_contains_cycler(self):
+        """Cycler repr contains 'cycler'."""
+        c = cycler(color=['red'])
+        r = repr(c)
+        assert 'cycler' in r.lower() or 'Cycler' in r
+
+
+# ===================================================================
+# Extended parametric tests for cycler
+# ===================================================================
+
+class TestCyclerParametric:
+    """Parametric tests for cycler."""
+
+    @pytest.mark.parametrize('colors', [
+        ['r', 'g', 'b'],
+        ['red', 'blue', 'green', 'orange'],
+        ['#ff0000', '#00ff00'],
+        ['cyan', 'magenta', 'yellow', 'black'],
+    ])
+    def test_cycler_color_len(self, colors):
+        """Cycler length matches input color list."""
+        c = cycler(color=colors)
+        assert len(c) == len(colors)
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8, 10])
+    def test_cycler_range_len(self, n):
+        """Cycler from range has length n."""
+        c = cycler(color=range(n))
+        assert len(c) == n
+
+    @pytest.mark.parametrize('key', ['color', 'linewidth', 'marker', 'linestyle', 'alpha', 'markersize'])
+    def test_cycler_key_preserved(self, key):
+        """Cycler key is accessible via .keys."""
+        c = cycler(key, [1, 2, 3])
+        assert key in c.keys
+
+    @pytest.mark.parametrize('n', [2, 3, 5, 7])
+    def test_cycler_iter_count(self, n):
+        """Cycling yields n items."""
+        c = cycler(color=range(n))
+        assert len(list(c)) == n
+
+    @pytest.mark.parametrize('values', [
+        [1, 2, 3],
+        ['a', 'b', 'c', 'd'],
+        [0.1, 0.5, 1.0],
+    ])
+    def test_cycler_by_key_values(self, values):
+        """by_key() returns the original values."""
+        c = cycler(linewidth=values)
+        bk = c.by_key()
+        assert bk['linewidth'] == values
+
+    @pytest.mark.parametrize('multiplier', [1, 2, 3, 4])
+    def test_cycler_int_mul(self, multiplier):
+        """Cycler * int has multiplied length."""
+        c = cycler(color=['r', 'g', 'b'])
+        c2 = c * multiplier
+        assert len(c2) == 3 * multiplier
+
+    @pytest.mark.parametrize('n', [2, 3, 4])
+    def test_cycler_product_two_keys(self, n):
+        """Cycler product has keys from both cyclers."""
+        c1 = cycler(color=range(n))
+        c2 = cycler(linewidth=range(n))
+        c3 = c1 * c2
+        assert 'color' in c3.keys
+        assert 'linewidth' in c3.keys
+
+    @pytest.mark.parametrize('n', [2, 3, 4])
+    def test_cycler_product_length(self, n):
+        """Cycler product length is n^2."""
+        c1 = cycler(color=range(n))
+        c2 = cycler(linewidth=range(n))
+        c3 = c1 * c2
+        assert len(c3) == n * n
+
+    @pytest.mark.parametrize('colors', [
+        ['r', 'g'],
+        ['red', 'blue', 'green'],
+    ])
+    def test_cycler_concat_len(self, colors):
+        """Cycler + Cycler with same key concatenates."""
+        c1 = cycler(color=colors)
+        c2 = cycler(color=colors)
+        c3 = c1 + c2
+        assert len(c3) == 2 * len(colors)
+
+    def test_cycler_repr_has_key(self):
+        """Cycler repr contains the key name."""
+        c = cycler(color=['red', 'blue'])
+        r = repr(c)
+        assert 'color' in r

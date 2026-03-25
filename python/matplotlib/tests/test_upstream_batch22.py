@@ -457,3 +457,101 @@ class TestAxLineDetailed:
         n_before = len(ax.patches)
         ax.axvspan(0.2, 0.8)
         assert len(ax.patches) > n_before
+
+
+# ===================================================================
+# Extended parametric tests for batch22
+# ===================================================================
+
+class TestBatch22Parametric:
+    """Parametric tests for batch22: axlines, spans, ticks, limits."""
+
+    @pytest.mark.parametrize('y', [0.0, 0.5, 1.0, -1.0, 100.0])
+    def test_axhline_y_value(self, y):
+        """axhline at given y has y in ydata."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(y)
+        ydata = line.get_ydata()
+        assert any(abs(yv - y) < 1e-9 for yv in ydata)
+        plt.close('all')
+
+    @pytest.mark.parametrize('x', [0.0, 0.5, 1.0, -1.0, 100.0])
+    def test_axvline_x_value(self, x):
+        """axvline at given x has x in xdata."""
+        fig, ax = plt.subplots()
+        line = ax.axvline(x)
+        xdata = line.get_xdata()
+        assert any(abs(xv - x) < 1e-9 for xv in xdata)
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0.2, 0.8), (0.1, 0.9), (0.0, 1.0), (0.3, 0.7)])
+    def test_axhspan_adds_patch_yrange(self, ymin, ymax):
+        """axhspan adds a patch for various y ranges."""
+        fig, ax = plt.subplots()
+        n_before = len(ax.patches)
+        ax.axhspan(ymin, ymax)
+        assert len(ax.patches) > n_before
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0.2, 0.8), (0.1, 0.9), (0.0, 1.0), (0.3, 0.7)])
+    def test_axvspan_adds_patch_xrange(self, xmin, xmax):
+        """axvspan adds a patch for various x ranges."""
+        fig, ax = plt.subplots()
+        n_before = len(ax.patches)
+        ax.axvspan(xmin, xmax)
+        assert len(ax.patches) > n_before
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100), (1, 1000)])
+    def test_xlim_parametric(self, xmin, xmax):
+        """set_xlim / get_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100), (-100, 100)])
+    def test_ylim_parametric(self, ymin, ymax):
+        """set_ylim / get_ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', '#ff0000', 'cyan'])
+    def test_axhline_color(self, color):
+        """axhline accepts color parameter."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(0.5, color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_axhline_linewidth(self, lw):
+        """axhline accepts linewidth parameter."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(0.5, linewidth=lw)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('ls', ['-', '--', ':', '-.'])
+    def test_axhline_linestyle(self, ls):
+        """axhline accepts linestyle parameter."""
+        fig, ax = plt.subplots()
+        line = ax.axhline(0.5, linestyle=ls)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_multiple_axhlines(self, n):
+        """Adding n axhlines creates n lines."""
+        fig, ax = plt.subplots()
+        n_before = len(ax.lines)
+        for i in range(n):
+            ax.axhline(i * 0.1)
+        assert len(ax.lines) == n_before + n
+        plt.close('all')

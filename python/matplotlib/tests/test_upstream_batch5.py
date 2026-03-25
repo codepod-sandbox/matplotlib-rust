@@ -480,3 +480,98 @@ class TestCyclerDetailed:
         c = Cycler('color', ['first', 'second', 'third'])
         values = [d['color'] for d in c]
         assert values == ['first', 'second', 'third']
+
+
+# ===================================================================
+# Extended parametric tests for batch5
+# ===================================================================
+
+class TestBatch5Parametric:
+    """Parametric tests for batch5: cycler, axes, plots."""
+
+    @pytest.mark.parametrize('colors', [
+        ['r', 'g', 'b'],
+        ['red', 'blue', 'green', 'orange'],
+        ['cyan', 'magenta'],
+    ])
+    def test_cycler_colors_parametric(self, colors):
+        """Cycler length matches colors."""
+        from matplotlib.cycler import cycler as cyc
+        c = cyc(color=colors)
+        assert len(c) == len(colors)
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5, 6])
+    def test_cycler_n_items(self, n):
+        """Cycler with n items has len n."""
+        from matplotlib.cycler import cycler as cyc
+        c = cyc(color=range(n))
+        assert len(c) == n
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_xlim_set_get(self, xmin, xmax):
+        """set_xlim/get_xlim roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-10, 10), (0, 1000)])
+    def test_ylim_set_get(self, ymin, ymax):
+        """set_ylim/get_ylim roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_parametric(self, scale):
+        """set_xscale/get_xscale roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_plots_n_lines(self, n):
+        """n plot calls creates n lines."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_n_bins(self, bins):
+        """hist with bins parameter returns correct count."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        n_counts, edges, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_line_linewidth_param(self, lw):
+        """Line created with specific linewidth."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('color', ['r', 'g', 'b', 'red', '#ff0000'])
+    def test_line_color_param(self, color):
+        """Line created without error for various colors."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+
+    @pytest.mark.parametrize('title', ['My Title', '', 'Test 123'])
+    def test_title_set_get(self, title):
+        """set_title/get_title roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_title(title)
+        assert ax.get_title() == title
