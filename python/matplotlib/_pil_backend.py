@@ -86,6 +86,36 @@ class RendererPIL(RendererBase):
             fill=col
         )
 
+    def draw_ellipse(self, cx, cy, rx, ry, angle, facecolor, edgecolor, alpha):
+        import math
+        fc = _to_rgb_255(facecolor) if facecolor and facecolor != 'none' else None
+        ec = _to_rgb_255(edgecolor) if edgecolor and edgecolor != 'none' else None
+
+        if angle == 0:
+            # Use PIL's native ellipse for non-rotated ellipses
+            bbox = [(int(cx - rx), int(cy - ry)), (int(cx + rx), int(cy + ry))]
+            if fc is not None:
+                self._draw.ellipse(bbox, fill=fc)
+            if ec is not None:
+                self._draw.ellipse(bbox, outline=ec)
+        else:
+            # Approximate rotated ellipse with 36-point polygon
+            pts = []
+            angle_rad = math.radians(angle)
+            cos_a, sin_a = math.cos(angle_rad), math.sin(angle_rad)
+            for i in range(36):
+                t = 2 * math.pi * i / 36
+                x = rx * math.cos(t)
+                y = ry * math.sin(t)
+                px = cx + x * cos_a - y * sin_a
+                py = cy - (x * sin_a + y * cos_a)  # negate: screen y-down
+                pts.append((int(px), int(py)))
+            if fc is not None:
+                self._draw.polygon(pts, fill=fc)
+            if ec is not None:
+                for i in range(len(pts)):
+                    self._draw.line([pts[i], pts[(i + 1) % len(pts)]], fill=ec, width=1)
+
     def draw_wedge(self, cx, cy, r, start_angle, end_angle, color):
         import math
         col = _to_rgb_255(color)

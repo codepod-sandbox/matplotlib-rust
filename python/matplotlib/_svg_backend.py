@@ -122,6 +122,17 @@ class RendererSVG(RendererBase):
             f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}"{clip}/>'
         )
 
+    def draw_ellipse(self, cx, cy, rx, ry, angle, facecolor, edgecolor, alpha):
+        fill = facecolor if facecolor and facecolor != 'none' else 'none'
+        stroke = edgecolor if edgecolor and edgecolor != 'none' else 'none'
+        transform = ''
+        if angle != 0:
+            transform = f' transform="rotate({-angle:.2f} {cx:.2f} {cy:.2f})"'
+        self._parts.append(
+            f'<ellipse cx="{cx:.2f}" cy="{cy:.2f}" rx="{rx:.2f}" ry="{ry:.2f}" '
+            f'fill="{fill}" stroke="{stroke}"{transform} />'
+        )
+
     def draw_wedge(self, cx, cy, r, start_angle, end_angle, color):
         import math
         sweep = end_angle - start_angle

@@ -700,3 +700,155 @@ def test_patch_remove():
     assert r in ax.patches
     r.remove()
     assert r not in ax.patches
+
+
+# ===========================================================================
+# Patches completeness tests (2026-03-25)
+# Tests for Ellipse, Arc, FancyBboxPatch, RegularPolygon, Arrow, PathPatch
+# ===========================================================================
+
+import io as _io
+
+
+def test_ellipse_renders_png():
+    """Ellipse produces non-background pixels at its center."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Ellipse
+    fig, ax = plt.subplots(figsize=(2, 2), dpi=50)
+    e = Ellipse((0.5, 0.5), 0.6, 0.3, color='red')
+    ax.add_patch(e)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    buf = _io.BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+    from PIL import Image
+    img = Image.open(buf).convert('RGB')
+    pixels = list(img.getdata())
+    red_pixels = sum(1 for r, g, b in pixels if r > 180 and g < 80 and b < 80)
+    assert red_pixels > 10, f"Expected red ellipse pixels, got {red_pixels}"
+    plt.close(fig)
+
+
+def test_ellipse_svg():
+    """Ellipse produces <ellipse> element in SVG output."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Ellipse
+    fig, ax = plt.subplots()
+    e = Ellipse((0.5, 0.5), 0.6, 0.3, color='blue')
+    ax.add_patch(e)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    buf = _io.StringIO()
+    fig.savefig(buf, format='svg')
+    svg = buf.getvalue()
+    assert '<ellipse' in svg, "Expected <ellipse> element in SVG"
+    plt.close(fig)
+
+
+def test_arc_renders_png():
+    """Arc (0-180 degrees) produces pixels on the upper half."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Arc
+    fig, ax = plt.subplots(figsize=(2, 2), dpi=50)
+    a = Arc((0.5, 0.5), 0.6, 0.4, theta1=0, theta2=180, color='green', linewidth=3)
+    ax.add_patch(a)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    buf = _io.BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+    from PIL import Image
+    img = Image.open(buf).convert('RGB')
+    pixels = list(img.getdata())
+    green_pixels = sum(1 for r, g, b in pixels if g > 100 and r < 50 and b < 50)
+    assert green_pixels > 5, f"Expected green arc pixels, got {green_pixels}"
+    plt.close(fig)
+
+
+def test_fancy_bbox_round_png():
+    """FancyBboxPatch with 'round' boxstyle fills interior pixels."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyBboxPatch
+    fig, ax = plt.subplots(figsize=(2, 2), dpi=50)
+    p = FancyBboxPatch((0.2, 0.2), 0.6, 0.5, boxstyle='round', facecolor='blue')
+    ax.add_patch(p)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    buf = _io.BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+    from PIL import Image
+    img = Image.open(buf).convert('RGB')
+    pixels = list(img.getdata())
+    blue_pixels = sum(1 for r, g, b in pixels if b > 150 and r < 80 and g < 80)
+    assert blue_pixels > 20, f"Expected blue rounded box pixels, got {blue_pixels}"
+    plt.close(fig)
+
+
+def test_fancy_bbox_square_png():
+    """FancyBboxPatch with 'square' boxstyle fills interior pixels."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyBboxPatch
+    fig, ax = plt.subplots(figsize=(2, 2), dpi=50)
+    p = FancyBboxPatch((0.1, 0.1), 0.8, 0.8, boxstyle='square', facecolor='green')
+    ax.add_patch(p)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    buf = _io.BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+    from PIL import Image
+    img = Image.open(buf).convert('RGB')
+    pixels = list(img.getdata())
+    green_pixels = sum(1 for r, g, b in pixels if g > 100 and r < 50 and b < 50)
+    assert green_pixels > 30, f"Expected green box pixels, got {green_pixels}"
+    plt.close(fig)
+
+
+def test_regular_polygon_svg():
+    """RegularPolygon (hexagon) produces <polygon> in SVG output."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import RegularPolygon
+    fig, ax = plt.subplots()
+    p = RegularPolygon((0.5, 0.5), numVertices=6, radius=0.3, color='purple')
+    ax.add_patch(p)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    buf = _io.StringIO()
+    fig.savefig(buf, format='svg')
+    svg = buf.getvalue()
+    assert '<polygon' in svg, "Expected <polygon> in SVG for RegularPolygon"
+    plt.close(fig)
+
+
+def test_arrow_renders_png():
+    """Arrow produces filled pixels along its direction."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Arrow
+    fig, ax = plt.subplots(figsize=(2, 2), dpi=50)
+    a = Arrow(0.1, 0.5, 0.8, 0, color='red', width=0.3)
+    ax.add_patch(a)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    buf = _io.BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+    from PIL import Image
+    img = Image.open(buf).convert('RGB')
+    pixels = list(img.getdata())
+    red_pixels = sum(1 for r, g, b in pixels if r > 180 and g < 80 and b < 80)
+    assert red_pixels > 10, f"Expected red arrow pixels, got {red_pixels}"
+    plt.close(fig)
+
+
+def test_path_patch_svg():
+    """PathPatch with a triangle path produces <polygon> in SVG output."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import PathPatch
+    from matplotlib.path import Path
+    fig, ax = plt.subplots()
+    verts = [(0.2, 0.1), (0.8, 0.1), (0.5, 0.9), (0.2, 0.1)]
+    codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+    path = Path(verts, codes)
+    p = PathPatch(path, facecolor='orange')
+    ax.add_patch(p)
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    buf = _io.StringIO()
+    fig.savefig(buf, format='svg')
+    svg = buf.getvalue()
+    assert '<polygon' in svg, "Expected <polygon> in SVG for PathPatch triangle"
+    plt.close(fig)

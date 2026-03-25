@@ -82,6 +82,20 @@ class RendererBase:
     def draw_circle(self, cx, cy, r, color):
         raise NotImplementedError
 
+    def draw_ellipse(self, cx, cy, rx, ry, angle, facecolor, edgecolor, alpha):
+        """Draw an ellipse.
+
+        Parameters
+        ----------
+        cx, cy : float  Center in display coordinates.
+        rx, ry : float  Semi-axis lengths in display pixels.
+        angle : float   Rotation in degrees (counter-clockwise).
+        facecolor : str or None  Fill color hex string, or None.
+        edgecolor : str or None  Stroke color hex string, or None.
+        alpha : float   Opacity 0.0–1.0.
+        """
+        pass
+
     def draw_wedge(self, cx, cy, r, start_angle, end_angle, color):
         raise NotImplementedError
 

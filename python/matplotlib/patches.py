@@ -4,6 +4,39 @@ from matplotlib.artist import Artist
 from matplotlib.colors import to_rgba, to_hex
 
 
+def _rounded_rect_points(x0, y0, x1, y1, radius):
+    """Generate polygon points approximating a rounded rectangle.
+
+    Parameters
+    ----------
+    x0, y0 : float  Top-left corner (display coords, y0 < y1).
+    x1, y1 : float  Bottom-right corner.
+    radius : float  Corner radius in pixels.
+
+    Returns
+    -------
+    list of (x, y) tuples
+    """
+    import math
+    w = x1 - x0
+    h = y1 - y0
+    r = min(radius, w / 2, h / 2)
+    pts = []
+    # 4 corners, 8 arc points each (quarter circle)
+    corners = [
+        (x0 + r, y0 + r, math.pi,       1.5 * math.pi),  # top-left
+        (x1 - r, y0 + r, 1.5 * math.pi, 2 * math.pi),    # top-right
+        (x1 - r, y1 - r, 0,              0.5 * math.pi),  # bottom-right
+        (x0 + r, y1 - r, 0.5 * math.pi, math.pi),        # bottom-left
+    ]
+    n_arc = 8
+    for cx, cy, t_start, t_end in corners:
+        for i in range(n_arc + 1):
+            t = t_start + (t_end - t_start) * i / n_arc
+            pts.append((cx + r * math.cos(t), cy + r * math.sin(t)))
+    return pts
+
+
 class Patch(Artist):
     """Base class for 2-D filled shapes."""
 
@@ -50,6 +83,11 @@ class Patch(Artist):
 
     def set_edgecolor(self, color):
         self._edgecolor = color
+
+    def set_color(self, color):
+        """Set both facecolor and edgecolor to *color*."""
+        self.set_facecolor(color)
+        self.set_edgecolor(color)
 
     # --- linewidth ---
     def get_linewidth(self):
@@ -246,6 +284,23 @@ class Ellipse(Patch):
     def set_angle(self, angle):
         self._angle = angle
 
+    def draw(self, renderer, layout):
+        if not self.get_visible():
+            return
+        cx = layout.sx(self._center[0])
+        cy = layout.sy(self._center[1])
+        rx = abs(layout.sx(self._center[0] + self._width / 2) - cx)
+        ry = abs(layout.sy(self._center[1] + self._height / 2) - cy)
+        if rx <= 0 or ry <= 0:
+            return
+        fc = self._resolved_facecolor_hex()
+        ec = self._resolved_edgecolor_hex()
+        alpha = self.get_alpha() if self.get_alpha() is not None else 1.0
+        renderer.draw_ellipse(cx, cy, rx, ry, self._angle,
+                              fc if fc != 'none' else None,
+                              ec if ec != 'none' else None,
+                              alpha)
+
 
 class Arc(Ellipse):
     """An elliptical arc, a segment of an ellipse."""
@@ -267,6 +322,30 @@ class Arc(Ellipse):
 
     def set_theta2(self, theta2):
         self._theta2 = theta2
+
+    def draw(self, renderer, layout):
+        if not self.get_visible():
+            return
+        import math
+        cx = layout.sx(self._center[0])
+        cy = layout.sy(self._center[1])
+        rx = abs(layout.sx(self._center[0] + self._width / 2) - cx)
+        ry = abs(layout.sy(self._center[1] + self._height / 2) - cy)
+        if rx <= 0 or ry <= 0:
+            return
+        t1 = math.radians(self._theta1)
+        t2 = math.radians(self._theta2)
+        sweep = abs(t2 - t1)
+        n = max(32, int(sweep / (2 * math.pi) * 64))
+        xdata = []
+        ydata = []
+        for i in range(n + 1):
+            t = t1 + (t2 - t1) * i / n
+            xdata.append(cx + rx * math.cos(t))
+            ydata.append(cy - ry * math.sin(t))  # negate: screen y-down
+        ec = self._resolved_edgecolor_hex()
+        lw = self._linewidth if self._linewidth is not None else 1.0
+        renderer.draw_line(xdata, ydata, ec if ec != 'none' else 'black', lw, '-', 1.0)
 
 
 class FancyBboxPatch(Patch):
@@ -308,6 +387,29 @@ class FancyBboxPatch(Patch):
 
     def set_boxstyle(self, boxstyle):
         self._boxstyle = boxstyle
+
+    def draw(self, renderer, layout):
+        if not self.get_visible():
+            return
+        # Map data coords to display coords
+        x0 = layout.sx(self._xy[0])
+        y0 = layout.sy(self._xy[1])
+        x1 = layout.sx(self._xy[0] + self._width)
+        y1 = layout.sy(self._xy[1] + self._height)
+        # Normalise: ensure top < bottom, left < right in screen coords
+        x_left, x_right = min(x0, x1), max(x0, x1)
+        y_top, y_bot = min(y0, y1), max(y0, y1)
+        fc = self._resolved_facecolor_hex()
+        alpha = self.get_alpha() if self.get_alpha() is not None else 1.0
+
+        if 'round' in str(self._boxstyle).lower():
+            pts = _rounded_rect_points(x_left, y_top, x_right, y_bot, radius=8)
+            renderer.draw_polygon(pts, fc if fc != 'none' else '#ffffff', alpha)
+        else:
+            w = x_right - x_left
+            h = y_bot - y_top
+            renderer.draw_rect(x_left, y_top, w, h,
+                               stroke=None, fill=fc if fc != 'none' else None)
 
 
 class FancyArrowPatch(Patch):
@@ -395,6 +497,42 @@ class Arrow(Patch):
         self._arrow_width = width
         super().__init__(**kwargs)
 
+    def draw(self, renderer, layout):
+        if not self.get_visible():
+            return
+        import math
+        x0 = layout.sx(self._x)
+        y0 = layout.sy(self._y)
+        x1 = layout.sx(self._x + self._dx)
+        y1 = layout.sy(self._y + self._dy)
+        length = math.hypot(x1 - x0, y1 - y0)
+        if length < 1e-6:
+            return
+        # Unit vector along arrow direction
+        ux = (x1 - x0) / length
+        uy = (y1 - y0) / length
+        # Perpendicular unit vector
+        px = -uy
+        py = ux
+        # Arrow dimensions in display pixels
+        shaft_half_w = self._arrow_width / 2 * length * 0.15
+        head_half_w = shaft_half_w * 3.0
+        head_len = min(length * 0.35, head_half_w * 2.5)
+        shaft_end = length - head_len
+        # 7-point polygon: shaft rectangle + arrowhead triangle
+        pts = [
+            (x0 + px * shaft_half_w,                   y0 + py * shaft_half_w),
+            (x0 + ux * shaft_end + px * shaft_half_w,  y0 + uy * shaft_end + py * shaft_half_w),
+            (x0 + ux * shaft_end + px * head_half_w,   y0 + uy * shaft_end + py * head_half_w),
+            (x1,                                        y1),
+            (x0 + ux * shaft_end - px * head_half_w,   y0 + uy * shaft_end - py * head_half_w),
+            (x0 + ux * shaft_end - px * shaft_half_w,  y0 + uy * shaft_end - py * shaft_half_w),
+            (x0 - px * shaft_half_w,                   y0 - py * shaft_half_w),
+        ]
+        fc = self._resolved_facecolor_hex()
+        alpha = self.get_alpha() if self.get_alpha() is not None else 1.0
+        renderer.draw_polygon(pts, fc if fc != 'none' else '#000000', alpha)
+
 
 class RegularPolygon(Patch):
     """A regular polygon with *numVertices* vertices, centered at *xy*."""
@@ -418,6 +556,27 @@ class RegularPolygon(Patch):
     def orientation(self):
         return self._orientation
 
+    def draw(self, renderer, layout):
+        if not self.get_visible():
+            return
+        import math
+        cx = layout.sx(self._xy_center[0])
+        cy = layout.sy(self._xy_center[1])
+        # Map radius to display pixels (use x-axis scale)
+        r_px = abs(layout.sx(self._xy_center[0] + self._radius) - cx)
+        if r_px <= 0:
+            return
+        n = self._numVertices
+        pts = []
+        for i in range(n):
+            angle = self._orientation + 2 * math.pi * i / n
+            px = cx + r_px * math.cos(angle)
+            py = cy - r_px * math.sin(angle)  # negate: screen y-down
+            pts.append((px, py))
+        fc = self._resolved_facecolor_hex()
+        alpha = self.get_alpha() if self.get_alpha() is not None else 1.0
+        renderer.draw_polygon(pts, fc if fc != 'none' else '#ffffff', alpha)
+
 
 class PathPatch(Patch):
     """A patch defined by a path."""
@@ -431,6 +590,43 @@ class PathPatch(Patch):
 
     def set_path(self, path):
         self._path = path
+
+    def draw(self, renderer, layout):
+        if not self.get_visible() or self._path is None:
+            return
+        # Path code constants (match matplotlib.path.Path)
+        MOVETO = 1
+        LINETO = 2
+        CURVE3 = 3
+        CURVE4 = 4
+        CLOSEPOLY = 79
+
+        codes = self._path.codes
+        verts = self._path.vertices
+        fc = self._resolved_facecolor_hex()
+        alpha = self.get_alpha() if self.get_alpha() is not None else 1.0
+        fc_draw = fc if fc != 'none' else '#ffffff'
+
+        current = []
+        for code, vertex in zip(codes, verts):
+            x, y = vertex
+            sx = layout.sx(x)
+            sy = layout.sy(y)
+            if code == MOVETO:
+                if len(current) >= 3:
+                    renderer.draw_polygon(current, fc_draw, alpha)
+                current = [(sx, sy)]
+            elif code == LINETO:
+                current.append((sx, sy))
+            elif code == CLOSEPOLY:
+                if len(current) >= 3:
+                    renderer.draw_polygon(current, fc_draw, alpha)
+                current = []
+            elif code in (CURVE3, CURVE4):
+                # Simple linearisation: treat control points as vertices
+                current.append((sx, sy))
+        if len(current) >= 3:
+            renderer.draw_polygon(current, fc_draw, alpha)
 
 
 class ConnectionPatch(FancyArrowPatch):
