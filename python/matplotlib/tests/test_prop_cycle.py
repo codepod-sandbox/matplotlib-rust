@@ -303,3 +303,74 @@ class TestPropCycleParametric:
         c2 = cycler(linewidth=range(n))
         c3 = c1 * c2
         assert len(c3) == n * n
+
+
+class TestPropCycleParametric2:
+    """More parametric tests for prop_cycle."""
+
+    @pytest.mark.parametrize('colors', [['r'], ['r','g'], ['r','g','b'], ['r','g','b','k']])
+    def test_cycler_color_count(self, colors):
+        """Cycler length equals number of colors."""
+        c = cycler(color=colors)
+        assert len(c) == len(colors)
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8])
+    def test_cycler_int_count(self, n):
+        """Cycler over range(n) has length n."""
+        c = cycler(linewidth=range(n))
+        assert len(c) == n
+
+    @pytest.mark.parametrize('key', ['color', 'linewidth', 'linestyle', 'alpha', 'marker'])
+    def test_cycler_key_roundtrip(self, key):
+        """Cycler preserves key name."""
+        c = cycler(**{key: [1, 2, 3]})
+        assert key in c.keys
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5])
+    def test_cycler_iter_n_dicts(self, n):
+        """Iterating a cycler yields n dicts."""
+        c = cycler(color=range(n))
+        items = list(c)
+        assert len(items) == n
+
+    @pytest.mark.parametrize('v', [0, 1, 2, 3])
+    def test_cycler_values_stored(self, v):
+        """Cycler stores values in order."""
+        vals = list(range(4))
+        c = cycler(linewidth=vals)
+        items = list(c)
+        assert items[v]['linewidth'] == v
+
+    @pytest.mark.parametrize('factor', [1, 2, 3, 5])
+    def test_cycler_mul_factor(self, factor):
+        """Cycler * n has length n * base."""
+        c = cycler(color=['r', 'g', 'b'])
+        assert len(c * factor) == 3 * factor
+
+    @pytest.mark.parametrize('n', [2, 3, 4])
+    def test_cycler_product_len(self, n):
+        """Product of two n-cyclers has n*n entries."""
+        c1 = cycler(color=range(n))
+        c2 = cycler(linewidth=range(n))
+        assert len(c1 * c2) == n * n
+
+    @pytest.mark.parametrize('colors', [['red', 'blue'], ['red', 'blue', 'green']])
+    def test_prop_cycle_first_color(self, colors):
+        """First iteration yields first color."""
+        c = cycler(color=colors)
+        first = list(c)[0]
+        assert first['color'] == colors[0]
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 1.5, 2.0, 3.0])
+    def test_cycler_linewidth_value(self, lw):
+        """Cycler stores float linewidth."""
+        c = cycler(linewidth=[lw])
+        assert list(c)[0]['linewidth'] == lw
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6])
+    def test_cycler_concat_len(self, n):
+        """Concatenated cyclers have summed length."""
+        c1 = cycler(color=['r'] * n)
+        c2 = cycler(color=['b'] * n)
+        c3 = c1 + c2
+        assert len(c3) == 2 * n

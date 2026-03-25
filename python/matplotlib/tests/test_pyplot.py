@@ -565,3 +565,98 @@ class TestPyplotParametric:
         plt.yscale(scale)
         assert ax.get_yscale() == scale
         plt.close('all')
+
+
+class TestPyplotParametric2:
+    """More parametric tests for pyplot."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_plt_plot_n_lines(self, n):
+        """plt.plot n times gives n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            plt.plot([i, i+1], [0, 1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('w,h', [(4, 3), (6, 4), (8, 6), (10, 8)])
+    def test_plt_figsize(self, w, h):
+        """plt.figure stores figsize."""
+        fig = plt.figure(figsize=(w, h))
+        size = fig.get_size_inches()
+        assert abs(size[0] - w) < 1e-10 and abs(size[1] - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title', 'My Plot', 'Test Figure', ''])
+    def test_plt_title_stored(self, title):
+        """plt.title is stored on current axes."""
+        fig, ax = plt.subplots()
+        plt.title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X Axis', 'Time (s)', 'Value', ''])
+    def test_plt_xlabel_stored(self, label):
+        """plt.xlabel is stored on current axes."""
+        fig, ax = plt.subplots()
+        plt.xlabel(label)
+        assert ax.get_xlabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['Y Axis', 'Amplitude', 'Count', ''])
+    def test_plt_ylabel_stored(self, label):
+        """plt.ylabel is stored on current axes."""
+        fig, ax = plt.subplots()
+        plt.ylabel(label)
+        assert ax.get_ylabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100), (-5, 5)])
+    def test_plt_xlim_stored(self, lo, hi):
+        """plt.xlim is stored on current axes."""
+        fig, ax = plt.subplots()
+        plt.xlim(lo, hi)
+        xlim = ax.get_xlim()
+        assert abs(xlim[0] - lo) < 1e-10 and abs(xlim[1] - hi) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100), (-5, 5)])
+    def test_plt_ylim_stored(self, lo, hi):
+        """plt.ylim is stored on current axes."""
+        fig, ax = plt.subplots()
+        plt.ylim(lo, hi)
+        ylim = ax.get_ylim()
+        assert abs(ylim[0] - lo) < 1e-10 and abs(ylim[1] - hi) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_plt_xscale_stored(self, scale):
+        """plt.xscale roundtrip."""
+        fig, ax = plt.subplots()
+        plt.xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_plt_yscale_stored(self, scale):
+        """plt.yscale roundtrip."""
+        fig, ax = plt.subplots()
+        plt.yscale(scale)
+        assert ax.get_yscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150])
+    def test_plt_figure_dpi_stored(self, dpi):
+        """plt.figure dpi is stored."""
+        fig = plt.figure(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 15, 20])
+    def test_plt_hist_bins(self, bins):
+        """plt.hist bins count."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        n, edges, patches = plt.hist(np.random.randn(100), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
