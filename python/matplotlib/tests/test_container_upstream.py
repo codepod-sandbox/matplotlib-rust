@@ -543,3 +543,68 @@ class TestContainerParametricExtended2:
         bars = ax.bar([1], [2], bottom=bottom)
         assert abs(bars.patches[0].get_y() - bottom) < 1e-10
         plt.close('all')
+
+
+class TestContainerUpstreamParametric3:
+    """Further parametric container tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8, 10])
+    def test_bar_n_patches(self, n):
+        """BarContainer has n patches."""
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(1, n + 1))
+        assert len(bars.patches) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000', 'orange'])
+    def test_bar_color(self, color):
+        """Bar patches have correct facecolor."""
+        from matplotlib.colors import to_hex
+        fig, ax = plt.subplots()
+        bars = ax.bar([0], [1], color=color)
+        assert to_hex(bars.patches[0].get_facecolor()) == to_hex(color)
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_bar_alpha(self, alpha):
+        """Bar patches have correct alpha."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([0], [1], alpha=alpha)
+        assert abs(bars.patches[0].get_alpha() - alpha) < 1e-9
+        plt.close('all')
+
+    @pytest.mark.parametrize('height', [0.5, 1.0, 2.0, 5.0, 10.0])
+    def test_bar_height(self, height):
+        """Bar patch height is correct."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([0], [height])
+        assert abs(bars.patches[0].get_height() - height) < 1e-9
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_points', [5, 10, 20, 50])
+    def test_errorbar_n(self, n_points):
+        """Errorbar with n points."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        x = list(range(n_points))
+        y = [i * 2 for i in range(n_points)]
+        yerr = [0.1] * n_points
+        container = ax.errorbar(x, y, yerr=yerr)
+        assert container is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('bottom', [0.0, 1.0, -1.0, 5.0, -5.0])
+    def test_bar_bottom(self, bottom):
+        """Bar bottom is set correctly."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([1], [2], bottom=bottom)
+        assert abs(bars.patches[0].get_y() - bottom) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('width', [0.2, 0.4, 0.6, 0.8, 1.0])
+    def test_bar_width(self, width):
+        """Bar width is set correctly."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([0], [1], width=width)
+        assert abs(bars.patches[0].get_width() - width) < 1e-9
+        plt.close('all')
