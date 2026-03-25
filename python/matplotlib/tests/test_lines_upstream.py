@@ -786,3 +786,92 @@ class TestLine2DExtended:
         line = Line2D([5], [10])
         assert list(line.get_xdata()) == [5]
         assert list(line.get_ydata()) == [10]
+
+
+# ===================================================================
+# Extended parametric tests for lines (upstream-style)
+# ===================================================================
+
+class TestLinesUpstreamParametric:
+    """Parametric tests for Line2D (upstream-style)."""
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black', '#ff0000', 'cyan'])
+    def test_line2d_color(self, color):
+        """Line2D stores color."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_color(color)
+        assert line.get_color() == color
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_line2d_linewidth(self, lw):
+        """Line2D stores linewidth."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_linewidth(lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('ls', ['-', '--', ':', '-.', ''])
+    def test_line2d_linestyle(self, ls):
+        """Line2D stores linestyle."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_linestyle(ls)
+        assert line.get_linestyle() == ls
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'v', 'D', '+', 'x', '*'])
+    def test_line2d_marker(self, marker):
+        """Line2D stores marker."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_marker(marker)
+        assert line.get_marker() == marker
+
+    @pytest.mark.parametrize('ms', [1, 3, 5, 8, 10, 15])
+    def test_line2d_markersize(self, ms):
+        """Line2D stores markersize."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_markersize(ms)
+        assert abs(line.get_markersize() - ms) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line2d_alpha(self, alpha):
+        """Line2D stores alpha."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_line2d_visible(self, visible):
+        """Line2D visibility is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() == visible
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_line2d_zorder(self, zorder):
+        """Line2D zorder is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+    @pytest.mark.parametrize('n', [2, 5, 10, 20, 100])
+    def test_line2d_n_points(self, n):
+        """Line2D stores n data points."""
+        from matplotlib.lines import Line2D
+        x = list(range(n))
+        y = list(range(n))
+        line = Line2D(x, y)
+        assert len(line.get_xdata()) == n
+        assert len(line.get_ydata()) == n
+
+    @pytest.mark.parametrize('label', ['line1', '', 'series_a', 'my_line'])
+    def test_line2d_label(self, label):
+        """Line2D label is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1], label=label)
+        assert line.get_label() == label
