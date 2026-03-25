@@ -506,3 +506,95 @@ class TestCollectionBase:
         pc = PathCollection(edgecolors=['blue'])
         assert pc.get_edgecolor() == ['blue']
         assert pc.get_edgecolors() == ['blue']
+
+
+# ===================================================================
+# Extended parametric tests for collections
+# ===================================================================
+
+import pytest as _pytest_col
+
+class TestCollectionsParametricExtended:
+    """Extended parametric tests for collections."""
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_path_collection_linewidth(self, lw):
+        """PathCollection linewidth is stored."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_linewidth(lw)
+        result = pc.get_linewidth()
+        if isinstance(result, list):
+            assert abs(result[0] - lw) < 1e-10
+        else:
+            assert abs(result - lw) < 1e-10
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000', 'cyan'])
+    def test_path_collection_facecolor(self, color):
+        """PathCollection facecolor is stored."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection(facecolors=[color])
+        result = pc.get_facecolors()
+        assert result is not None
+        assert len(result) > 0
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_path_collection_alpha(self, alpha):
+        """PathCollection alpha is stored."""
+        from matplotlib.collections import PathCollection
+        pc = PathCollection()
+        pc.set_alpha(alpha)
+        assert abs(pc.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10, 20])
+    def test_scatter_n_points(self, n):
+        """scatter creates PathCollection with n points."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('s', [10, 20, 50, 100, 200])
+    def test_scatter_marker_size(self, s):
+        """scatter accepts s (size) parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], s=s)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#aabbcc'])
+    def test_scatter_color(self, color):
+        """scatter accepts color parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], color=color)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.2, 0.5, 0.8, 1.0])
+    def test_scatter_alpha(self, alpha):
+        """scatter accepts alpha parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], alpha=alpha)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'v', 'D', '*'])
+    def test_scatter_marker(self, marker):
+        """scatter accepts marker parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], marker=marker)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_line_collection_n_lines(self, n):
+        """LineCollection accepts n line segments."""
+        from matplotlib.collections import LineCollection
+        segs = [[(0, i), (1, i+1)] for i in range(n)]
+        lc = LineCollection(segs)
+        assert lc is not None

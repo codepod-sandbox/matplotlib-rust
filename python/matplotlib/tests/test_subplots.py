@@ -427,3 +427,104 @@ class TestAxesProperties:
         ax.set_yscale(scale)
         assert ax.get_yscale() == scale
         plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for subplots
+# ===================================================================
+
+class TestSubplotsParametric2:
+    """Extended parametric tests for subplots."""
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (1, 1), (2, 2), (1, 3), (3, 1), (2, 3), (3, 3), (4, 1), (1, 4),
+    ])
+    def test_subplots_axes_count(self, nrows, ncols):
+        """plt.subplots returns nrows*ncols axes."""
+        fig, axes = plt.subplots(nrows, ncols)
+        assert len(fig.get_axes()) == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6.4, 4.8), (8, 6), (10, 10), (12, 4)])
+    def test_subplots_figsize(self, figsize):
+        """plt.subplots accepts figsize."""
+        w, h = figsize
+        fig, ax = plt.subplots(figsize=figsize)
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200])
+    def test_subplots_dpi(self, dpi):
+        """plt.subplots accepts dpi."""
+        fig, ax = plt.subplots(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 4])
+    def test_subplots_sharex(self, n):
+        """sharex=True shares x axis."""
+        fig, axes = plt.subplots(n, 1, sharex=True)
+        # Check that xlim on first is shared with others
+        axes[0].set_xlim(0, 100)
+        for ax in axes:
+            got = ax.get_xlim()
+            assert abs(got[0] - 0) < 1e-10
+            assert abs(got[1] - 100) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 4])
+    def test_subplots_sharey(self, n):
+        """sharey=True shares y axis."""
+        fig, axes = plt.subplots(1, n, sharey=True)
+        axes[0].set_ylim(-10, 10)
+        for ax in axes:
+            got = ax.get_ylim()
+            assert abs(got[0] - (-10)) < 1e-10
+            assert abs(got[1] - 10) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_subplot_xlim(self, xmin, xmax):
+        """Subplot xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100)])
+    def test_subplot_ylim(self, ymin, ymax):
+        """Subplot ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_subplot_xscale(self, scale):
+        """Subplot xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_subplot_n_lines(self, n):
+        """Plotting n lines in a subplot."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['My Title', '', 'Test 123'])
+    def test_subplot_title(self, title):
+        """Subplot title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')

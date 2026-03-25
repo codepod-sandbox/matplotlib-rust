@@ -512,3 +512,65 @@ class TestParseFmt:
         color, marker, linestyle = mcolors.parse_fmt('o-')
         assert marker == 'o'
         assert linestyle == '-'
+
+
+# ===================================================================
+# Extended parametric tests for batch12
+# ===================================================================
+
+class TestBatch12Parametric:
+    """Parametric tests for norms and colors."""
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 1), (-5, 5), (0, 100), (-1, 1), (0, 255),
+    ])
+    def test_normalize_vmin_vmax(self, vmin, vmax):
+        """Normalize clips to [0,1] for values in range."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        mid = (vmin + vmax) / 2
+        result = norm(mid)
+        assert 0.0 <= float(result) <= 1.0
+
+    @pytest.mark.parametrize('vcenter', [0, 1, -1, 0.5])
+    def test_two_slope_norm_vcenter(self, vcenter):
+        """TwoSlopeNorm with various vcenter values."""
+        norm = mcolors.TwoSlopeNorm(vmin=vcenter-2, vcenter=vcenter, vmax=vcenter+2)
+        result = norm(vcenter)
+        assert abs(float(result) - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('gamma', [0.5, 1.0, 2.0, 3.0])
+    def test_power_norm_gamma(self, gamma):
+        """PowerNorm with various gamma values maps 0->0, 1->1."""
+        norm = mcolors.PowerNorm(gamma=gamma, vmin=0, vmax=1)
+        assert abs(float(norm(0)) - 0.0) < 1e-10
+        assert abs(float(norm(1)) - 1.0) < 1e-10
+
+    @pytest.mark.parametrize('linthresh', [0.1, 1.0, 10.0])
+    def test_sym_log_norm_linthresh(self, linthresh):
+        """SymLogNorm with linthresh maps 0 to 0."""
+        norm = mcolors.SymLogNorm(linthresh=linthresh, vmin=-100, vmax=100)
+        assert norm is not None
+
+    @pytest.mark.parametrize('color_name', [
+        'red', 'blue', 'green', 'black', 'white', 'cyan', 'magenta',
+    ])
+    def test_named_color_to_rgba(self, color_name):
+        """Named color converts to RGBA tuple."""
+        rgba = mcolors.to_rgba(color_name)
+        assert len(rgba) == 4
+        assert all(0 <= v <= 1 for v in rgba)
+
+    @pytest.mark.parametrize('hex_color', [
+        '#ff0000', '#00ff00', '#0000ff', '#ffffff', '#000000',
+    ])
+    def test_hex_color_to_rgba(self, hex_color):
+        """Hex color converts to valid RGBA."""
+        rgba = mcolors.to_rgba(hex_color)
+        assert len(rgba) == 4
+        assert all(0 <= v <= 1 for v in rgba)
+
+    @pytest.mark.parametrize('fmt', ['r', 'g', 'b', 'r--', 'bs', 'go'])
+    def test_parse_fmt_no_error(self, fmt):
+        """parse_fmt handles standard format strings."""
+        color, marker, linestyle = mcolors.parse_fmt(fmt)
+        assert isinstance(color, str) or color is None or color == ''

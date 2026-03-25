@@ -498,3 +498,94 @@ class TestAdvancedAxes:
     def test_tick_right(self):
         fig, ax = plt.subplots()
         ax.yaxis.tick_right()
+
+
+# ===================================================================
+# Extended parametric tests for batch19
+# ===================================================================
+
+class TestBatch19Parametric:
+    """Parametric tests for artist, container, cycler."""
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_artist_alpha(self, alpha):
+        """Artist alpha is stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_artist_zorder(self, zorder):
+        """Artist zorder is stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_artist_visibility(self, visible):
+        """Artist visibility is stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_bar_container_n(self, n):
+        """BarContainer has n patches."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('colors', [
+        ['r', 'g', 'b'],
+        ['red', 'blue', 'green', 'orange'],
+        ['cyan', 'magenta'],
+    ])
+    def test_cycler_colors_len(self, colors):
+        """Cycler length matches colors."""
+        c = cycler(color=colors)
+        assert len(c) == len(colors)
+
+    @pytest.mark.parametrize('key', ['color', 'linewidth', 'marker', 'linestyle'])
+    def test_cycler_key_stored(self, key):
+        """Cycler key is in .keys."""
+        c = cycler(key, [1, 2, 3])
+        assert key in c.keys
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5])
+    def test_cycler_iteration(self, n):
+        """Cycler iterates n times."""
+        c = cycler(color=range(n))
+        assert len(list(c)) == n
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_xlim(self, xmin, xmax):
+        """set_xlim/get_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins(self, bins):
+        """hist bins count is correct."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """set_xscale/get_xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
