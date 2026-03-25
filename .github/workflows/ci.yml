@@ -40,7 +40,7 @@ jobs:
         run: cargo build -p matplotlib-python
 
       - name: Install pytest into python/
-        run: pip3 install pytest pluggy iniconfig packaging --target python/ --no-deps
+        run: pip3 install pytest pluggy iniconfig packaging pygments --target python/ --no-deps
 
       - name: Run Python tests
         run: target/debug/matplotlib-python -m pytest python/matplotlib/tests/
