@@ -493,3 +493,115 @@ class TestBatchSetter:
         c = Circle(visible=False, label='circ')
         assert c.get_visible() is False
         assert c.get_label() == 'circ'
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+from matplotlib.patches import Patch, Rectangle, Circle
+import matplotlib.pyplot as plt
+
+
+class TestPatchParametric:
+    """Parametric tests for Patch and subclasses."""
+
+    @pytest.mark.parametrize('facecolor', ['red', 'blue', 'green', 'none', '#ff0000'])
+    def test_patch_facecolor(self, facecolor):
+        """Patch.set_facecolor stores facecolor."""
+        p = Patch()
+        p.set_facecolor(facecolor)
+        # facecolor may be returned as RGBA; just confirm it doesn't raise
+        fc = p.get_facecolor()
+        assert fc is not None
+
+    @pytest.mark.parametrize('edgecolor', ['black', 'red', 'none', '#000000'])
+    def test_patch_edgecolor(self, edgecolor):
+        """Patch.set_edgecolor stores edgecolor."""
+        p = Patch()
+        p.set_edgecolor(edgecolor)
+        ec = p.get_edgecolor()
+        assert ec is not None
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_patch_linewidth(self, lw):
+        """Patch.set_linewidth stores linewidth."""
+        p = Patch()
+        p.set_linewidth(lw)
+        assert abs(p.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_patch_alpha(self, alpha):
+        """Patch.set_alpha stores alpha."""
+        p = Patch()
+        p.set_alpha(alpha)
+        assert abs(p.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_patch_visible(self, visible):
+        """Patch.set_visible stores visible."""
+        p = Patch()
+        p.set_visible(visible)
+        assert p.get_visible() == visible
+
+    @pytest.mark.parametrize('label', ['my patch', '', 'label123'])
+    def test_patch_label(self, label):
+        """Patch.set_label stores label."""
+        p = Patch()
+        p.set_label(label)
+        assert p.get_label() == label
+
+
+class TestRectangleParametric:
+    """Parametric tests for Rectangle."""
+
+    @pytest.mark.parametrize('x,y,w,h', [
+        (0, 0, 1, 1), (-1, -1, 2, 3), (5, 5, 10, 0.5), (0, 0, 0.1, 0.1),
+    ])
+    def test_rectangle_dimensions(self, x, y, w, h):
+        """Rectangle stores xy, width, height."""
+        r = Rectangle((x, y), w, h)
+        assert r.get_x() == x
+        assert r.get_y() == y
+        assert r.get_width() == w
+        assert r.get_height() == h
+
+    @pytest.mark.parametrize('w', [0.5, 1.0, 5.0, 100.0])
+    def test_rectangle_set_width(self, w):
+        """Rectangle.set_width stores width."""
+        r = Rectangle((0, 0), 1, 1)
+        r.set_width(w)
+        assert abs(r.get_width() - w) < 1e-10
+
+    @pytest.mark.parametrize('h', [0.5, 1.0, 5.0, 100.0])
+    def test_rectangle_set_height(self, h):
+        """Rectangle.set_height stores height."""
+        r = Rectangle((0, 0), 1, 1)
+        r.set_height(h)
+        assert abs(r.get_height() - h) < 1e-10
+
+
+class TestCircleParametric:
+    """Parametric tests for Circle."""
+
+    @pytest.mark.parametrize('r', [0.1, 0.5, 1.0, 5.0, 100.0])
+    def test_circle_radius(self, r):
+        """Circle stores radius."""
+        c = Circle((0, 0), r)
+        assert abs(c.get_radius() - r) < 1e-10
+
+    @pytest.mark.parametrize('cx,cy', [(0, 0), (1, 2), (-3, -4), (0.5, 0.5)])
+    def test_circle_center(self, cx, cy):
+        """Circle stores center."""
+        c = Circle((cx, cy), 1.0)
+        center = c.get_center()
+        assert abs(center[0] - cx) < 1e-10
+        assert abs(center[1] - cy) < 1e-10
+
+    @pytest.mark.parametrize('r', [1.0, 2.5, 10.0])
+    def test_circle_set_radius(self, r):
+        """Circle.set_radius stores radius."""
+        c = Circle((0, 0), 1.0)
+        c.set_radius(r)
+        assert abs(c.get_radius() - r) < 1e-10

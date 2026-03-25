@@ -349,3 +349,90 @@ class TestParseFmt:
 
     def test_dashed(self):
         assert parse_fmt('b--') == ('b', None, '--')
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.colors as mcolors
+import matplotlib.cm as cm
+import numpy as np
+
+
+class TestColorsParametricExtended:
+    """Extended parametric color tests."""
+
+    @pytest.mark.parametrize('color,expected_r,expected_g,expected_b', [
+        ('red', 1.0, 0.0, 0.0),
+        ('blue', 0.0, 0.0, 1.0),
+        ('white', 1.0, 1.0, 1.0),
+        ('black', 0.0, 0.0, 0.0),
+        ('yellow', 1.0, 1.0, 0.0),
+        ('cyan', 0.0, 1.0, 1.0),
+        ('magenta', 1.0, 0.0, 1.0),
+    ])
+    def test_named_color_rgb(self, color, expected_r, expected_g, expected_b):
+        """Named colors produce correct RGBA."""
+        rgba = mcolors.to_rgba(color)
+        assert abs(rgba[0] - expected_r) < 1e-3
+        assert abs(rgba[1] - expected_g) < 1e-3
+        assert abs(rgba[2] - expected_b) < 1e-3
+        assert rgba[3] == 1.0
+
+    @pytest.mark.parametrize('hex_color', [
+        '#ff0000', '#00ff00', '#0000ff', '#000000', '#ffffff', '#abcdef',
+    ])
+    def test_hex_to_rgba(self, hex_color):
+        """Hex colors produce valid RGBA tuples."""
+        rgba = mcolors.to_rgba(hex_color)
+        assert len(rgba) == 4
+        assert all(0.0 <= v <= 1.0 for v in rgba)
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_alpha_preserved(self, alpha):
+        """to_rgba preserves alpha parameter."""
+        rgba = mcolors.to_rgba('red', alpha=alpha)
+        assert abs(rgba[3] - alpha) < 1e-10
+
+    @pytest.mark.parametrize('short', ['r', 'g', 'b', 'k', 'w', 'y', 'c', 'm'])
+    def test_short_color_names(self, short):
+        """Short color names produce valid RGBA."""
+        rgba = mcolors.to_rgba(short)
+        assert len(rgba) == 4
+        assert all(0.0 <= v <= 1.0 for v in rgba)
+
+    @pytest.mark.parametrize('name', [
+        'viridis', 'plasma', 'inferno', 'magma', 'gray', 'hot', 'cool',
+    ])
+    def test_cmap_exists_and_named(self, name):
+        """Standard colormaps exist and have correct name."""
+        cmap = cm.get_cmap(name)
+        assert cmap is not None
+        assert cmap.name == name
+
+    @pytest.mark.parametrize('val', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_cmap_rgba_in_range(self, val):
+        """Colormap returns RGBA with values in [0, 1]."""
+        cmap = cm.get_cmap('viridis')
+        rgba = cmap(val)
+        assert all(0.0 <= v <= 1.0 for v in rgba)
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16, 64])
+    def test_listed_colormap_n_colors(self, n):
+        """ListedColormap has N colors."""
+        colors = [(i/n, 0, 0, 1) for i in range(n)]
+        cmap = mcolors.ListedColormap(colors)
+        assert cmap.N == n
+
+    @pytest.mark.parametrize('vmin,vmax,val,expected', [
+        (0, 1, 0.5, 0.5),
+        (0, 10, 5, 0.5),
+        (-1, 1, 0, 0.5),
+        (0, 100, 25, 0.25),
+    ])
+    def test_normalize_value(self, vmin, vmax, val, expected):
+        """Normalize maps values correctly."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        assert abs(float(norm(val)) - expected) < 1e-10
