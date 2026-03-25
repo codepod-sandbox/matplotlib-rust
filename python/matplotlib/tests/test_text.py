@@ -627,3 +627,60 @@ class TestTextParametric2:
             ax.text(i * 0.1, i * 0.1, f'text{i}')
         assert len(ax.texts) == n
         plt.close('all')
+
+
+class TestTextParametric2:
+    """Further parametric text tests."""
+
+    @pytest.mark.parametrize('fontsize', [6, 8, 10, 12, 14, 16, 20, 28])
+    def test_text_fontsize(self, fontsize):
+        """Text fontsize roundtrips."""
+        t = Text(0, 0, 'hello', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('content', ['hello', 'world', '', 'foo bar', '1234', 'αβγ'])
+    def test_text_content(self, content):
+        """Text content roundtrips."""
+        t = Text(0, 0, content)
+        assert t.get_text() == content
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (1, 2), (-1, -2), (0.5, 0.5), (100, 200)])
+    def test_text_position(self, x, y):
+        """Text x, y position roundtrips."""
+        t = Text(x, y, 'test')
+        pos = t.get_position()
+        assert abs(pos[0] - x) < 1e-9
+        assert abs(pos[1] - y) < 1e-9
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_text_ha(self, ha):
+        """Text horizontal alignment roundtrips."""
+        t = Text(0, 0, 'test', ha=ha)
+        assert t.get_horizontalalignment() == ha
+
+    @pytest.mark.parametrize('va', ['top', 'center', 'bottom', 'baseline'])
+    def test_text_va(self, va):
+        """Text vertical alignment roundtrips."""
+        t = Text(0, 0, 'test', va=va)
+        assert t.get_verticalalignment() == va
+
+    @pytest.mark.parametrize('rotation', [0, 30, 45, 90, 180, 270])
+    def test_text_rotation(self, rotation):
+        """Text rotation roundtrips."""
+        t = Text(0, 0, 'test')
+        t.set_rotation(rotation)
+        assert abs(t.get_rotation() - rotation) < 1e-9
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_text_alpha(self, alpha):
+        """Text alpha roundtrips."""
+        t = Text(0, 0, 'test')
+        t.set_alpha(alpha)
+        assert abs(t.get_alpha() - alpha) < 1e-9
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_text_visible(self, visible):
+        """Text visibility roundtrips."""
+        t = Text(0, 0, 'test')
+        t.set_visible(visible)
+        assert t.get_visible() == visible
