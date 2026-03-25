@@ -468,3 +468,77 @@ class TestRcContextParametric:
         with matplotlib.rc_context({'figure.dpi': dpi}):
             assert matplotlib.rcParams['figure.dpi'] == dpi
         assert matplotlib.rcParams['figure.dpi'] == original
+
+
+# ===================================================================
+# More parametric tests for batch24
+# ===================================================================
+
+class TestBatch24Parametric2:
+    """More parametric tests for batch24."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_n_lines2(self, n):
+        """n plot calls creates n lines."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins2(self, bins):
+        """hist bins count."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_xlim2(self, xmin, xmax):
+        """xlim roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale2(self, scale):
+        """xscale roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 100, 150, 200])
+    def test_rc_context_dpi2(self, dpi):
+        """rc_context sets/restores dpi."""
+        import matplotlib
+        original = matplotlib.rcParams['figure.dpi']
+        with matplotlib.rc_context({'figure.dpi': dpi}):
+            assert matplotlib.rcParams['figure.dpi'] == dpi
+        assert matplotlib.rcParams['figure.dpi'] == original
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_linewidth2(self, lw):
+        """linewidth stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 1.0])
+    def test_alpha2(self, alpha):
+        """alpha stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')

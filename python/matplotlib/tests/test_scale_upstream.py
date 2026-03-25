@@ -432,3 +432,74 @@ class TestScaleParametricExtended2:
         assert abs(got[0] - vmin) < 1e-10
         assert abs(got[1] - vmax) < 1e-10
         plt.close('all')
+
+
+# ===================================================================
+# More parametric tests for scale (upstream-style)
+# ===================================================================
+
+class TestScaleUpstreamParametric2:
+    """More parametric tests for scale."""
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_set_get2(self, scale):
+        """xscale set/get roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_yscale_set_get2(self, scale):
+        """yscale set/get roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_yscale(scale)
+        assert ax.get_yscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [(1, 10), (0.1, 100), (1, 1000), (10, 10000)])
+    def test_log_locator_ticks2(self, vmin, vmax):
+        """LogLocator generates positive ticks."""
+        from matplotlib.ticker import LogLocator
+        loc = LogLocator(base=10)
+        ticks = loc.tick_values(vmin, vmax)
+        assert len(ticks) > 0
+        assert all(t > 0 for t in ticks)
+
+    @pytest.mark.parametrize('base', [2, 5, 10, 100])
+    def test_log_locator_base2(self, base):
+        """LogLocator with various bases generates ticks."""
+        from matplotlib.ticker import LogLocator
+        loc = LogLocator(base=base)
+        ticks = loc.tick_values(1, 1000)
+        assert len(ticks) > 0
+
+    @pytest.mark.parametrize('linthresh', [0.01, 0.1, 1.0, 10.0])
+    def test_symlog_linthresh2(self, linthresh):
+        """Symlog scale accepts various linthresh values."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('symlog', linthresh=linthresh)
+        assert ax.get_xscale() == 'symlog'
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (-100, 100)])
+    def test_linear_scale_limits2(self, xmin, xmax):
+        """Linear scale with various limits."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('linear')
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [(1, 10), (1, 100), (1, 1000)])
+    def test_log_scale_limits2(self, vmin, vmax):
+        """Log scale with positive limits."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        ax.set_xlim(vmin, vmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - vmin) < 1e-10
+        assert abs(got[1] - vmax) < 1e-10
+        plt.close('all')
