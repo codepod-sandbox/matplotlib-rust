@@ -5,6 +5,7 @@ These tests are adapted from the real matplotlib test suite to validate
 compatibility of our Patch / Rectangle / Circle implementation.
 """
 
+import pytest
 from matplotlib.patches import (
     Circle, Patch, Rectangle, Ellipse, Arc, FancyBboxPatch,
     Arrow, RegularPolygon, PathPatch, FancyArrowPatch, ConnectionPatch,
@@ -1069,3 +1070,85 @@ class TestConnectionPatch:
     def test_is_fancy_arrow_patch(self):
         cp = ConnectionPatch((0, 0), (1, 1), 'data')
         assert isinstance(cp, FancyArrowPatch)
+
+
+class TestPatchesUpstreamParametric2:
+    """More parametric tests for patches_upstream."""
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (1, 2), (-1, -1)])
+    def test_rectangle_xy2(self, x, y):
+        """Rectangle xy stored."""
+        from matplotlib.patches import Rectangle
+        r = Rectangle((x, y), 1, 1)
+        assert r.get_x() == x
+        assert r.get_y() == y
+
+    @pytest.mark.parametrize('w,h', [(1, 1), (2, 3), (0.5, 0.5)])
+    def test_rectangle_wh(self, w, h):
+        """Rectangle wh stored."""
+        from matplotlib.patches import Rectangle
+        r = Rectangle((0, 0), w, h)
+        assert abs(r.get_width() - w) < 1e-10
+        assert abs(r.get_height() - h) < 1e-10
+
+    @pytest.mark.parametrize('r', [0.1, 0.5, 1.0, 2.0])
+    def test_circle_radius2(self, r):
+        """Circle radius stored."""
+        from matplotlib.patches import Circle
+        c = Circle((0, 0), r)
+        assert abs(c.get_radius() - r) < 1e-10
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_patch_lw(self, lw):
+        """Patch linewidth."""
+        from matplotlib.patches import Rectangle
+        p = Rectangle((0, 0), 1, 1)
+        p.set_linewidth(lw)
+        assert abs(p.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.8, 1.0])
+    def test_patch_alpha(self, alpha):
+        """Patch alpha."""
+        from matplotlib.patches import Rectangle
+        p = Rectangle((0, 0), 1, 1)
+        p.set_alpha(alpha)
+        assert abs(p.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_patch_visible(self, visible):
+        """Patch visibility."""
+        from matplotlib.patches import Rectangle
+        p = Rectangle((0, 0), 1, 1)
+        p.set_visible(visible)
+        assert p.get_visible() == visible
+
+    @pytest.mark.parametrize('zorder', [1, 2, 5, 10])
+    def test_patch_zorder(self, zorder):
+        """Patch zorder."""
+        from matplotlib.patches import Rectangle
+        p = Rectangle((0, 0), 1, 1)
+        p.set_zorder(zorder)
+        assert p.get_zorder() == zorder
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_bar_n_rects(self, n):
+        """Bar returns n rectangles."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(n))
+        assert len(bars.patches) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('ls', ['solid', 'dashed', 'dotted'])
+    def test_patch_linestyle(self, ls):
+        """Patch linestyle."""
+        from matplotlib.patches import Rectangle
+        p = Rectangle((0, 0), 1, 1)
+        p.set_linestyle(ls)
+        assert p.get_linestyle() is not None
+
+    @pytest.mark.parametrize('angle', [0, 45, 90, 180])
+    def test_wedge_angle(self, angle):
+        """Wedge stores theta2."""
+        w = Wedge((0, 0), 1, 0, angle)
+        assert abs(w.get_theta2() - angle) < 1e-10
