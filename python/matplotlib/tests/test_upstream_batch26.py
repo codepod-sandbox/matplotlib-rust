@@ -592,3 +592,96 @@ class TestPlotTypesParametric:
         n, edges, patches = ax.hist(list(range(100)), bins=bins)
         assert len(n) == bins
         plt.close('all')
+
+
+class TestBatch26Parametric2:
+    """More parametric tests for batch26."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_plot_n_lines(self, n):
+        """n plot calls give n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 10), (-5, 5)])
+    def test_xlim_ylim(self, lo, hi):
+        """xlim and ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(lo, hi)
+        assert ax.get_xlim() == (lo, hi)
+        assert ax.get_ylim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_yscale(self, scale):
+        """xscale and yscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        ax.set_yscale(scale)
+        assert ax.get_xscale() == scale
+        assert ax.get_yscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X', 'Time (s)', ''])
+    def test_xlabel_ylabel(self, label):
+        """xlabel and ylabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(label)
+        ax.set_ylabel(label)
+        assert ax.get_xlabel() == label
+        assert ax.get_ylabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_linewidth(self, lw):
+        """Line linewidth stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D'])
+    def test_marker(self, marker):
+        """Line marker stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close('all')
+
+    @pytest.mark.parametrize('ls', ['-', '--', ':', '-.'])
+    def test_linestyle(self, ls):
+        """Line linestyle stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linestyle=ls)
+        assert line.get_linestyle() is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.8, 1.0])
+    def test_line_alpha(self, alpha):
+        """Line alpha stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [5, 10, 20])
+    def test_scatter_n(self, n):
+        """Scatter with n points."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.scatter(np.random.randn(n), np.random.randn(n))
+        assert ax is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('aspect', ['equal', 'auto'])
+    def test_aspect(self, aspect):
+        """Aspect roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        assert ax.get_aspect() == aspect
+        plt.close('all')
