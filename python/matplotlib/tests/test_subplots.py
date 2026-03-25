@@ -528,3 +528,91 @@ class TestSubplotsParametric2:
         ax.set_title(title)
         assert ax.get_title() == title
         plt.close('all')
+
+
+class TestSubplotsParametric3:
+    """More parametric tests for subplots."""
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 2)])
+    def test_subplots_axes_count2(self, nrows, ncols):
+        """plt.subplots returns nrows*ncols axes."""
+        import numpy as np
+        fig, axes = plt.subplots(nrows, ncols)
+        count = np.array(axes).flatten().shape[0]
+        assert count == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('w,h', [(4, 3), (6, 4), (8, 6), (10, 8)])
+    def test_subplots_figsize(self, w, h):
+        """plt.subplots(figsize=...) stores size."""
+        fig, ax = plt.subplots(figsize=(w, h))
+        size = fig.get_size_inches()
+        assert abs(size[0] - w) < 1e-10
+        assert abs(size[1] - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title', 'My Plot', ''])
+    def test_subplots_title(self, title):
+        """ax.set_title in subplots roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100)])
+    def test_subplots_xlim(self, lo, hi):
+        """ax xlim roundtrip in subplots."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(lo, hi)
+        assert ax.get_xlim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_subplots_xscale(self, scale):
+        """ax xscale roundtrip in subplots."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_subplots_n_lines(self, n):
+        """ax.plot n times gives n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_subplots_hist_bins(self, bins):
+        """ax.hist bins count."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        n, edges, _ = ax.hist(np.random.randn(100), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_subplots_visible(self, visible):
+        """ax visibility roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('aspect', ['equal', 'auto'])
+    def test_subplots_aspect(self, aspect):
+        """ax aspect roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        assert ax.get_aspect() == aspect
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X Axis', 'Time', ''])
+    def test_subplots_xlabel(self, label):
+        """ax xlabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(label)
+        assert ax.get_xlabel() == label
+        plt.close('all')

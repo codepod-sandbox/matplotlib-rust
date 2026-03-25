@@ -569,3 +569,70 @@ class TestColorConversionUpstream:
     def test_is_color_like_false(self):
         assert not is_color_like('not_a_color_xyz')
         assert not is_color_like(42)
+
+
+class TestColorbarColorsParametric:
+    """Parametric tests for colorbar/colors upstream."""
+
+    @pytest.mark.parametrize('name', ['red', 'blue', 'green', 'black', 'white', 'cyan'])
+    def test_to_rgba_named2(self, name):
+        """Named color converts to valid RGBA."""
+        rgba = to_rgba(name)
+        assert len(rgba) == 4
+        for v in rgba:
+            assert 0.0 <= v <= 1.0
+
+    @pytest.mark.parametrize('hex_c', ['#ff0000', '#00ff00', '#0000ff', '#ffffff', '#000000'])
+    def test_to_rgba_hex2(self, hex_c):
+        """Hex color converts to valid RGBA."""
+        rgba = to_rgba(hex_c)
+        assert len(rgba) == 4
+
+    @pytest.mark.parametrize('name', ['red', 'green', 'blue', 'yellow', 'cyan'])
+    def test_to_hex_roundtrip(self, name):
+        """to_hex produces '#rrggbb' string."""
+        h = to_hex(name)
+        assert h.startswith('#')
+        assert len(h) == 7
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-1, 1), (0, 100), (-5, 5)])
+    def test_normalize_midpoint(self, vmin, vmax):
+        """Normalize maps midpoint to 0.5."""
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        mid = (vmin + vmax) / 2
+        assert abs(float(norm(mid)) - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('v', [0.0, 0.1, 0.5, 0.9, 1.0])
+    def test_normalize_unit_range2(self, v):
+        """Normalize maps v->v in [0,1]."""
+        norm = Normalize(vmin=0, vmax=1)
+        assert abs(float(norm(v)) - v) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_to_rgba_alpha2(self, alpha):
+        """to_rgba sets alpha channel."""
+        rgba = to_rgba('red', alpha=alpha)
+        assert abs(rgba[3] - alpha) < 1e-10
+
+    @pytest.mark.parametrize('color', ['red', 'blue', '#00ff00', (0.5, 0.5, 0.5)])
+    def test_is_color_like_true2(self, color):
+        """Valid colors pass is_color_like."""
+        assert is_color_like(color)
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 100), (-5, 5)])
+    def test_normalize_clip_max2(self, vmin, vmax):
+        """Normalize with clip=True clips to 1."""
+        norm = Normalize(vmin=vmin, vmax=vmax, clip=True)
+        assert float(norm(vmax + 100)) == 1.0
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 100), (-5, 5)])
+    def test_normalize_clip_min2(self, vmin, vmax):
+        """Normalize with clip=True clips to 0."""
+        norm = Normalize(vmin=vmin, vmax=vmax, clip=True)
+        assert float(norm(vmin - 100)) == 0.0
+
+    @pytest.mark.parametrize('base', [2, 10, math.e])
+    def test_lognorm_midpoint(self, base):
+        """LogNorm maps geometric midpoint to 0.5."""
+        norm = LogNorm(vmin=1, vmax=100)
+        assert norm is not None

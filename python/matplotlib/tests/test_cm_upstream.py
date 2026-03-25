@@ -615,3 +615,81 @@ class TestColormapParametricExtended:
         cmap_copy = cmap.copy()
         assert cmap_copy is not cmap
         assert cmap_copy.name == cmap.name
+
+
+class TestCmUpstreamParametric:
+    """Parametric tests for colormap module."""
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'inferno', 'magma', 'cividis'])
+    def test_cmap_sequential(self, name):
+        """Sequential colormaps exist and have N colors."""
+        cmap = cm.get_cmap(name)
+        assert cmap is not None
+        assert cmap.N > 0
+
+    @pytest.mark.parametrize('name', ['RdBu', 'PiYG', 'PRGn', 'BrBG', 'RdGy'])
+    def test_cmap_diverging(self, name):
+        """Diverging colormaps exist."""
+        cmap = cm.get_cmap(name)
+        assert cmap is not None
+
+    @pytest.mark.parametrize('v', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_cmap_returns_rgba(self, v):
+        """Colormap returns 4-tuple RGBA for any value 0-1."""
+        cmap = cm.get_cmap('viridis')
+        rgba = cmap(v)
+        assert len(rgba) == 4
+        for c in rgba:
+            assert 0.0 <= c <= 1.0
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'Blues'])
+    def test_cmap_reversed_name(self, name):
+        """Reversed colormap has _r suffix."""
+        cmap_r = cm.get_cmap(name + '_r')
+        assert cmap_r.name == name + '_r'
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16, 256])
+    def test_listed_colormap_n_colors(self, n):
+        """ListedColormap with n colors."""
+        import matplotlib.colors as mcolors
+        colors = [(i/n, 0, 0, 1) for i in range(n)]
+        cmap = mcolors.ListedColormap(colors)
+        assert cmap.N == n
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'Blues', 'Reds', 'Greens'])
+    def test_cmap_copy_independent(self, name):
+        """Copy is independent from original."""
+        cmap = cm.get_cmap(name)
+        copy = cmap.copy()
+        assert copy is not cmap
+        assert copy.name == cmap.name
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_cmap_with_alpha(self, alpha):
+        """Colormap with alpha returns correct alpha channel."""
+        cmap = cm.get_cmap('viridis')
+        rgba = cmap(0.5, alpha=alpha)
+        assert abs(rgba[3] - alpha) < 1e-10
+
+    @pytest.mark.parametrize('n', [5, 10, 20, 50])
+    def test_cmap_array_shape(self, n):
+        """Colormap applied to n values returns n x 4 array."""
+        cmap = cm.get_cmap('viridis')
+        x = np.linspace(0, 1, n)
+        out = cmap(x)
+        assert out.shape == (n, 4)
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'inferno'])
+    def test_cmap_extremes(self, name):
+        """Colormap returns valid RGBA at 0 and 1."""
+        cmap = cm.get_cmap(name)
+        for v in [0.0, 1.0]:
+            rgba = cmap(v)
+            assert len(rgba) == 4
+
+    @pytest.mark.parametrize('name', ['viridis', 'Blues', 'Reds'])
+    def test_scalar_mappable_set_cmap(self, name):
+        """ScalarMappable accepts cmap by name."""
+        import matplotlib.cm as cm_mod
+        sm = cm_mod.ScalarMappable(cmap=name)
+        assert sm.cmap is not None
