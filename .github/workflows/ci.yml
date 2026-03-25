@@ -39,8 +39,8 @@ jobs:
       - name: Build matplotlib-python binary
         run: cargo build -p matplotlib-python
 
-      - name: Install pytest
-        run: target/debug/matplotlib-python -m pip install pytest pluggy iniconfig packaging
+      - name: Install pytest into python/
+        run: pip3 install pytest pluggy iniconfig packaging --target python/ --no-deps
 
       - name: Run Python tests
         run: target/debug/matplotlib-python -m pytest python/matplotlib/tests/
