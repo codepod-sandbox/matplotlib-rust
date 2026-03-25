@@ -575,3 +575,89 @@ class TestBatch5Parametric:
         ax = fig.add_subplot(1, 1, 1)
         ax.set_title(title)
         assert ax.get_title() == title
+
+
+class TestBatch5Parametric3:
+    """More parametric tests for batch5 (uses Figure directly, no plt)."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_lines(self, n):
+        """n plot calls give n lines."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100)])
+    def test_xlim(self, lo, hi):
+        """xlim roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlim(lo, hi)
+        assert ax.get_xlim() == (lo, hi)
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """xscale roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+
+    @pytest.mark.parametrize('title', ['Title', 'Test', ''])
+    def test_title(self, title):
+        """Title roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_title(title)
+        assert ax.get_title() == title
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_linewidth(self, lw):
+        """Linewidth stored."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D'])
+    def test_marker(self, marker):
+        """Marker stored."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+
+    @pytest.mark.parametrize('n', [2, 3, 5])
+    def test_bar_patches(self, n):
+        """Bar n patches."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        bars = ax.bar(range(n), range(n))
+        assert len(bars.patches) == n
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist(self, bins):
+        """Hist bins."""
+        import numpy as np
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        n, _, _ = ax.hist(np.random.randn(100), bins=bins)
+        assert len(n) == bins
+
+    @pytest.mark.parametrize('label', ['X', 'Time', ''])
+    def test_xlabel(self, label):
+        """xlabel roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlabel(label)
+        assert ax.get_xlabel() == label
+
+    @pytest.mark.parametrize('aspect', ['equal', 'auto'])
+    def test_aspect(self, aspect):
+        """Aspect roundtrip."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_aspect(aspect)
+        assert ax.get_aspect() == aspect
