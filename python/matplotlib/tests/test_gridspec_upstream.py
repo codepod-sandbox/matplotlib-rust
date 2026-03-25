@@ -527,3 +527,84 @@ class TestGridSpecParametric:
         sub = GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ss)
         assert sub.nrows == nrows
         assert sub.ncols == ncols
+
+
+# ===================================================================
+# Extended parametric tests for gridspec (upstream-style)
+# ===================================================================
+
+class TestGridSpecUpstreamParametric:
+    """Extended parametric tests for GridSpec."""
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (1, 1), (2, 2), (3, 3), (2, 4), (4, 2), (1, 5), (5, 1),
+    ])
+    def test_gridspec_dims(self, nrows, ncols):
+        """GridSpec stores nrows and ncols."""
+        gs = GridSpec(nrows, ncols)
+        assert gs.nrows == nrows
+        assert gs.ncols == ncols
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (1, 1), (2, 2), (3, 3), (2, 4),
+    ])
+    def test_gridspec_geometry(self, nrows, ncols):
+        """GridSpec get_geometry returns (nrows, ncols)."""
+        gs = GridSpec(nrows, ncols)
+        assert gs.get_geometry() == (nrows, ncols)
+
+    @pytest.mark.parametrize('hspace', [0.0, 0.2, 0.5, 1.0])
+    def test_gridspec_hspace(self, hspace):
+        """GridSpec accepts hspace parameter."""
+        gs = GridSpec(2, 2, hspace=hspace)
+        assert gs is not None
+
+    @pytest.mark.parametrize('wspace', [0.0, 0.2, 0.5, 1.0])
+    def test_gridspec_wspace(self, wspace):
+        """GridSpec accepts wspace parameter."""
+        gs = GridSpec(2, 2, wspace=wspace)
+        assert gs is not None
+
+    @pytest.mark.parametrize('nrows,ncols', [(2, 2), (3, 3), (2, 4)])
+    def test_gridspec_subplots_count(self, nrows, ncols):
+        """Subplots from gridspec have correct count."""
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        gs = GridSpec(nrows, ncols)
+        for i in range(nrows):
+            for j in range(ncols):
+                fig.add_subplot(gs[i, j])
+        assert len(fig.get_axes()) == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('ratios', [
+        [1, 2], [1, 1, 1], [3, 2, 1], [1, 2, 3, 4],
+    ])
+    def test_width_ratios_extended(self, ratios):
+        """GridSpec width_ratios stores correctly."""
+        gs = GridSpec(1, len(ratios), width_ratios=ratios)
+        assert gs.get_width_ratios() == ratios
+
+    @pytest.mark.parametrize('ratios', [
+        [1, 2], [1, 1, 1], [3, 2, 1], [2, 1, 3],
+    ])
+    def test_height_ratios_extended(self, ratios):
+        """GridSpec height_ratios stores correctly."""
+        gs = GridSpec(len(ratios), 1, height_ratios=ratios)
+        assert gs.get_height_ratios() == ratios
+
+    @pytest.mark.parametrize('idx', [0, 1, 2, 3])
+    def test_subplotspec_num1(self, idx):
+        """SubplotSpec num1 matches index in gridspec."""
+        gs = GridSpec(2, 2)
+        ss = gs[idx]
+        assert ss.num1 == idx
+
+    @pytest.mark.parametrize('nrows,ncols', [(2, 2), (3, 3)])
+    def test_gridspec_from_subplotspec(self, nrows, ncols):
+        """GridSpecFromSubplotSpec stores dimensions."""
+        parent = GridSpec(2, 2)
+        ss = parent[0, 0]
+        sub = GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ss)
+        assert sub.nrows == nrows
+        assert sub.ncols == ncols
