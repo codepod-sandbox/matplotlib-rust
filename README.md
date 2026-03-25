@@ -2,7 +2,7 @@
 
 A Matplotlib implementation in Python for code running in sandboxed environments (RustPython/WASM).
 
-**5,242 tests passing (`2026-03-24`)**
+**10,000 tests passing (`2026-03-25`)**
 
 ## How it works
 
@@ -22,12 +22,13 @@ The entire matplotlib API surface is implemented in pure Python. Rendering backe
 
 | Suite | Result |
 |---|---|
-| Core axes & plot types | 2,400+ passed |
-| Figure, subplots, gridspec | 600+ passed |
-| Lines, patches, text, collections | 700+ passed |
-| Colors, colormaps, norms | 400+ passed |
-| Ticker, transforms, legend, table | 500+ passed |
-| Cycler, artist, container, pyplot | 500+ passed |
+| Core axes & plot types | 2,800+ passed |
+| Figure, subplots, gridspec | 700+ passed |
+| Lines, patches, text, collections | 900+ passed |
+| Colors, colormaps, norms | 600+ passed |
+| Ticker, transforms, legend, table | 700+ passed |
+| Cycler, artist, container, pyplot | 700+ passed |
+| Scale, rendering, backend, rcsetup | 600+ passed |
 
 ### Supported plot types
 
