@@ -513,3 +513,158 @@ class TestRcParamsStress:
     def test_find_all_no_match(self):
         matches = matplotlib.rcParams.find_all('zzz_nonexistent')
         assert len(matches) == 0
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+
+class TestBatch9Parametric:
+    """Parametric tests for batch9 areas."""
+
+    @pytest.mark.parametrize('color,r,g,b', [
+        ('red', 1.0, 0.0, 0.0),
+        ('blue', 0.0, 0.0, 1.0),
+        ('white', 1.0, 1.0, 1.0),
+        ('black', 0.0, 0.0, 0.0),
+    ])
+    def test_named_color_rgb(self, color, r, g, b):
+        """Named colors produce correct RGB."""
+        rgba = mcolors.to_rgba(color)
+        assert abs(rgba[0] - r) < 1e-3
+        assert abs(rgba[1] - g) < 1e-3
+        assert abs(rgba[2] - b) < 1e-3
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_rgba_alpha(self, alpha):
+        """to_rgba preserves alpha."""
+        rgba = mcolors.to_rgba('red', alpha=alpha)
+        assert abs(rgba[3] - alpha) < 1e-10
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 1), (-5, 5), (0, 100),
+    ])
+    def test_normalize_bounds(self, vmin, vmax):
+        """Normalize maps vmin→0 and vmax→1."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        assert abs(float(norm(vmin))) < 1e-10
+        assert abs(float(norm(vmax)) - 1.0) < 1e-10
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 8])
+    def test_plot_n_lines(self, n):
+        """plot n times creates n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-1, 1), (0, 100)])
+    def test_xlim(self, xmin, xmax):
+        """set_xlim / get_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100)])
+    def test_ylim(self, ymin, ymax):
+        """set_ylim / get_ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [3, 5, 10])
+    def test_hist_bins(self, bins):
+        """hist returns n bins."""
+        fig, ax = plt.subplots()
+        n, edges, _ = ax.hist(list(range(50)), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
+
+
+# ===================================================================
+# More parametric tests for batch9
+# ===================================================================
+
+class TestBatch9Parametric2:
+    """More parametric tests for batch9."""
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black', '#aabbcc'])
+    def test_named_color_rgba2(self, color):
+        """Named color converts to RGBA."""
+        import matplotlib.colors as mcolors
+        rgba = mcolors.to_rgba(color)
+        assert len(rgba) == 4
+        assert all(0 <= v <= 1 for v in rgba)
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale2(self, scale):
+        """xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_n_lines2(self, n):
+        """n plot calls creates n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20, 50])
+    def test_hist_bins2(self, bins):
+        """hist returns correct bin count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_xlim2(self, xmin, xmax):
+        """xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax,v', [
+        (0, 1, 0.5), (0, 100, 50), (-1, 1, 0),
+    ])
+    def test_normalize2(self, vmin, vmax, v):
+        """Normalize maps value to [0,1]."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        result = float(norm(v))
+        assert 0.0 <= result <= 1.0
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha2(self, alpha):
+        """Line alpha is stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_linewidth2(self, lw):
+        """Line linewidth is stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')

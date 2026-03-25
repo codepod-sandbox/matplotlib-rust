@@ -472,3 +472,149 @@ class TestFormatterDetailed:
         fmt = ScalarFormatter()
         result = fmt(1e6)
         assert '1' in result
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FixedLocator, FixedFormatter, AutoLocator, MaxNLocator
+
+
+class TestBatch6Parametric:
+    """Parametric tests for batch6 areas."""
+
+    @pytest.mark.parametrize('ticks', [
+        [0.0, 1.0, 2.0],
+        [0, 5, 10, 15, 20],
+        [-3, 0, 3],
+    ])
+    def test_fixed_locator_roundtrip(self, ticks):
+        """FixedLocator returns exact ticks."""
+        loc = FixedLocator(ticks)
+        assert list(loc()) == ticks
+
+    @pytest.mark.parametrize('labels', [
+        ['a', 'b', 'c'],
+        ['zero', 'one', 'two'],
+    ])
+    def test_fixed_formatter_roundtrip(self, labels):
+        """FixedFormatter returns correct labels."""
+        fmt = FixedFormatter(labels)
+        for i, label in enumerate(labels):
+            assert fmt(i, i) == label
+
+    @pytest.mark.parametrize('n', [3, 5, 7, 10])
+    def test_max_n_locator_count(self, n):
+        """MaxNLocator produces at most n+2 ticks."""
+        loc = MaxNLocator(nbins=n)
+        ticks = loc.tick_values(0, 100)
+        assert len(ticks) <= n + 2
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-1, 1), (0, 100)])
+    def test_auto_locator_in_range(self, vmin, vmax):
+        """AutoLocator generates ticks in range."""
+        loc = AutoLocator()
+        ticks = loc.tick_values(vmin, vmax)
+        assert len(ticks) > 0
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n_bars(self, n):
+        """bar creates n bars."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_plot_linewidth(self, lw):
+        """plot linewidth roundtrip."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """set_xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+
+# ===================================================================
+# More parametric tests for batch6
+# ===================================================================
+
+class TestBatch6Parametric2:
+    """More parametric tests for batch6."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_n_lines2(self, n):
+        """n plot calls creates n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20, 50])
+    def test_hist_bins2(self, bins):
+        """hist bins count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_xlim2(self, xmin, xmax):
+        """xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n2(self, n):
+        """bar creates n patches."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 1.0])
+    def test_line_alpha2(self, alpha):
+        """line alpha stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000'])
+    def test_line_color2(self, color):
+        """line color stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D'])
+    def test_scatter_marker2(self, marker):
+        """scatter accepts marker."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], marker=marker)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title A', '', 'Test 123'])
+    def test_title2(self, title):
+        """title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')

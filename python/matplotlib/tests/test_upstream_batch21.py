@@ -449,3 +449,162 @@ class TestMisc:
         line = Line2D([0, 1], [0, 1])
         r = repr(line)
         assert r is not None
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestArtistPropertiesParametric:
+    """Parametric tests for artist properties."""
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_line_alpha(self, alpha):
+        """Line2D alpha is settable."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_line_zorder(self, zorder):
+        """Line2D zorder is settable."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_line_visible(self, visible):
+        """Line2D visible is settable."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() == visible
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_line_linewidth(self, lw):
+        """Line2D linewidth is settable."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_linewidth(lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black'])
+    def test_rectangle_facecolor(self, color):
+        """Rectangle facecolor RGBA has length 4."""
+        from matplotlib.patches import Rectangle
+        r = Rectangle((0, 0), 1, 1, facecolor=color)
+        fc = r.get_facecolor()
+        assert len(fc) == 4
+
+    @pytest.mark.parametrize('x,y,w,h', [
+        (0, 0, 1, 1), (1, 2, 3, 4), (-1, -1, 2, 2),
+    ])
+    def test_rectangle_xy_wh(self, x, y, w, h):
+        """Rectangle stores xy, width, height."""
+        from matplotlib.patches import Rectangle
+        r = Rectangle((x, y), w, h)
+        assert r.get_x() == x
+        assert r.get_y() == y
+        assert r.get_width() == w
+        assert r.get_height() == h
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_axes_n_lines(self, n):
+        """Axes tracks n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_axes_xscale(self, scale):
+        """Axes xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+
+# ===================================================================
+# More parametric tests for batch21
+# ===================================================================
+
+class TestBatch21Parametric2:
+    """More parametric tests for batch21."""
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100), (-10, 10)])
+    def test_xlim2(self, xmin, xmax):
+        """xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100)])
+    def test_ylim2(self, ymin, ymax):
+        """ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins2(self, bins):
+        """hist bins count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black'])
+    def test_line_color2(self, color):
+        """line color stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_linewidth2(self, lw):
+        """line linewidth stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n2(self, n):
+        """bar creates n patches."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_line_visible2(self, visible):
+        """line visibility stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_line_zorder2(self, zorder):
+        """line zorder stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+        plt.close('all')

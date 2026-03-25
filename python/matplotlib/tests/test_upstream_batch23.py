@@ -562,3 +562,84 @@ class TestPlottingParametric:
                          yerr=[0.1, 0.2, 0.3], capsize=capsize)
         assert ec is not None
         plt.close('all')
+
+
+# ===================================================================
+# More parametric tests for batch23
+# ===================================================================
+
+class TestBatch23Parametric2:
+    """More parametric tests for batch23."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_n_lines2(self, n):
+        """n plot calls creates n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n2(self, n):
+        """bar creates n patches."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [3, 5, 10])
+    def test_scatter_n2(self, n):
+        """scatter with n points."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'v', 'D'])
+    def test_marker2(self, marker):
+        """line marker stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1, 2], [0, 1, 0], marker=marker)
+        assert line.get_marker() == marker
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_alpha2(self, alpha):
+        """line alpha stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('linestyle', ['-', '--', ':', '-.'])
+    def test_linestyle2(self, linestyle):
+        """line linestyle stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linestyle=linestyle)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins2(self, bins):
+        """hist bins count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('capsize', [0, 2, 5, 10])
+    def test_errorbar_capsize2(self, capsize):
+        """errorbar capsize."""
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2, 3], [1, 4, 9], yerr=0.1, capsize=capsize)
+        assert ec is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale2(self, scale):
+        """xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')

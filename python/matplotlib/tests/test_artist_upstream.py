@@ -394,3 +394,167 @@ class TestArtistExtendedProperties:
         assert a.stale is False
         a.stale = True
         assert a.stale is True
+
+
+# ===================================================================
+# Additional artist parametric tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
+
+
+class TestArtistParametric:
+    """Parametric tests for Artist base properties."""
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0])
+    def test_line_alpha_roundtrip(self, alpha):
+        """Line2D alpha is settable and retrievable."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 3, 4, 5, 10, 100])
+    def test_line_zorder_roundtrip(self, zorder):
+        """Line2D zorder is settable and retrievable."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_line_visible_roundtrip(self, visible):
+        """Line2D visibility is settable."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() is visible
+
+    @pytest.mark.parametrize('label', ['line_a', 'series_1', '', 'My Line'])
+    def test_line_label_roundtrip(self, label):
+        """Line2D label is settable and retrievable."""
+        line = Line2D([0, 1], [0, 1], label=label)
+        assert line.get_label() == label
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.5, 1.0])
+    def test_rect_alpha_roundtrip(self, alpha):
+        """Rectangle alpha is settable."""
+        r = Rectangle((0, 0), 1, 1)
+        r.set_alpha(alpha)
+        assert abs(r.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5])
+    def test_rect_zorder_roundtrip(self, zorder):
+        """Rectangle zorder is settable."""
+        r = Rectangle((0, 0), 1, 1)
+        r.set_zorder(zorder)
+        assert r.get_zorder() == zorder
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_rect_visible_roundtrip(self, visible):
+        """Rectangle visibility is settable."""
+        r = Rectangle((0, 0), 1, 1)
+        r.set_visible(visible)
+        assert r.get_visible() is visible
+
+    @pytest.mark.parametrize('gid', ['rect_1', 'shape_a', 'my_patch'])
+    def test_artist_gid_roundtrip(self, gid):
+        """Artist gid is settable."""
+        r = Rectangle((0, 0), 1, 1)
+        r.set_gid(gid)
+        assert r.get_gid() == gid
+
+    @pytest.mark.parametrize('url', [
+        'https://example.com', 'http://test.org', '/local/path'
+    ])
+    def test_artist_url_roundtrip(self, url):
+        """Artist URL is settable."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_url(url)
+        assert line.get_url() == url
+
+    @pytest.mark.parametrize('clip', [True, False])
+    def test_artist_clip_on_roundtrip(self, clip):
+        """Artist clip_on is settable."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_clip_on(clip)
+        assert line.get_clip_on() == clip
+
+
+# ===================================================================
+# More parametric tests for artist (upstream-style)
+# ===================================================================
+
+class TestArtistUpstreamParametric:
+    """Parametric tests for artist properties."""
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_artist_alpha(self, alpha):
+        """Artist alpha is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_artist_visible(self, visible):
+        """Artist visibility is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() == visible
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10, 100])
+    def test_artist_zorder(self, zorder):
+        """Artist zorder is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+    @pytest.mark.parametrize('label', ['line1', '', 'series_a', 'my_data'])
+    def test_artist_label(self, label):
+        """Artist label is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1], label=label)
+        assert line.get_label() == label
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000', 'black'])
+    def test_line_color(self, color):
+        """Line2D color is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_color(color)
+        assert line.get_color() == color
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_line_linewidth(self, lw):
+        """Line2D linewidth is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_linewidth(lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'v', 'D', '+', 'x', '*'])
+    def test_line_marker(self, marker):
+        """Line2D marker is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_marker(marker)
+        assert line.get_marker() == marker
+
+    @pytest.mark.parametrize('clip', [True, False])
+    def test_clip_on(self, clip):
+        """Artist clip_on is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_clip_on(clip)
+        assert line.get_clip_on() == clip
+
+    @pytest.mark.parametrize('url', ['http://example.com', '', 'https://test.org'])
+    def test_url(self, url):
+        """Artist url is stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_url(url)
+        assert line.get_url() == url
