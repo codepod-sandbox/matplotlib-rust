@@ -300,3 +300,119 @@ class TestAxesTable:
                        rowLabels=['Row1'])
         cells = tbl.get_celld()
         assert len(cells) >= 3
+
+
+# ===================================================================
+# Parametric tests
+# ===================================================================
+
+class TestCellParametric:
+    """Parametric tests for Cell properties."""
+
+    @pytest.mark.parametrize('w,h', [
+        (1.0, 0.5), (2.0, 2.0), (0.5, 1.5), (10.0, 0.1),
+    ])
+    def test_cell_width_height(self, w, h):
+        """Cell stores width and height."""
+        c = Cell((0, 0), w, h)
+        assert c.get_width() == w
+        assert c.get_height() == h
+
+    @pytest.mark.parametrize('text', ['hello', '', 'A longer text', '42'])
+    def test_cell_text(self, text):
+        """Cell stores text correctly."""
+        c = Cell((0, 0), 1.0, 1.0, text=text)
+        assert c.get_text().get_text() == text
+
+    @pytest.mark.parametrize('facecolor', ['red', 'blue', 'green', 'white', '#ff0000'])
+    def test_cell_facecolor_roundtrip(self, facecolor):
+        """Cell.set_facecolor / get_facecolor roundtrip."""
+        c = Cell((0, 0), 1.0, 1.0)
+        c.set_facecolor(facecolor)
+        assert c.get_facecolor() == facecolor
+
+    @pytest.mark.parametrize('edgecolor', ['black', 'red', 'none', '#000000'])
+    def test_cell_edgecolor_roundtrip(self, edgecolor):
+        """Cell.set_edgecolor / get_edgecolor roundtrip."""
+        c = Cell((0, 0), 1.0, 1.0)
+        c.set_edgecolor(edgecolor)
+        assert c.get_edgecolor() == edgecolor
+
+    @pytest.mark.parametrize('loc', ['center', 'left', 'right'])
+    def test_cell_loc_roundtrip(self, loc):
+        """Cell.set_loc / get_loc roundtrip."""
+        c = Cell((0, 0), 1.0, 1.0)
+        c.set_loc(loc)
+        assert c.get_loc() == loc
+
+    @pytest.mark.parametrize('row,col', [(0, 0), (1, 2), (0, 3), (5, 5)])
+    def test_cell_position(self, row, col):
+        """Cell stores row, col position."""
+        c = Cell((row, col), 1.0, 1.0)
+        assert c._xy == (row, col)
+
+    @pytest.mark.parametrize('width', [0.1, 0.5, 1.0, 5.0, 100.0])
+    def test_cell_set_width(self, width):
+        """Cell.set_width stores width."""
+        c = Cell((0, 0), 1.0, 1.0)
+        c.set_width(width)
+        assert c.get_width() == width
+
+    @pytest.mark.parametrize('height', [0.1, 0.5, 1.0, 5.0, 100.0])
+    def test_cell_set_height(self, height):
+        """Cell.set_height stores height."""
+        c = Cell((0, 0), 1.0, 1.0)
+        c.set_height(height)
+        assert c.get_height() == height
+
+
+class TestTableParametric:
+    """Parametric tests for Table."""
+
+    def _make_table(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        return Table(ax), ax
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (1, 1), (1, 2), (2, 2), (3, 4), (2, 5),
+    ])
+    def test_table_add_cells_count(self, nrows, ncols):
+        """Table contains the correct number of added cells."""
+        tbl, ax = self._make_table()
+        for r in range(nrows):
+            for c in range(ncols):
+                tbl.add_cell(r, c, width=1.0, height=0.5)
+        assert len(tbl.get_celld()) == nrows * ncols
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (2, 3), (3, 2)])
+    def test_table_function_cell_count(self, nrows, ncols):
+        """table() creates correct number of data cells."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        cellText = [['x'] * ncols for _ in range(nrows)]
+        tbl = table(ax, cellText=cellText)
+        assert len(tbl.get_celld()) == nrows * ncols
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14, 16])
+    def test_table_set_fontsize(self, fontsize):
+        """Table.set_fontsize stores the value."""
+        tbl, ax = self._make_table()
+        tbl.set_fontsize(fontsize)
+        assert tbl._fontsize == fontsize
+
+    @pytest.mark.parametrize('edges', ['open', 'closed', 'horizontal', 'vertical'])
+    def test_table_edges(self, edges):
+        """Table.edges stores the edge style."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']], edges=edges)
+        assert tbl.edges == edges
+
+    @pytest.mark.parametrize('loc', ['best', 'upper right', 'lower left', 'center', 'top', 'bottom'])
+    def test_table_loc(self, loc):
+        """Table loc parameter is stored."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']], loc=loc)
+        assert tbl._loc == loc

@@ -333,3 +333,137 @@ class TestAxisExtended:
         fig, ax = plt.subplots()
         assert ax.yaxis.get_label_text() == ''
         plt.close('all')
+
+
+# ===================================================================
+# Parametric Axis tests
+# ===================================================================
+
+class TestAxisParametric:
+    """Parametric tests for XAxis and YAxis."""
+
+    @pytest.mark.parametrize('ticks', [
+        [0.0, 1.0, 2.0],
+        [0, 5, 10, 15, 20],
+        [-3, -2, -1, 0, 1, 2, 3],
+        [0.1, 0.2, 0.5, 1.0],
+    ])
+    def test_xaxis_set_ticks_roundtrip(self, ticks):
+        """XAxis.set_ticks / get_ticks roundtrip."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_ticks(ticks)
+        assert ax.xaxis.get_ticks() == ticks
+        plt.close('all')
+
+    @pytest.mark.parametrize('ticks', [
+        [0.0, 0.25, 0.5, 0.75, 1.0],
+        [10, 20, 30, 40],
+        [-5, 0, 5],
+    ])
+    def test_yaxis_set_ticks_roundtrip(self, ticks):
+        """YAxis.set_ticks / get_ticks roundtrip."""
+        fig, ax = plt.subplots()
+        ax.yaxis.set_ticks(ticks)
+        assert ax.yaxis.get_ticks() == ticks
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X Axis', 'Time (s)', '', 'Frequency (Hz)'])
+    def test_xaxis_label_roundtrip(self, label):
+        """XAxis.set_label_text / get_label_text roundtrip."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_label_text(label)
+        assert ax.xaxis.get_label_text() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['Y Axis', 'Amplitude', '', 'Count'])
+    def test_yaxis_label_roundtrip(self, label):
+        """YAxis.set_label_text / get_label_text roundtrip."""
+        fig, ax = plt.subplots()
+        ax.yaxis.set_label_text(label)
+        assert ax.yaxis.get_label_text() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xaxis_scale_roundtrip(self, scale):
+        """XAxis.get_scale reflects set_xscale."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.xaxis.get_scale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_yaxis_scale_roundtrip(self, scale):
+        """YAxis.get_scale reflects set_yscale."""
+        fig, ax = plt.subplots()
+        ax.set_yscale(scale)
+        assert ax.yaxis.get_scale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 1), (0, 10), (-5, 5), (0, 100), (1, 1000),
+    ])
+    def test_xaxis_tick_values_in_range(self, vmin, vmax):
+        """XAxis.tick_values returns ticks within range."""
+        fig, ax = plt.subplots()
+        vals = ax.xaxis.tick_values(vmin, vmax)
+        assert len(vals) > 0
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 1), (-100, 100), (0.001, 0.01),
+    ])
+    def test_yaxis_tick_values_in_range(self, vmin, vmax):
+        """YAxis.tick_values returns ticks within range."""
+        fig, ax = plt.subplots()
+        vals = ax.yaxis.tick_values(vmin, vmax)
+        assert len(vals) > 0
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_format_ticks_length(self, n):
+        """format_ticks returns same number of labels as ticks."""
+        fig, ax = plt.subplots()
+        ticks = list(range(n))
+        labels = ax.xaxis.format_ticks([float(t) for t in ticks])
+        assert len(labels) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_xaxis_set_visible(self, visible):
+        """XAxis.set_visible / get_visible roundtrip."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_visible(visible)
+        assert ax.xaxis.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_yaxis_set_visible(self, visible):
+        """YAxis.set_visible / get_visible roundtrip."""
+        fig, ax = plt.subplots()
+        ax.yaxis.set_visible(visible)
+        assert ax.yaxis.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 5), (1, 10), (-3, 3), (100, 200),
+    ])
+    def test_xaxis_view_interval(self, vmin, vmax):
+        """XAxis.get_view_interval matches set_xlim."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(vmin, vmax)
+        lo, hi = ax.xaxis.get_view_interval()
+        assert abs(lo - vmin) < 1e-10
+        assert abs(hi - vmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (-1, 1), (0, 100), (-50, 50),
+    ])
+    def test_yaxis_view_interval(self, vmin, vmax):
+        """YAxis.get_view_interval matches set_ylim."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(vmin, vmax)
+        lo, hi = ax.yaxis.get_view_interval()
+        assert abs(lo - vmin) < 1e-10
+        assert abs(hi - vmax) < 1e-10
+        plt.close('all')
