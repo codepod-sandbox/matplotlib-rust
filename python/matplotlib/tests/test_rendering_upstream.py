@@ -720,3 +720,75 @@ class TestRenderingUpstreamParametric3:
         svg = fig.to_svg()
         assert '<svg' in svg
         plt.close('all')
+
+
+class TestRenderingUpstreamParametric4:
+    """Further parametric rendering tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_svg_n_lines(self, n):
+        """SVG renders n line plots."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Test', 'My Plot', 'Signal vs Time', 'Results', ''])
+    def test_svg_with_title(self, title):
+        """SVG renders with title."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        ax.set_title(title)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('xlabel', ['X', 'Time', 'Distance', 'Frequency'])
+    def test_svg_xlabel(self, xlabel):
+        """SVG renders with xlabel."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        ax.set_xlabel(xlabel)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_svg_linewidth(self, lw):
+        """SVG renders with linewidth."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], linewidth=lw)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_bars', [1, 2, 3, 5, 8])
+    def test_svg_bar(self, n_bars):
+        """SVG renders bar chart."""
+        fig, ax = plt.subplots()
+        ax.bar(range(n_bars), range(1, n_bars + 1))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_svg_axis_visibility(self, visible):
+        """SVG renders with axis visibility toggled."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        ax.set_visible(visible)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.2, 0.5, 0.8, 1.0])
+    def test_svg_line_alpha(self, alpha):
+        """SVG renders line with alpha."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')

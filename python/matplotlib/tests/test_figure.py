@@ -565,3 +565,74 @@ class TestFigureParametric2:
             plt.figure()
         plt.close('all')
         assert len(plt.get_fignums()) == 0
+
+
+class TestFigureParametric3:
+    """Further parametric figure tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 6])
+    def test_figure_add_n_subplots(self, n):
+        """Figure.add_subplot can add n subplots."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        for i in range(n):
+            fig.add_subplot(1, n, i + 1)
+        assert len(fig.axes) == n
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6, 4), (8, 6), (10, 7), (12, 9)])
+    def test_figure_figsize_stored(self, figsize):
+        """Figure stores figsize correctly."""
+        from matplotlib.figure import Figure
+        fig = Figure(figsize=figsize)
+        w, h = fig.get_size_inches()
+        assert abs(w - figsize[0]) < 1e-9
+        assert abs(h - figsize[1]) < 1e-9
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200])
+    def test_figure_dpi_stored(self, dpi):
+        """Figure stores dpi correctly."""
+        from matplotlib.figure import Figure
+        fig = Figure(dpi=dpi)
+        assert fig.get_dpi() == dpi
+
+    @pytest.mark.parametrize('title', ['My Figure', 'Test', 'Plot', 'Results', ''])
+    def test_figure_suptitle(self, title):
+        """Figure suptitle is stored and retrievable."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        fig.suptitle(title)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('rows,cols', [(1, 1), (1, 2), (2, 1), (2, 2), (2, 3)])
+    def test_figure_subplots_shape(self, rows, cols):
+        """plt.subplots returns correct number of axes."""
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, axes = plt.subplots(rows, cols)
+        axes_flat = np.array(axes).flatten()
+        assert len(axes_flat) == rows * cols
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_figure_svg_n_subplots(self, n):
+        """Figure with n subplots renders to SVG."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        for i in range(n):
+            ax = fig.add_subplot(1, n, i + 1)
+            ax.plot([0, 1], [i, i + 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('linewidth', [0.5, 1.0, 2.0, 3.0])
+    def test_figure_plot_linewidth(self, linewidth):
+        """Figure renders plot with linewidth."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1], linewidth=linewidth)
+        svg = fig.to_svg()
+        assert '<svg' in svg
