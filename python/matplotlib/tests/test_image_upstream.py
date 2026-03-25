@@ -627,3 +627,87 @@ class TestImageUpstreamParametric:
         im = ax.imshow(data)
         assert im is not None
         plt.close('all')
+
+
+class TestImageUpstreamParametric2:
+    """More parametric tests for image_upstream."""
+
+    @pytest.mark.parametrize('rows,cols', [(5, 5), (10, 10), (20, 30), (100, 100)])
+    def test_imshow_shape(self, rows, cols):
+        """imshow with various shapes."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.rand(rows, cols)
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('cmap', ['viridis', 'plasma', 'gray', 'hot', 'cool'])
+    def test_imshow_cmap(self, cmap):
+        """imshow with various colormaps."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.rand(10, 10)
+        im = ax.imshow(data, cmap=cmap)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 100), (-5, 5)])
+    def test_imshow_vmin_vmax(self, vmin, vmax):
+        """imshow with vmin/vmax."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.rand(10, 10)
+        im = ax.imshow(data, vmin=vmin, vmax=vmax)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('aspect', ['equal', 'auto'])
+    def test_imshow_aspect(self, aspect):
+        """imshow with aspect."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.rand(10, 10)
+        im = ax.imshow(data, aspect=aspect)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 1.0])
+    def test_imshow_alpha(self, alpha):
+        """imshow with alpha."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.rand(10, 10)
+        im = ax.imshow(data, alpha=alpha)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('origin', ['upper', 'lower'])
+    def test_imshow_origin(self, origin):
+        """imshow with origin."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.rand(10, 10)
+        im = ax.imshow(data, origin=origin)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('interp', ['nearest', 'bilinear', 'bicubic'])
+    def test_imshow_interpolation(self, interp):
+        """imshow with interpolation."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.rand(10, 10)
+        im = ax.imshow(data, interpolation=interp)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [5, 10, 20, 50])
+    def test_imshow_square(self, n):
+        """imshow n x n square."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.ones((n, n))
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
