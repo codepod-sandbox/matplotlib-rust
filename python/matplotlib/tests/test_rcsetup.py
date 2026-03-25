@@ -483,3 +483,58 @@ class TestRcSetupParametric:
         with rc_context({key: value}):
             assert matplotlib.rcParams[key] == value
         assert matplotlib.rcParams[key] == original
+
+
+class TestRcSetupParametric2:
+    """More parametric tests for rcsetup."""
+
+    @pytest.mark.parametrize('key', ['lines.linewidth', 'lines.markersize', 'font.size'])
+    def test_rcparams_key_exists(self, key):
+        """Key exists in global rcParams."""
+        assert key in matplotlib.rcParams
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_rcparams_linewidth(self, lw):
+        """lines.linewidth can be set via rc_context."""
+        with rc_context({'lines.linewidth': lw}):
+            assert matplotlib.rcParams['lines.linewidth'] == lw
+
+    @pytest.mark.parametrize('ms', [2, 4, 6, 8, 10])
+    def test_rcparams_markersize(self, ms):
+        """lines.markersize can be set via rc_context."""
+        with rc_context({'lines.markersize': ms}):
+            assert matplotlib.rcParams['lines.markersize'] == ms
+
+    @pytest.mark.parametrize('fs', [8, 10, 12, 14, 16])
+    def test_rcparams_fontsize(self, fs):
+        """font.size can be set via rc_context."""
+        with rc_context({'font.size': fs}):
+            assert matplotlib.rcParams['font.size'] == fs
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200])
+    def test_rcparams_dpi(self, dpi):
+        """figure.dpi can be set via rc_context."""
+        with rc_context({'figure.dpi': dpi}):
+            assert matplotlib.rcParams['figure.dpi'] == dpi
+
+    @pytest.mark.parametrize('key,value', [
+        ('lines.linewidth', 2.0),
+        ('lines.markersize', 6),
+        ('font.size', 12),
+    ])
+    def test_rc_context_restores(self, key, value):
+        """rc_context restores original value."""
+        original = matplotlib.rcParams[key]
+        with rc_context({key: value}):
+            assert matplotlib.rcParams[key] == value
+        assert matplotlib.rcParams[key] == original
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_rcparams_multiple_keys(self, n):
+        """rcParams contains many keys."""
+        assert len(matplotlib.rcParams) >= n
+
+    @pytest.mark.parametrize('key', ['figure.figsize', 'figure.dpi', 'axes.linewidth'])
+    def test_rcparams_figure_keys(self, key):
+        """Figure-related keys exist in rcParams."""
+        assert key in matplotlib.rcParams
