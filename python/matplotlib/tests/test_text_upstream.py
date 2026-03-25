@@ -770,3 +770,87 @@ class TestTextUpstreamParametric:
         from matplotlib.text import Annotation
         ann = Annotation('note', xy=(0, 0), rotation=rotation)
         assert ann.get_rotation() == float(rotation)
+
+
+class TestTextUpstreamParametric2:
+    """More parametric tests for text_upstream."""
+
+    @pytest.mark.parametrize('text', ['Hello', 'World', 'Test', ''])
+    def test_text_content(self, text):
+        """Text content stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, text)
+        assert t.get_text() == text
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (0.5, 0.5), (1, 1), (-1, -1)])
+    def test_text_position(self, x, y):
+        """Text position stored."""
+        from matplotlib.text import Text
+        t = Text(x, y, 'test')
+        pos = t.get_position()
+        assert abs(pos[0] - x) < 1e-10
+        assert abs(pos[1] - y) < 1e-10
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14, 16])
+    def test_text_fontsize(self, fontsize):
+        """Text fontsize stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_text_ha(self, ha):
+        """Text horizontal alignment stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_horizontalalignment(ha)
+        assert t.get_horizontalalignment() == ha
+
+    @pytest.mark.parametrize('va', ['top', 'center', 'bottom', 'baseline'])
+    def test_text_va(self, va):
+        """Text vertical alignment stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_verticalalignment(va)
+        assert t.get_verticalalignment() == va
+
+    @pytest.mark.parametrize('rotation', [0, 30, 45, 90, 180])
+    def test_text_rotation(self, rotation):
+        """Text rotation stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_rotation(rotation)
+        assert abs(t.get_rotation() - rotation) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_text_visible(self, visible):
+        """Text visibility stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_visible(visible)
+        assert t.get_visible() == visible
+
+    @pytest.mark.parametrize('zorder', [1, 2, 5, 10])
+    def test_text_zorder(self, zorder):
+        """Text zorder stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_zorder(zorder)
+        assert t.get_zorder() == zorder
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_ax_n_texts(self, n):
+        """ax.text n times gives n texts."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.text(i * 0.1, i * 0.1, f'text{i}')
+        assert len(ax.texts) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.8, 1.0])
+    def test_text_alpha(self, alpha):
+        """Text alpha stored."""
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_alpha(alpha)
+        assert abs(t.get_alpha() - alpha) < 1e-10
