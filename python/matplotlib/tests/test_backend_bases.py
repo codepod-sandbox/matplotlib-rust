@@ -624,3 +624,96 @@ class TestAxesDrawPlotTypes:
         result = ax.barh([0, 1], [3, 5])
         assert isinstance(result, BarContainer)
         plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for backend_bases
+# ===================================================================
+
+import pytest as _pytest_bb
+
+class TestBackendBasesParametric:
+    """Parametric tests for renderer and axes."""
+
+    @pytest.mark.parametrize('w,h', [(400, 300), (640, 480), (800, 600), (1920, 1080)])
+    def test_renderer_svg_dimensions(self, w, h):
+        """SVG renderer stores correct dimensions."""
+        from matplotlib._svg_backend import RendererSVG
+        r = RendererSVG(w, h, 100)
+        assert r.width == w
+        assert r.height == h
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200])
+    def test_renderer_svg_dpi(self, dpi):
+        """SVG renderer stores correct DPI."""
+        from matplotlib._svg_backend import RendererSVG
+        r = RendererSVG(640, 480, dpi)
+        assert r.dpi == dpi
+
+    @pytest.mark.parametrize('n_lines', [1, 2, 3, 5])
+    def test_draw_n_lines(self, n_lines):
+        """Drawing n lines produces SVG with content."""
+        import matplotlib.pyplot as plt
+        from matplotlib._svg_backend import RendererSVG
+        fig, ax = plt.subplots()
+        for i in range(n_lines):
+            ax.plot([0, 1], [i, i+1])
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        result = r.get_result()
+        assert isinstance(result, str)
+        assert len(result) > 0
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6.4, 4.8), (8, 6)])
+    def test_figure_to_svg_figsize(self, figsize):
+        """figure.to_svg() works for various figsize."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_barh_n_bars(self, n):
+        """barh creates n bars."""
+        import matplotlib.pyplot as plt
+        from matplotlib.container import BarContainer
+        fig, ax = plt.subplots()
+        result = ax.barh(range(n), range(n))
+        assert isinstance(result, BarContainer)
+        assert len(result) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100)])
+    def test_fill_between_ylim(self, ymin, ymax):
+        """fill_between works within various ylim ranges."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        result = ax.fill_between([0, 1, 2], [ymin, (ymin+ymax)/2, ymin])
+        assert result is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title A', '', 'Test'])
+    def test_axes_title_via_renderer(self, title):
+        """Axes title set and retrieved."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000'])
+    def test_line_color_drawn(self, color):
+        """Line with color is drawn to SVG without error."""
+        import matplotlib.pyplot as plt
+        from matplotlib._svg_backend import RendererSVG
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], color=color)
+        r = RendererSVG(640, 480, 100)
+        ax.draw(r)
+        result = r.get_result()
+        assert len(result) > 0
+        plt.close('all')

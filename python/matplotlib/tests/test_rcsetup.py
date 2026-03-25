@@ -406,3 +406,80 @@ class TestRcParamsKeys:
     def test_key_exists(self, key):
         """Expected rcParams key is present."""
         assert key in rcParams
+
+
+# ===================================================================
+# Extended parametric tests for rcsetup
+# ===================================================================
+
+class TestRcSetupParametric:
+    """Parametric tests for RcParams and rc_context."""
+
+    @pytest.mark.parametrize('key,expected_type', [
+        ('lines.linewidth', (int, float)),
+        ('lines.markersize', (int, float)),
+        ('figure.dpi', (int, float)),
+        ('font.size', (int, float)),
+        ('grid.alpha', (int, float)),
+        ('grid.linewidth', (int, float)),
+        ('legend.fontsize', (str, int, float)),
+        ('patch.linewidth', (int, float)),
+    ])
+    def test_key_has_correct_type(self, key, expected_type):
+        """rcParams key has expected type."""
+        import matplotlib
+        val = matplotlib.rcParams[key]
+        assert isinstance(val, expected_type)
+
+    @pytest.mark.parametrize('key', [
+        'lines.linewidth', 'lines.markersize', 'figure.dpi',
+        'figure.figsize', 'font.size', 'axes.facecolor',
+        'axes.edgecolor', 'axes.grid', 'grid.alpha',
+        'grid.linewidth', 'legend.frameon', 'legend.fontsize',
+        'xtick.labelsize', 'ytick.labelsize', 'savefig.dpi',
+        'savefig.format', 'patch.linewidth',
+    ])
+    def test_rcparam_key_exists_in_instance(self, key):
+        """Expected rcParams key is present in matplotlib.rcParams."""
+        import matplotlib
+        assert key in matplotlib.rcParams
+
+    @pytest.mark.parametrize('linewidth', [0.5, 1.0, 2.0, 3.0])
+    def test_rc_context_linewidth(self, linewidth):
+        """rc_context temporarily sets lines.linewidth."""
+        import matplotlib
+        original = matplotlib.rcParams['lines.linewidth']
+        with rc_context({'lines.linewidth': linewidth}):
+            assert matplotlib.rcParams['lines.linewidth'] == linewidth
+        assert matplotlib.rcParams['lines.linewidth'] == original
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14, 16])
+    def test_rc_context_fontsize(self, fontsize):
+        """rc_context temporarily sets font.size."""
+        import matplotlib
+        original = matplotlib.rcParams['font.size']
+        with rc_context({'font.size': fontsize}):
+            assert matplotlib.rcParams['font.size'] == fontsize
+        assert matplotlib.rcParams['font.size'] == original
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200])
+    def test_rc_context_figure_dpi(self, dpi):
+        """rc_context temporarily sets figure.dpi."""
+        import matplotlib
+        original = matplotlib.rcParams['figure.dpi']
+        with rc_context({'figure.dpi': dpi}):
+            assert matplotlib.rcParams['figure.dpi'] == dpi
+        assert matplotlib.rcParams['figure.dpi'] == original
+
+    @pytest.mark.parametrize('key,value', [
+        ('lines.linewidth', 2.5),
+        ('font.size', 14),
+        ('figure.dpi', 150),
+    ])
+    def test_rc_context_restores_on_exit(self, key, value):
+        """rc_context restores original value after exit."""
+        import matplotlib
+        original = matplotlib.rcParams[key]
+        with rc_context({key: value}):
+            assert matplotlib.rcParams[key] == value
+        assert matplotlib.rcParams[key] == original

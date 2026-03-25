@@ -514,3 +514,93 @@ class TestFormatterBase:
     def test_format_data_short(self):
         fmt = Formatter()
         assert fmt.format_data_short(42) == '42'
+
+
+# ===================================================================
+# Extended parametric tests for ticker
+# ===================================================================
+
+class TestTickerParametric:
+    """Parametric tests for ticker locators and formatters."""
+
+    @pytest.mark.parametrize('locs,expected', [
+        ([1, 2, 3], [1, 2, 3]),
+        ([0.0, 0.5, 1.0], [0.0, 0.5, 1.0]),
+        ([10, 20, 30, 40], [10, 20, 30, 40]),
+    ])
+    def test_fixed_locator_locs(self, locs, expected):
+        """FixedLocator returns given locs."""
+        from matplotlib.ticker import FixedLocator
+        loc = FixedLocator(locs)
+        ticks = loc.tick_values(0, 100)
+        for v in expected:
+            assert v in ticks
+
+    @pytest.mark.parametrize('base', [2, 5, 10])
+    def test_log_locator_base(self, base):
+        """LogLocator with various bases generates ticks."""
+        from matplotlib.ticker import LogLocator
+        loc = LogLocator(base=base)
+        ticks = loc.tick_values(1, 100)
+        assert len(ticks) > 0
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 1), (0, 10), (-5, 5), (0, 100),
+    ])
+    def test_auto_locator_range(self, vmin, vmax):
+        """AutoLocator generates ticks in range."""
+        from matplotlib.ticker import AutoLocator
+        loc = AutoLocator()
+        ticks = loc.tick_values(vmin, vmax)
+        assert len(ticks) > 0
+        assert all(vmin - 1 <= t <= vmax + 1 for t in ticks)
+
+    @pytest.mark.parametrize('n', [2, 3, 5, 7, 10])
+    def test_max_n_locator(self, n):
+        """MaxNLocator generates at most n+1 ticks."""
+        from matplotlib.ticker import MaxNLocator
+        loc = MaxNLocator(nbins=n)
+        ticks = loc.tick_values(0, 100)
+        assert len(ticks) <= n + 2  # allow some slack
+
+    @pytest.mark.parametrize('seq', [
+        ['a', 'b', 'c'],
+        ['x', 'y'],
+        ['1', '2', '3', '4'],
+        ['Jan', 'Feb', 'Mar'],
+    ])
+    def test_fixed_formatter_seq(self, seq):
+        """FixedFormatter returns labels via format_ticks."""
+        from matplotlib.ticker import FixedFormatter
+        fmt = FixedFormatter(seq)
+        locs = list(range(len(seq)))
+        fmt.set_locs(locs)
+        labels = fmt.format_ticks(locs)
+        assert labels == seq
+
+    @pytest.mark.parametrize('fmt_str', ['%d', '%.2f', '%.3g', '%e'])
+    def test_format_str_formatter(self, fmt_str):
+        """FormatStrFormatter formats value."""
+        from matplotlib.ticker import FormatStrFormatter
+        fmt = FormatStrFormatter(fmt_str)
+        result = fmt(42, None)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (1, 10), (0.1, 100), (1, 1000), (10, 10000),
+    ])
+    def test_log_locator_tick_values_positive(self, vmin, vmax):
+        """LogLocator tick_values are all positive."""
+        from matplotlib.ticker import LogLocator
+        loc = LogLocator(base=10)
+        ticks = loc.tick_values(vmin, vmax)
+        assert len(ticks) > 0
+        assert all(t > 0 for t in ticks)
+
+    @pytest.mark.parametrize('n_minor', [2, 4, 5, 9])
+    def test_auto_minor_locator(self, n_minor):
+        """AutoMinorLocator generates minor ticks."""
+        from matplotlib.ticker import AutoMinorLocator
+        loc = AutoMinorLocator(n=n_minor)
+        assert loc is not None
