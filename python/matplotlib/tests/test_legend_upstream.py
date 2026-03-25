@@ -604,3 +604,94 @@ class TestLegendExtendedProperties:
         r = repr(leg)
         assert 'Legend' in r
         plt.close('all')
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestLegendParametricExtended:
+    """Extended parametric legend tests."""
+
+    @pytest.mark.parametrize('loc', [
+        'best', 'upper right', 'upper left', 'lower right', 'lower left',
+        'center', 'right', 'left',
+    ])
+    def test_legend_loc(self, loc):
+        """Legend accepts various location strings."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend(loc=loc)
+        assert leg is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_legend_n_handles(self, n):
+        """Legend has correct number of handles."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([i, i+1], [i, i+1], label=f'line{i}')
+        leg = ax.legend()
+        assert len(leg.get_handles()) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_legend_n_texts(self, n):
+        """Legend has correct number of text entries."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([i, i+1], [i, i+1], label=f'line{i}')
+        leg = ax.legend()
+        assert len(leg.get_texts()) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Legend', '', 'My Legend', 'Test Title'])
+    def test_legend_title(self, title):
+        """Legend title is settable."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend(title=title)
+        assert leg.get_title().get_text() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('frameon', [True, False])
+    def test_legend_frameon(self, frameon):
+        """Legend frameon is settable."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend(frameon=frameon)
+        assert leg.get_frame_on() == frameon
+        plt.close('all')
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14])
+    def test_legend_fontsize(self, fontsize):
+        """Legend fontsize is settable."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend(fontsize=fontsize)
+        assert leg is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_legend_visible(self, visible):
+        """Legend visible is settable."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend()
+        leg.set_visible(visible)
+        assert leg.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('ncol', [1, 2, 3])
+    def test_legend_ncol(self, ncol):
+        """Legend accepts ncol parameter."""
+        fig, ax = plt.subplots()
+        for i in range(3):
+            ax.plot([i, i+1], [i, i+1], label=f'line{i}')
+        leg = ax.legend(ncol=ncol)
+        assert leg is not None
+        plt.close('all')
