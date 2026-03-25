@@ -598,3 +598,71 @@ class TestCollectionsParametricExtended:
         segs = [[(0, i), (1, i+1)] for i in range(n)]
         lc = LineCollection(segs)
         assert lc is not None
+
+
+class TestCollectionsUpstreamParametric2:
+    """More parametric tests for collections_upstream."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_linecollection_n_segs(self, n):
+        """LineCollection with n segments."""
+        segs = [[(0, i), (1, i+1)] for i in range(n)]
+        lc = LineCollection(segs)
+        assert len(lc.get_segments()) == n
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_linecollection_lw(self, lw):
+        """LineCollection linewidth stored."""
+        segs = [[(0, 0), (1, 1)]]
+        lc = LineCollection(segs, linewidths=lw)
+        assert lc is not None
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.8, 1.0])
+    def test_linecollection_alpha(self, alpha):
+        """LineCollection alpha stored."""
+        segs = [[(0, 0), (1, 1)]]
+        lc = LineCollection(segs)
+        lc.set_alpha(alpha)
+        assert abs(lc.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_linecollection_visible(self, visible):
+        """LineCollection visibility."""
+        segs = [[(0, 0), (1, 1)]]
+        lc = LineCollection(segs)
+        lc.set_visible(visible)
+        assert lc.get_visible() == visible
+
+    @pytest.mark.parametrize('zorder', [1, 2, 5, 10])
+    def test_linecollection_zorder(self, zorder):
+        """LineCollection zorder."""
+        segs = [[(0, 0), (1, 1)]]
+        lc = LineCollection(segs)
+        lc.set_zorder(zorder)
+        assert lc.get_zorder() == zorder
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_ax_line_n_segs(self, n):
+        """ax with n lines via LineCollection."""
+        fig, ax = plt.subplots()
+        segs = [[(0, i), (1, i+1)] for i in range(n)]
+        lc = LineCollection(segs)
+        ax.add_collection(lc)
+        assert lc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('linestyle', ['-', '--', ':', '-.'])
+    def test_linecollection_linestyle(self, linestyle):
+        """LineCollection linestyle stored."""
+        segs = [[(0, 0), (1, 1)]]
+        lc = LineCollection(segs, linestyles=linestyle)
+        assert lc is not None
+
+    @pytest.mark.parametrize('n', [2, 3, 5, 10])
+    def test_polycollection_n(self, n):
+        """PolyCollection with n polygons."""
+        from matplotlib.collections import PolyCollection
+        import numpy as np
+        verts = [np.array([(0, 0), (1, 0), (1, 1), (0, 1)]) for _ in range(n)]
+        pc = PolyCollection(verts)
+        assert pc is not None

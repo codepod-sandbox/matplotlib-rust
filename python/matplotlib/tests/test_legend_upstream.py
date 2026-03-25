@@ -769,3 +769,73 @@ class TestLegendUpstreamParametric2:
         leg.set_visible(visible)
         assert leg.get_visible() == visible
         plt.close('all')
+
+
+class TestLegendUpstreamParametric3:
+    """More parametric tests for legend_upstream."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_legend_n_handles(self, n):
+        """Legend with n handles."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1], label=f'line{i}')
+        leg = ax.legend()
+        assert len(leg.get_lines()) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('loc', ['upper right', 'upper left', 'lower right', 'lower left'])
+    def test_legend_loc2(self, loc):
+        """Legend location stored."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend(loc=loc)
+        assert leg is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Legend', 'My Legend', ''])
+    def test_legend_title2(self, title):
+        """Legend title stored."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend(title=title)
+        assert leg.get_title().get_text() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_legend_visible2(self, visible):
+        """Legend visibility."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend()
+        leg.set_visible(visible)
+        assert leg.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14])
+    def test_legend_fontsize(self, fontsize):
+        """Legend fontsize accepted."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend(fontsize=fontsize)
+        assert leg is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('ncol', [1, 2, 3])
+    def test_legend_ncol(self, ncol):
+        """Legend ncol accepted."""
+        fig, ax = plt.subplots()
+        for i in range(4):
+            ax.plot([0, 1], [i, i+1], label=f'line{i}')
+        leg = ax.legend(ncol=ncol)
+        assert leg is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.8, 1.0])
+    def test_legend_framealpha(self, alpha):
+        """Legend framealpha accepted."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='line')
+        leg = ax.legend(framealpha=alpha)
+        assert leg is not None
+        plt.close('all')

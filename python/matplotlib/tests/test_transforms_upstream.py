@@ -885,3 +885,100 @@ class TestNonsingular:
         vmin, vmax = nonsingular(10, 1, increasing=False)
         assert vmin == 10
         assert vmax == 1
+
+
+class TestTransformsUpstreamParametric2:
+    """More parametric tests for transforms_upstream."""
+    import matplotlib.pyplot as plt
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100), (-5, 5)])
+    def test_xlim(self, lo, hi):
+        """xlim roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(lo, hi)
+        assert ax.get_xlim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100)])
+    def test_ylim(self, lo, hi):
+        """ylim roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_ylim(lo, hi)
+        assert ax.get_ylim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """xscale roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_lines(self, n):
+        """n lines."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_linewidth(self, lw):
+        """Linewidth stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title', 'Test', ''])
+    def test_title(self, title):
+        """Title roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist(self, bins):
+        """Hist bins."""
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        n, _, _ = ax.hist(np.random.randn(100), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 5])
+    def test_bar(self, n):
+        """Bar patches."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(n))
+        assert len(bars.patches) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('aspect', ['equal', 'auto'])
+    def test_aspect(self, aspect):
+        """Aspect roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        assert ax.get_aspect() == aspect
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_visible(self, visible):
+        """Visibility roundtrip."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close('all')
