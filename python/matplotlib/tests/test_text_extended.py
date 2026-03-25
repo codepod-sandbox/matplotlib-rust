@@ -384,3 +384,60 @@ class TestTextExtendedParametric:
         t.set_zorder(zorder)
         assert t.get_zorder() == zorder
         plt.close('all')
+
+
+class TestTextExtendedParametric2:
+    """More parametric tests for Text properties."""
+
+    @pytest.mark.parametrize('fontsize', [6, 8, 10, 12, 14, 16, 18, 24, 36])
+    def test_text_fontsize_roundtrip(self, fontsize):
+        """Text fontsize roundtrips correctly."""
+        t = Text(0, 0, 'hello', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('text', ['hello', 'world', 'foo bar', '1234', 'αβγ', ''])
+    def test_text_content_roundtrip(self, text):
+        """Text content roundtrips correctly."""
+        t = Text(0, 0, text)
+        assert t.get_text() == text
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (1, 2), (-3, 4), (0.5, 0.5), (100, 200)])
+    def test_text_position_roundtrip(self, x, y):
+        """Text position roundtrips correctly."""
+        t = Text(x, y, 'hello')
+        pos = t.get_position()
+        assert abs(pos[0] - x) < 1e-9
+        assert abs(pos[1] - y) < 1e-9
+
+    @pytest.mark.parametrize('rotation', [0, 15, 30, 45, 60, 90, 180, 270])
+    def test_text_rotation_roundtrip(self, rotation):
+        """Text rotation roundtrips correctly."""
+        t = Text(0, 0, 'hello')
+        t.set_rotation(rotation)
+        assert abs(t.get_rotation() - rotation) < 1e-9
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_text_ha_roundtrip(self, ha):
+        """Text horizontal alignment roundtrips."""
+        t = Text(0, 0, 'hello', ha=ha)
+        assert t.get_horizontalalignment() == ha
+
+    @pytest.mark.parametrize('va', ['top', 'center', 'bottom', 'baseline'])
+    def test_text_va_roundtrip(self, va):
+        """Text vertical alignment roundtrips."""
+        t = Text(0, 0, 'hello', va=va)
+        assert t.get_verticalalignment() == va
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_text_alpha_roundtrip(self, alpha):
+        """Text alpha roundtrips."""
+        t = Text(0, 0, 'hello')
+        t.set_alpha(alpha)
+        assert abs(t.get_alpha() - alpha) < 1e-9
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_text_visibility(self, visible):
+        """Text visibility is set correctly."""
+        t = Text(0, 0, 'hello')
+        t.set_visible(visible)
+        assert t.get_visible() == visible

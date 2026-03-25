@@ -804,3 +804,66 @@ class TestAxesParametric2:
         ax.set_xscale(scale)
         assert ax.get_xscale() == scale
         plt.close('all')
+
+
+class TestAxesParametric3:
+    """Further parametric axes tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6, 7, 8])
+    def test_axes_n_lines(self, n):
+        """Axes can have n lines plotted."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i + 1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000', 'orange'])
+    def test_axes_line_color(self, color):
+        """Line color is set correctly via plot."""
+        from matplotlib.colors import to_hex
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert to_hex(line.get_color()) == to_hex(color)
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D', 'v', '+', 'x'])
+    def test_axes_marker(self, marker):
+        """Line marker is set correctly."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 1.5, 2.0, 3.0, 5.0])
+    def test_axes_linewidth(self, lw):
+        """Line width is set correctly."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-9
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_bars', [1, 2, 3, 5, 8, 10])
+    def test_axes_bar_count(self, n_bars):
+        """Bar chart produces correct number of patches."""
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n_bars), range(1, n_bars + 1))
+        assert len(bars) == n_bars
+        plt.close('all')
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_axes_text_ha(self, ha):
+        """Text horizontal alignment is set correctly."""
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'hello', ha=ha)
+        assert t.get_horizontalalignment() == ha
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_axes_line_alpha(self, alpha):
+        """Line alpha is set correctly."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-9
+        plt.close('all')
