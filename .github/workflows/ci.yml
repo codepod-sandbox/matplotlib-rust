@@ -42,7 +42,7 @@ jobs:
       - name: Install pytest into python/
         run: |
           pip3 install "pytest==8.4.2" pluggy iniconfig packaging pygments py --target python/ --no-deps
-          python3 scripts/patch-pytest-rustpython.py python
+          cp scripts/pytester-rustpython-compat.py python/_pytest/pytester.py
 
       - name: Run Python tests
         run: target/debug/matplotlib-python -m pytest python/matplotlib/tests/
