@@ -495,3 +495,68 @@ class TestAnnotationUpstreamParametric:
             ax.annotate(f'ann{i}', xy=(i * 0.1, i * 0.1))
         assert len(ax.texts) == n
         plt.close('all')
+
+
+class TestAnnotationUpstreamParametric2:
+    """More parametric tests for annotation_upstream."""
+
+    @pytest.mark.parametrize('text', ['Note', 'Important', ''])
+    def test_annotation_text(self, text):
+        """Annotation stores text."""
+        from matplotlib.text import Annotation
+        ann = Annotation(text, xy=(0.5, 0.5))
+        assert ann.get_text() == text
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (0.5, 0.5), (1, 1), (-1, -1)])
+    def test_annotation_position(self, x, y):
+        """Annotation stores position."""
+        from matplotlib.text import Annotation
+        ann = Annotation('test', xy=(x, y))
+        assert ann.xy == (x, y)
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14])
+    def test_annotation_fontsize(self, fontsize):
+        """Annotation fontsize stored."""
+        from matplotlib.text import Annotation
+        ann = Annotation('test', xy=(0, 0), fontsize=fontsize)
+        assert ann.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_annotations(self, n):
+        """n annotations add to texts."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.annotate(f'a{i}', xy=(i * 0.1, i * 0.1))
+        assert len(ax.texts) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_annotation_visible(self, visible):
+        """Annotation visibility."""
+        from matplotlib.text import Annotation
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_visible(visible)
+        assert ann.get_visible() == visible
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.8, 1.0])
+    def test_annotation_alpha(self, alpha):
+        """Annotation alpha stored."""
+        from matplotlib.text import Annotation
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_alpha(alpha)
+        assert abs(ann.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('zorder', [1, 2, 5, 10])
+    def test_annotation_zorder(self, zorder):
+        """Annotation zorder stored."""
+        from matplotlib.text import Annotation
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_zorder(zorder)
+        assert ann.get_zorder() == zorder
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_annotation_ha(self, ha):
+        """Annotation horizontal alignment."""
+        from matplotlib.text import Annotation
+        ann = Annotation('test', xy=(0, 0), ha=ha)
+        assert ann.get_horizontalalignment() == ha

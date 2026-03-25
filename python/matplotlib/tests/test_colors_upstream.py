@@ -963,3 +963,72 @@ class TestTwoSlopeNorm:
         n = mcolors.TwoSlopeNorm(vcenter=0, vmin=-1, vmax=1)
         r = repr(n)
         assert 'TwoSlopeNorm' in r or 'vcenter' in r
+
+
+class TestColorsUpstreamParametric2:
+    """More parametric tests for colors_upstream."""
+
+    @pytest.mark.parametrize('name', ['red', 'blue', 'green', 'black', 'white'])
+    def test_to_rgba_named(self, name):
+        """Named color to RGBA."""
+        rgba = mcolors.to_rgba(name)
+        assert len(rgba) == 4
+        for v in rgba:
+            assert 0.0 <= v <= 1.0
+
+    @pytest.mark.parametrize('v', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_normalize_unit(self, v):
+        """Normalize maps v->v in [0,1]."""
+        norm = mcolors.Normalize(vmin=0, vmax=1)
+        assert abs(float(norm(v)) - v) < 1e-10
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-1, 1), (0, 100)])
+    def test_normalize_midpoint(self, vmin, vmax):
+        """Normalize maps midpoint to 0.5."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        mid = (vmin + vmax) / 2
+        assert abs(float(norm(mid)) - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('gamma', [0.5, 1.0, 2.0, 3.0])
+    def test_power_norm(self, gamma):
+        """PowerNorm 0->0, 1->1."""
+        norm = mcolors.PowerNorm(gamma=gamma, vmin=0, vmax=1)
+        assert abs(float(norm(0)) - 0.0) < 1e-10
+        assert abs(float(norm(1)) - 1.0) < 1e-10
+
+    @pytest.mark.parametrize('vcenter', [-1, 0, 1, 2])
+    def test_twoslope_center(self, vcenter):
+        """TwoSlopeNorm maps vcenter to 0.5."""
+        norm = mcolors.TwoSlopeNorm(vmin=vcenter-2, vcenter=vcenter, vmax=vcenter+2)
+        assert abs(float(norm(vcenter)) - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_to_rgba_alpha(self, alpha):
+        """to_rgba with alpha."""
+        rgba = mcolors.to_rgba('red', alpha=alpha)
+        assert abs(rgba[3] - alpha) < 1e-10
+
+    @pytest.mark.parametrize('color', ['red', 'blue', '#ff0000', (1, 0, 0)])
+    def test_is_color_like(self, color):
+        """Valid colors pass is_color_like."""
+        assert mcolors.is_color_like(color)
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16])
+    def test_listed_colormap(self, n):
+        """ListedColormap with n colors."""
+        import numpy as np
+        colors = np.random.rand(n, 4)
+        cmap = mcolors.ListedColormap(colors)
+        assert cmap.N == n
+
+    @pytest.mark.parametrize('name', ['red', 'green', 'blue'])
+    def test_to_hex(self, name):
+        """to_hex produces hex string."""
+        h = mcolors.to_hex(name)
+        assert h.startswith('#') and len(h) == 7
+
+    @pytest.mark.parametrize('linthresh', [0.01, 0.1, 1.0, 10.0])
+    def test_symlog_norm(self, linthresh):
+        """SymLogNorm created with linthresh."""
+        norm = mcolors.SymLogNorm(linthresh=linthresh, vmin=-100, vmax=100)
+        assert norm is not None
