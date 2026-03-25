@@ -504,3 +504,67 @@ class TestBoundaryNormParametric:
         boundaries = list(range(ncolors + 1))
         norm = BoundaryNorm(boundaries=boundaries, ncolors=ncolors)
         assert norm.N == ncolors
+
+
+# ===================================================================
+# More parametric tests for norms
+# ===================================================================
+
+class TestNormsParametric2:
+    """More parametric tests for norms."""
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-1, 1), (0, 100), (-5, 5), (0, 255)])
+    def test_normalize_range2(self, vmin, vmax):
+        """Normalize maps midpoint to 0.5."""
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        mid = (vmin + vmax) / 2
+        assert abs(float(norm(mid)) - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('v', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_normalize_unit_range(self, v):
+        """Normalize with vmin=0, vmax=1 maps v to v."""
+        norm = Normalize(vmin=0, vmax=1)
+        assert abs(float(norm(v)) - v) < 1e-10
+
+    @pytest.mark.parametrize('vcenter', [-2, -1, 0, 1, 2])
+    def test_two_slope_norm_vcenter(self, vcenter):
+        """TwoSlopeNorm maps vcenter to 0.5."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.TwoSlopeNorm(vmin=vcenter-3, vcenter=vcenter, vmax=vcenter+3)
+        assert abs(float(norm(vcenter)) - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('gamma', [0.5, 1.0, 1.5, 2.0, 3.0])
+    def test_power_norm_gamma2(self, gamma):
+        """PowerNorm maps 0->0, 1->1 for any gamma."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.PowerNorm(gamma=gamma, vmin=0, vmax=1)
+        assert abs(float(norm(0)) - 0.0) < 1e-10
+        assert abs(float(norm(1)) - 1.0) < 1e-10
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 100), (-5, 5)])
+    def test_normalize_clip_max(self, vmin, vmax):
+        """Normalize clips values above vmax to 1."""
+        norm = Normalize(vmin=vmin, vmax=vmax, clip=True)
+        assert float(norm(vmax + 100)) == 1.0
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 100), (-5, 5)])
+    def test_normalize_clip_min(self, vmin, vmax):
+        """Normalize clips values below vmin to 0."""
+        norm = Normalize(vmin=vmin, vmax=vmax, clip=True)
+        assert float(norm(vmin - 100)) == 0.0
+
+    @pytest.mark.parametrize('linthresh', [0.01, 0.1, 1.0, 10.0])
+    def test_symlog_norm_linthresh2(self, linthresh):
+        """SymLogNorm accepts various linthresh values."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.SymLogNorm(linthresh=linthresh, vmin=-100, vmax=100)
+        assert norm is not None
+
+    @pytest.mark.parametrize('ncolors', [2, 4, 8, 16, 256])
+    def test_boundary_norm_ncolors(self, ncolors):
+        """BoundaryNorm with ncolors stores N correctly."""
+        import matplotlib.colors as mcolors
+        import numpy as np
+        boundaries = list(range(ncolors + 1))
+        norm = mcolors.BoundaryNorm(boundaries, ncolors)
+        assert norm.N == ncolors
