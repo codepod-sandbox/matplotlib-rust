@@ -628,3 +628,127 @@ class TestPropCycleParametric7:
         c = cycler(linewidth=[1, 2, 3])
         items = list(itertools.islice(itertools.cycle(list(c)), n))
         assert all('linewidth' in item for item in items)
+
+
+class TestPropCycleParametric8:
+    """Parametric prop_cycle tests - set 8."""
+
+    @pytest.mark.parametrize('n', range(1, 21))
+    def test_cycler_len_range(self, n):
+        c = cycler(color=['C{}'.format(i) for i in range(n)])
+        assert len(c) == n
+
+    @pytest.mark.parametrize('val', [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    def test_alpha_values(self, val):
+        c = cycler(alpha=[val])
+        assert abs(list(c)[0]['alpha'] - val) < 1e-9
+
+    @pytest.mark.parametrize('lw', [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0])
+    def test_linewidth_values(self, lw):
+        c = cycler(linewidth=[lw])
+        assert abs(list(c)[0]['linewidth'] - lw) < 1e-9
+
+    @pytest.mark.parametrize('color', [
+        'r', 'g', 'b', 'c', 'm', 'y', 'k', 'w',
+        'red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'black', 'white',
+        '#ff0000', '#00ff00', '#0000ff',
+        'C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9',
+    ])
+    def test_color_values(self, color):
+        c = cycler(color=[color])
+        assert list(c)[0]['color'] == color
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5, 6, 7, 8, 9, 10])
+    def test_cycler_iteration(self, n):
+        c = cycler(linewidth=list(range(1, n + 1)))
+        vals = [item['linewidth'] for item in c]
+        assert vals == list(range(1, n + 1))
+
+    @pytest.mark.parametrize('marker', ['o', '.', ',', 'v', '^', '<', '>', 's', 'p', '*'])
+    def test_marker_values(self, marker):
+        c = cycler(marker=[marker])
+        assert list(c)[0]['marker'] == marker
+
+    @pytest.mark.parametrize('ls', ['-', '--', '-.', ':'])
+    def test_linestyle_round_trip(self, ls):
+        c = cycler(linestyle=[ls])
+        assert list(c)[0]['linestyle'] == ls
+
+    @pytest.mark.parametrize('n', range(3, 13))
+    def test_cycler_keys_single(self, n):
+        c = cycler(linewidth=list(range(n)))
+        assert 'linewidth' in c.keys
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 7, 9, 11, 13, 15, 17, 19])
+    def test_odd_lengths(self, n):
+        c = cycler(color=['red'] * n)
+        assert len(c) == n
+
+    @pytest.mark.parametrize('n', [2, 4, 6, 8, 10, 12, 14, 16, 18, 20])
+    def test_even_lengths(self, n):
+        c = cycler(color=['blue'] * n)
+        assert len(c) == n
+
+
+class TestPropCycleParametric9:
+    """Parametric prop_cycle tests - set 9."""
+
+    @pytest.mark.parametrize('i', range(10))
+    def test_cn_color_indexed(self, i):
+        color = 'C{}'.format(i)
+        c = cycler(color=[color])
+        assert list(c)[0]['color'] == color
+
+    @pytest.mark.parametrize('n', range(1, 16))
+    def test_alpha_cycler_length(self, n):
+        alphas = [i / n for i in range(1, n + 1)]
+        c = cycler(alpha=alphas)
+        assert len(c) == n
+
+    @pytest.mark.parametrize('n', range(2, 12))
+    def test_color_cycler_iteration_n(self, n):
+        colors = ['C{}'.format(i % 10) for i in range(n)]
+        c = cycler(color=colors)
+        result = [item['color'] for item in c]
+        assert result == colors
+
+    @pytest.mark.parametrize('lw,n', [(0.5, 3), (1.0, 5), (2.0, 7), (3.0, 4), (5.0, 6)])
+    def test_linewidth_in_cycle(self, lw, n):
+        c = cycler(linewidth=[lw] * n)
+        assert all(abs(item['linewidth'] - lw) < 1e-9 for item in c)
+
+    @pytest.mark.parametrize('colors', [
+        ['red'], ['r', 'g'], ['r', 'g', 'b'], ['r', 'g', 'b', 'c', 'm'],
+        ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'],
+    ])
+    def test_color_list(self, colors):
+        c = cycler(color=colors)
+        assert len(c) == len(colors)
+
+    @pytest.mark.parametrize('alpha', [i / 20 for i in range(1, 21)])
+    def test_alpha_fine_grid(self, alpha):
+        c = cycler(alpha=[alpha])
+        assert abs(list(c)[0]['alpha'] - alpha) < 1e-9
+
+    @pytest.mark.parametrize('n', range(1, 11))
+    def test_linewidth_sequence(self, n):
+        lws = [0.5 * i for i in range(1, n + 1)]
+        c = cycler(linewidth=lws)
+        result = [item['linewidth'] for item in c]
+        assert all(abs(a - b) < 1e-9 for a, b in zip(result, lws))
+
+    @pytest.mark.parametrize('prop', ['color', 'linewidth', 'alpha', 'marker', 'linestyle'])
+    def test_single_key_cycler(self, prop):
+        vals = {'color': ['red'], 'linewidth': [1.0], 'alpha': [0.5], 'marker': ['o'], 'linestyle': ['-']}
+        c = cycler(**{prop: vals[prop]})
+        assert prop in c.keys
+
+    @pytest.mark.parametrize('n', range(5, 25))
+    def test_large_cycler(self, n):
+        c = cycler(color=['C{}'.format(i % 10) for i in range(n)])
+        assert len(c) == n
+
+    @pytest.mark.parametrize('n', [1, 2, 4, 8, 16, 32])
+    def test_power_of_two_lengths(self, n):
+        c = cycler(linewidth=[1.0] * n)
+        assert len(c) == n
