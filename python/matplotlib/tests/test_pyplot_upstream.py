@@ -808,3 +808,103 @@ def test_plt_savefig_stringio():
     assert len(data) > 0
     assert '<svg' in data.lower() or 'svg' in data
     plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for pyplot upstream
+# ===================================================================
+
+class TestPyplotUpstreamParametric:
+    """Parametric tests for pyplot (upstream-style)."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_plt_plot_n_lines(self, n):
+        """plt.plot n times creates n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            plt.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20, 50])
+    def test_plt_hist_bins(self, bins):
+        """plt.hist returns n bins."""
+        fig, ax = plt.subplots()
+        n_counts, edges, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6.4, 4.8), (8, 6), (10, 8)])
+    def test_plt_figure_figsize(self, figsize):
+        """plt.figure stores figsize."""
+        w, h = figsize
+        fig = plt.figure(figsize=figsize)
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['My Title', '', 'Test Title', 'Plot 1'])
+    def test_plt_title(self, title):
+        """plt.title sets title on current axes."""
+        fig, ax = plt.subplots()
+        plt.title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X axis', '', 'Time (s)', 'Distance'])
+    def test_plt_xlabel(self, label):
+        """plt.xlabel sets xlabel on current axes."""
+        fig, ax = plt.subplots()
+        plt.xlabel(label)
+        assert ax.get_xlabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['Y axis', '', 'Amplitude', 'Value'])
+    def test_plt_ylabel(self, label):
+        """plt.ylabel sets ylabel on current axes."""
+        fig, ax = plt.subplots()
+        plt.ylabel(label)
+        assert ax.get_ylabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100), (-10, 10)])
+    def test_plt_xlim(self, xmin, xmax):
+        """plt.xlim sets xlim on current axes."""
+        fig, ax = plt.subplots()
+        plt.xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100), (-100, 0)])
+    def test_plt_ylim(self, ymin, ymax):
+        """plt.ylim sets ylim on current axes."""
+        fig, ax = plt.subplots()
+        plt.ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (2, 2), (1, 3), (2, 3)])
+    def test_plt_subplots_count(self, nrows, ncols):
+        """plt.subplots creates correct axes count."""
+        fig, axes = plt.subplots(nrows, ncols)
+        assert len(fig.get_axes()) == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_plt_xscale(self, scale):
+        """plt.xscale roundtrip."""
+        fig, ax = plt.subplots()
+        plt.xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200])
+    def test_plt_figure_dpi(self, dpi):
+        """plt.figure(dpi=...) stores dpi."""
+        fig = plt.figure(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')

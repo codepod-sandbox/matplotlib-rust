@@ -467,3 +467,93 @@ class TestAxisParametric:
         assert abs(lo - vmin) < 1e-10
         assert abs(hi - vmax) < 1e-10
         plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for axis (upstream-style)
+# ===================================================================
+
+class TestAxisUpstreamParametric2:
+    """More parametric tests for Axis."""
+
+    @pytest.mark.parametrize('ticks', [
+        [0, 1, 2, 3],
+        [0.0, 0.25, 0.5, 0.75, 1.0],
+        [-2, -1, 0, 1, 2],
+        [10, 20, 30, 40, 50],
+        [1, 3, 5, 7, 9, 11],
+    ])
+    def test_xaxis_ticks(self, ticks):
+        """XAxis set_ticks / get_ticklocs roundtrip."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_ticks(ticks)
+        got = ax.xaxis.get_ticklocs()
+        for t in ticks:
+            assert t in got
+        plt.close('all')
+
+    @pytest.mark.parametrize('ticks', [
+        [0, 1, 2, 3],
+        [-1, 0, 1],
+        [0, 0.5, 1],
+    ])
+    def test_yaxis_ticks(self, ticks):
+        """YAxis set_ticks / get_ticklocs roundtrip."""
+        fig, ax = plt.subplots()
+        ax.yaxis.set_ticks(ticks)
+        got = ax.yaxis.get_ticklocs()
+        for t in ticks:
+            assert t in got
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X Label', '', 'Time (s)', 'Distance [m]', 'Value'])
+    def test_xaxis_label(self, label):
+        """XAxis label roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(label)
+        assert ax.get_xlabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['Y Label', '', 'Amplitude', 'Value [units]'])
+    def test_yaxis_label(self, label):
+        """YAxis label roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylabel(label)
+        assert ax.get_ylabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xaxis_scale(self, scale):
+        """XAxis scale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_xaxis_visible(self, visible):
+        """XAxis visibility roundtrip."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_visible(visible)
+        assert ax.xaxis.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-5, 5), (0, 100), (-10, 10)])
+    def test_xaxis_view_interval(self, vmin, vmax):
+        """XAxis view interval matches set_xlim."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(vmin, vmax)
+        lo, hi = ax.xaxis.get_view_interval()
+        assert abs(lo - vmin) < 1e-10
+        assert abs(hi - vmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_xaxis_n_ticks(self, n):
+        """XAxis has n tick locs after set_ticks."""
+        fig, ax = plt.subplots()
+        ticks = list(range(n))
+        ax.xaxis.set_ticks(ticks)
+        got = ax.xaxis.get_ticklocs()
+        assert len(got) == n
+        plt.close('all')

@@ -422,3 +422,207 @@ class TestAutoLimitsNewTypes:
         ylim = ax.get_ylim()
         assert ylim[0] <= 1.0
         assert ylim[1] >= 5.0
+
+
+# ===================================================================
+# Additional plot types tests (upstream-inspired batch)
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestBoxplotParametric:
+    """Parametric tests for boxplot."""
+
+    @pytest.mark.parametrize('n', [5, 10, 20, 50])
+    def test_boxplot_n_data_points(self, n):
+        """Boxplot works for various data sizes."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.default_rng(0).normal(0, 1, n).tolist()
+        result = ax.boxplot(data)
+        assert result is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('whis', [1.5, 2.0, 3.0])
+    def test_boxplot_whis(self, whis):
+        """Boxplot accepts whis parameter."""
+        fig, ax = plt.subplots()
+        result = ax.boxplot([1, 2, 3, 4, 5], whis=whis)
+        assert result is not None
+        plt.close('all')
+
+
+class TestPieParametric:
+    """Parametric tests for pie chart."""
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5, 8])
+    def test_pie_n_slices(self, n):
+        """Pie chart creates n wedges."""
+        fig, ax = plt.subplots()
+        sizes = [1] * n
+        patches, _ = ax.pie(sizes)
+        assert len(patches) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('startangle', [0, 45, 90, 135, 180])
+    def test_pie_startangle(self, startangle):
+        """Pie chart accepts startangle parameter."""
+        fig, ax = plt.subplots()
+        patches, _ = ax.pie([1, 2, 3], startangle=startangle)
+        assert len(patches) == 3
+        plt.close('all')
+
+
+class TestStepParametric:
+    """Parametric tests for step plot."""
+
+    @pytest.mark.parametrize('where', ['pre', 'post', 'mid'])
+    def test_step_where(self, where):
+        """Step plot accepts where parameter."""
+        fig, ax = plt.subplots()
+        lines = ax.step([1, 2, 3], [4, 5, 6], where=where)
+        assert len(lines) == 1
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 5, 10, 20])
+    def test_step_n_points(self, n):
+        """Step plot works for various data sizes."""
+        fig, ax = plt.subplots()
+        xs = list(range(n))
+        ys = list(range(n))
+        lines = ax.step(xs, ys)
+        assert len(lines) == 1
+        plt.close('all')
+
+
+class TestStackplotParametric:
+    """Parametric tests for stackplot."""
+
+    @pytest.mark.parametrize('n_series', [2, 3, 4, 5])
+    def test_stackplot_n_series(self, n_series):
+        """Stackplot handles n data series."""
+        fig, ax = plt.subplots()
+        x = [1, 2, 3]
+        ys = [[1, 2, 3]] * n_series
+        polys = ax.stackplot(x, *ys)
+        assert len(polys) == n_series
+        plt.close('all')
+
+
+class TestStemParametric:
+    """Parametric tests for stem plot."""
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_stem_n_points(self, n):
+        """Stem plot works for various data sizes."""
+        fig, ax = plt.subplots()
+        ys = list(range(1, n + 1))
+        sc = ax.stem(ys)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('bottom', [0, 1, -1, 0.5])
+    def test_stem_bottom(self, bottom):
+        """Stem plot accepts bottom parameter."""
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2, 3], bottom=bottom)
+        assert sc is not None
+        plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for plot types
+# ===================================================================
+
+class TestPlotTypesParametricExtended:
+    """Extended parametric tests for various plot types."""
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10, 20])
+    def test_bar_n(self, n):
+        """bar() creates n patches."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_barh_n(self, n):
+        """barh() creates n patches."""
+        fig, ax = plt.subplots()
+        container = ax.barh(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20, 50])
+    def test_hist_bins_count(self, bins):
+        """hist returns correct bin count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [3, 5, 10, 20])
+    def test_scatter_n(self, n):
+        """scatter with n points."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_stem_n(self, n):
+        """stem with n points."""
+        fig, ax = plt.subplots()
+        sc = ax.stem(range(1, n+1))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('linestyle', ['-', '--', ':', '-.'])
+    def test_plot_linestyle(self, linestyle):
+        """plot accepts linestyle."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linestyle=linestyle)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'v', 'D', '+', 'x', '*'])
+    def test_plot_marker(self, marker):
+        """plot accepts various markers."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1, 2], [0, 1, 0], marker=marker)
+        assert line.get_marker() == marker
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black', '#ff0000'])
+    def test_plot_color(self, color):
+        """plot accepts various colors."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_plot_lw(self, lw):
+        """plot accepts linewidth."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_plot_alpha(self, alpha):
+        """plot accepts alpha."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('histtype', ['bar', 'step', 'stepfilled'])
+    def test_hist_type(self, histtype):
+        """hist accepts histtype."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(50)), bins=10, histtype=histtype)
+        assert len(n_counts) == 10
+        plt.close('all')
