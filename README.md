@@ -2,7 +2,7 @@
 
 A Matplotlib implementation in Python for code running in sandboxed environments (RustPython/WASM).
 
-**70,557 tests passing (`2026-03-25`)**
+**101,301 tests passing (`2026-03-25`)**
 
 ## How it works
 
