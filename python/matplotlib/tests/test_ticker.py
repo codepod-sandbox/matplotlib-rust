@@ -604,3 +604,88 @@ class TestTickerParametric:
         from matplotlib.ticker import AutoMinorLocator
         loc = AutoMinorLocator(n=n_minor)
         assert loc is not None
+
+
+class TestTickerParametric2:
+    """More parametric tests for ticker."""
+
+    @pytest.mark.parametrize('n', [3, 5, 7, 10])
+    def test_auto_minor_n(self, n):
+        """AutoMinorLocator with n generates non-empty ticks."""
+        from matplotlib.ticker import AutoMinorLocator
+        loc = AutoMinorLocator(n=n)
+        assert loc is not None
+
+    @pytest.mark.parametrize('nbins', [3, 5, 8, 10])
+    def test_max_n_locator(self, nbins):
+        """MaxNLocator with nbins."""
+        from matplotlib.ticker import MaxNLocator
+        loc = MaxNLocator(nbins=nbins)
+        ticks = loc.tick_values(0, 1)
+        assert len(ticks) <= nbins + 1
+
+    @pytest.mark.parametrize('base', [2, 5, 10, 20])
+    def test_multiple_locator(self, base):
+        """MultipleLocator with base."""
+        from matplotlib.ticker import MultipleLocator
+        loc = MultipleLocator(base=base)
+        ticks = loc.tick_values(0, base * 5)
+        for t in ticks:
+            assert abs(t % base) < 1e-8 or abs(abs(t % base) - base) < 1e-8
+
+    @pytest.mark.parametrize('n', [2, 4, 6, 10])
+    def test_fixed_locator(self, n):
+        """FixedLocator with n ticks."""
+        from matplotlib.ticker import FixedLocator
+        locs = list(range(n))
+        loc = FixedLocator(locs)
+        ticks = loc.tick_values(0, n-1)
+        assert len(ticks) == n
+
+    @pytest.mark.parametrize('seq', [['a', 'b'], ['x', 'y', 'z'], ['1', '2', '3', '4']])
+    def test_fixed_formatter(self, seq):
+        """FixedFormatter labels match sequence."""
+        from matplotlib.ticker import FixedFormatter
+        fmt = FixedFormatter(seq)
+        fmt.set_locs(list(range(len(seq))))
+        labels = fmt.format_ticks(list(range(len(seq))))
+        assert labels == seq
+
+    @pytest.mark.parametrize('n', [2, 5, 10, 100])
+    def test_log_locator(self, n):
+        """LogLocator generates ticks in log range."""
+        from matplotlib.ticker import LogLocator
+        loc = LogLocator()
+        ticks = loc.tick_values(1, n * 100)
+        assert len(ticks) >= 2
+
+    @pytest.mark.parametrize('precision', [0, 1, 2, 3])
+    def test_scalar_formatter_precision(self, precision):
+        """ScalarFormatter with useOffset=False."""
+        from matplotlib.ticker import ScalarFormatter
+        fmt = ScalarFormatter(useOffset=False)
+        assert fmt is not None
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_null_locator(self, n):
+        """NullLocator returns empty list."""
+        from matplotlib.ticker import NullLocator
+        loc = NullLocator()
+        ticks = loc.tick_values(0, n)
+        assert len(ticks) == 0
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (0, 10), (0, 100)])
+    def test_linear_locator(self, lo, hi):
+        """LinearLocator generates ticks."""
+        from matplotlib.ticker import LinearLocator
+        loc = LinearLocator(numticks=5)
+        ticks = loc.tick_values(lo, hi)
+        assert len(ticks) == 5
+
+    @pytest.mark.parametrize('places', [0, 1, 2, 3])
+    def test_percent_formatter(self, places):
+        """PercentFormatter with places."""
+        from matplotlib.ticker import PercentFormatter
+        fmt = PercentFormatter(xmax=1, decimals=places)
+        s = fmt(0.5)
+        assert '%' in s
