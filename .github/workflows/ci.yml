@@ -42,16 +42,8 @@ jobs:
       - name: Install pytest into python/
         run: |
           pip3 install "pytest==8.4.2" pluggy iniconfig packaging pygments py --target python/ --no-deps
-          # pytester.py uses syntax that RustPython can't handle at import time.
-          # It's only needed for testing pytest itself. Stub out what legacypath.py needs.
-          cat > python/_pytest/pytester.py << 'STUB'
-class HookRecorder:
-    pass
-class RunResult:
-    pass
-class Pytester:
-    pass
-STUB
+          # pytester.py uses syntax RustPython can't handle; stub what legacypath needs
+          printf 'class HookRecorder: pass\nclass RunResult: pass\nclass Pytester: pass\n' > python/_pytest/pytester.py
 
       - name: Run Python tests
         run: target/debug/matplotlib-python -m pytest python/matplotlib/tests/
