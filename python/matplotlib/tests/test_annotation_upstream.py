@@ -402,3 +402,96 @@ class TestAnnotationInAxesParametric:
         ann = ax.annotate('test', xy=(x, y))
         assert ann.xy == (x, y)
         plt.close('all')
+
+
+# ===================================================================
+# Extended parametric tests for annotation (upstream-style)
+# ===================================================================
+
+class TestAnnotationUpstreamParametric:
+    """Extended parametric tests for Annotation."""
+
+    @pytest.mark.parametrize('text', ['Note', '', 'Test!', 'Annotation 1', 'Arrow'])
+    def test_annotation_text(self, text):
+        """Annotation stores text."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate(text, xy=(0.5, 0.5))
+        assert ann.get_text() == text
+        plt.close('all')
+
+    @pytest.mark.parametrize('xy', [(0.1, 0.1), (0.5, 0.5), (0.9, 0.9), (0, 1), (1, 0)])
+    def test_annotation_xy(self, xy):
+        """Annotation stores xy."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate('note', xy=xy)
+        assert ann.xy == xy
+        plt.close('all')
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14, 16])
+    def test_annotation_fontsize(self, fontsize):
+        """Annotation stores fontsize."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate('note', xy=(0.5, 0.5), fontsize=fontsize)
+        assert ann.get_fontsize() == fontsize
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black', '#ff0000'])
+    def test_annotation_color(self, color):
+        """Annotation stores color."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate('note', xy=(0.5, 0.5), color=color)
+        assert ann.get_color() == color
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_annotation_alpha(self, alpha):
+        """Annotation alpha is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate('note', xy=(0.5, 0.5))
+        ann.set_alpha(alpha)
+        assert abs(ann.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_annotation_visible(self, visible):
+        """Annotation visibility is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate('note', xy=(0.5, 0.5))
+        ann.set_visible(visible)
+        assert ann.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('rotation', [0, 30, 45, 90])
+    def test_annotation_rotation(self, rotation):
+        """Annotation rotation is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate('note', xy=(0.5, 0.5), rotation=rotation)
+        assert ann.get_rotation() == float(rotation)
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['ann1', '', 'my_ann', 'series'])
+    def test_annotation_label(self, label):
+        """Annotation label is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ann = ax.annotate('note', xy=(0.5, 0.5))
+        ann.set_label(label)
+        assert ann.get_label() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_annotations(self, n):
+        """n annotations can be added to axes."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.annotate(f'ann{i}', xy=(i * 0.1, i * 0.1))
+        assert len(ax.texts) == n
+        plt.close('all')

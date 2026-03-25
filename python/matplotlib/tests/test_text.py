@@ -525,3 +525,105 @@ class TestAnnotationInheritsText:
         assert ann.get_visible() is False
         assert ann.get_alpha() == 0.2
         assert ann.get_label() == 'batch'
+
+
+# ===================================================================
+# Extended parametric tests for text
+# ===================================================================
+
+class TestTextParametric2:
+    """More parametric tests for text."""
+
+    @pytest.mark.parametrize('text', ['Hello', '', 'Test 123', 'Multi\nLine', 'Unicode: αβγ'])
+    def test_text_content(self, text):
+        """Text stores content."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, text)
+        assert t.get_text() == text
+        plt.close('all')
+
+    @pytest.mark.parametrize('fontsize', [6, 8, 10, 12, 14, 16, 18, 24])
+    def test_text_fontsize(self, fontsize):
+        """Text stores fontsize."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black', '#ff0000', 'cyan'])
+    def test_text_color(self, color):
+        """Text stores color."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', color=color)
+        assert t.get_color() == color
+        plt.close('all')
+
+    @pytest.mark.parametrize('rotation', [0, 30, 45, 90, 135, 180, 270])
+    def test_text_rotation(self, rotation):
+        """Text rotation is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', rotation=rotation)
+        assert t.get_rotation() == float(rotation)
+        plt.close('all')
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_text_ha(self, ha):
+        """Text horizontal alignment is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', ha=ha)
+        assert t.get_horizontalalignment() == ha
+        plt.close('all')
+
+    @pytest.mark.parametrize('va', ['top', 'center', 'bottom', 'baseline'])
+    def test_text_va(self, va):
+        """Text vertical alignment is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', va=va)
+        assert t.get_verticalalignment() == va
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_text_alpha(self, alpha):
+        """Text alpha is stored via set_alpha."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test')
+        t.set_alpha(alpha)
+        assert abs(t.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_text_visible(self, visible):
+        """Text visibility is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test')
+        t.set_visible(visible)
+        assert t.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_text_zorder(self, zorder):
+        """Text zorder is stored."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test')
+        t.set_zorder(zorder)
+        assert t.get_zorder() == zorder
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_text_objects(self, n):
+        """n text objects can be added to axes."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.text(i * 0.1, i * 0.1, f'text{i}')
+        assert len(ax.texts) == n
+        plt.close('all')
