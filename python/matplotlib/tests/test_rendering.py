@@ -812,3 +812,59 @@ class TestRenderingParametricExtended3:
         ax.set_yscale(scale)
         svg = fig.to_svg()
         assert '<svg' in svg
+
+
+class TestRenderingParametricExtended4:
+    """Yet more parametric rendering tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6])
+    def test_svg_n_lines(self, n):
+        """SVG with n line plots renders."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000', 'purple', 'orange'])
+    def test_svg_line_color(self, color):
+        """SVG renders line with color."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1], color=color)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('n_bars', [1, 2, 3, 5, 8, 10])
+    def test_svg_bar(self, n_bars):
+        """SVG bar chart renders."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.bar(range(n_bars), range(1, n_bars + 1))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6, 4), (8, 6), (10, 7), (12, 9)])
+    def test_svg_figsize(self, figsize):
+        """SVG renders with various figsize."""
+        from matplotlib.figure import Figure
+        fig = Figure(figsize=figsize)
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('title', ['Hello', 'Test', 'My Title', 'X vs Y', ''])
+    def test_svg_title(self, title):
+        """SVG renders with title."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1])
+        ax.set_title(title)
+        svg = fig.to_svg()
+        assert '<svg' in svg

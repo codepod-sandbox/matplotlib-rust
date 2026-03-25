@@ -755,3 +755,57 @@ class TestCollectionsParametric3:
         lc.set_zorder(zorder)
         assert lc.get_zorder() == zorder
         plt.close('all')
+
+
+class TestCollectionsParametric4:
+    """Yet more parametric collection tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6, 7, 8])
+    def test_n_scatter_points(self, n):
+        """Scatter with n points creates PathCollection."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert hasattr(sc, 'get_offsets')
+        plt.close('all')
+
+    @pytest.mark.parametrize('s', [10, 20, 50, 100, 200])
+    def test_scatter_size(self, s):
+        """Scatter point size is settable."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([0], [0], s=s)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8])
+    def test_line_collections_n(self, n):
+        """n LineCollections can be added to axes."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import LineCollection
+        fig, ax = plt.subplots()
+        for i in range(n):
+            lc = LineCollection([[(i, 0), (i + 1, 1)]])
+            ax.add_collection(lc)
+        assert len(ax.collections) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('linewidth', [0.5, 1.0, 1.5, 2.0, 3.0])
+    def test_line_collection_lw(self, linewidth):
+        """LineCollection linewidth roundtrips."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import LineCollection
+        fig, ax = plt.subplots()
+        lc = LineCollection([[(0, 0), (1, 1)]], linewidths=linewidth)
+        ax.add_collection(lc)
+        assert abs(float(lc.get_linewidth()[0]) - linewidth) < 1e-9
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.25, 0.5, 0.75, 1.0])
+    def test_scatter_alpha(self, alpha):
+        """Scatter alpha is settable."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([0, 1, 2], [0, 1, 2], alpha=alpha)
+        assert abs(sc.get_alpha() - alpha) < 1e-9
+        plt.close('all')

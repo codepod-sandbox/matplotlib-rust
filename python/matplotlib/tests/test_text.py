@@ -684,3 +684,41 @@ class TestTextParametric2:
         t = Text(0, 0, 'test')
         t.set_visible(visible)
         assert t.get_visible() == visible
+
+
+class TestTextParametric3:
+    """Yet more parametric text tests."""
+
+    @pytest.mark.parametrize('fontsize', [4, 6, 8, 10, 12, 14, 18, 24, 32, 48])
+    def test_fontsize_roundtrip(self, fontsize):
+        """Text fontsize roundtrips."""
+        t = Text(0, 0, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('text,expected', [
+        ('hello', 'hello'), ('', ''), ('1234', '1234'), ('foo bar', 'foo bar'),
+        ('αβγ', 'αβγ'), ('$x^2$', '$x^2$'),
+    ])
+    def test_text_content_exact(self, text, expected):
+        """Text content stores exact string."""
+        t = Text(0, 0, text)
+        assert t.get_text() == expected
+
+    @pytest.mark.parametrize('weight', ['normal', 'bold', 'light'])
+    def test_text_weight(self, weight):
+        """Text weight can be set."""
+        t = Text(0, 0, 'hello', fontweight=weight)
+        assert t.get_fontweight() == weight
+
+    @pytest.mark.parametrize('style', ['normal', 'italic', 'oblique'])
+    def test_text_style(self, style):
+        """Text style can be set."""
+        t = Text(0, 0, 'hello', fontstyle=style)
+        assert t.get_fontstyle() == style
+
+    @pytest.mark.parametrize('zorder', [1, 2, 3, 5, 10, 100])
+    def test_text_zorder(self, zorder):
+        """Text zorder can be set."""
+        t = Text(0, 0, 'hello')
+        t.set_zorder(zorder)
+        assert t.get_zorder() == zorder
