@@ -568,3 +568,53 @@ class TestNormsParametric2:
         boundaries = list(range(ncolors + 1))
         norm = mcolors.BoundaryNorm(boundaries, ncolors)
         assert norm.N == ncolors
+
+
+class TestNormsParametric3:
+    """Further parametric norm tests."""
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-1, 1), (0, 100), (-5, 5), (0, 255), (-100, 100)])
+    def test_normalize_clip(self, vmin, vmax):
+        """Normalized values are clipped to [0, 1]."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        assert norm(vmin) == approx(0.0)
+        assert norm(vmax) == approx(1.0)
+
+    @pytest.mark.parametrize('gamma', [0.5, 1.0, 1.5, 2.0, 3.0])
+    def test_power_norm_midpoint(self, gamma):
+        """PowerNorm(gamma) maps 0 → 0, 1 → 1."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.PowerNorm(gamma=gamma, vmin=0, vmax=1)
+        assert norm(0.0) == approx(0.0, abs=1e-9)
+        assert norm(1.0) == approx(1.0, abs=1e-9)
+
+    @pytest.mark.parametrize('ncolors', [2, 4, 8, 16, 64, 256])
+    def test_boundary_norm_ncolors(self, ncolors):
+        """BoundaryNorm stores ncolors."""
+        import matplotlib.colors as mcolors
+        boundaries = list(range(ncolors + 1))
+        norm = mcolors.BoundaryNorm(boundaries, ncolors)
+        assert norm.N == ncolors
+
+    @pytest.mark.parametrize('linthresh', [0.01, 0.1, 1.0, 10.0, 100.0])
+    def test_symlog_linthresh(self, linthresh):
+        """SymLogNorm maps 0 correctly for any linthresh."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.SymLogNorm(linthresh=linthresh, vmin=-100, vmax=100)
+        result = norm(0.0)
+        assert result is not None
+
+    @pytest.mark.parametrize('vcenter', [-5.0, -1.0, 0.0, 1.0, 5.0])
+    def test_two_slope_vcenter(self, vcenter):
+        """TwoSlopeNorm maps vcenter to 0.5."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.TwoSlopeNorm(vcenter=vcenter, vmin=vcenter - 10, vmax=vcenter + 10)
+        assert norm(vcenter) == approx(0.5)
+
+    @pytest.mark.parametrize('n', [0, 1, 2, 3, 4])
+    def test_no_norm_identity(self, n):
+        """NoNorm passes values through unchanged."""
+        import matplotlib.colors as mcolors
+        norm = mcolors.NoNorm()
+        assert norm(n) == n

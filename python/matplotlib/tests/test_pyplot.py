@@ -660,3 +660,75 @@ class TestPyplotParametric2:
         n, edges, patches = plt.hist(np.random.randn(100), bins=bins)
         assert len(n) == bins
         plt.close('all')
+
+
+class TestPyplotParametric3:
+    """Further parametric pyplot tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6, 7, 8])
+    def test_plot_n_lines(self, n):
+        """pyplot.plot n times creates n lines."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i + 1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000', 'cyan', 'magenta'])
+    def test_plot_color(self, color):
+        """pyplot.plot line has correct color."""
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import to_hex
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert to_hex(line.get_color()) == to_hex(color)
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 1.5, 2.0, 3.0, 5.0])
+    def test_plot_linewidth(self, lw):
+        """pyplot.plot line has correct linewidth."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-9
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D', 'v', '+', 'x', '*'])
+    def test_plot_marker(self, marker):
+        """pyplot.plot line has correct marker."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_yscale(self, scale):
+        """pyplot xscale and yscale set without error."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 10, 100], [1, 10, 100])
+        ax.set_xscale(scale)
+        ax.set_yscale(scale)
+        assert ax.get_xscale() == scale
+        assert ax.get_yscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_bars', [1, 2, 3, 5, 8, 10])
+    def test_bar_n(self, n_bars):
+        """pyplot.bar creates n patches."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n_bars), range(1, n_bars + 1))
+        assert len(bars) == n_bars
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 15, 20, 30, 50])
+    def test_hist_bins(self, bins):
+        """pyplot.hist creates correct number of bins."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        n, edges, patches = ax.hist(list(range(100)), bins=bins)
+        assert len(n) == bins
+        plt.close('all')

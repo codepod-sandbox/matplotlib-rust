@@ -616,3 +616,65 @@ class TestSubplotsParametric3:
         ax.set_xlabel(label)
         assert ax.get_xlabel() == label
         plt.close('all')
+
+
+class TestSubplotsParametric4:
+    """Further parametric subplot tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6])
+    def test_subplots_1_n(self, n):
+        """plt.subplots(1, n) returns n axes."""
+        import numpy as np
+        fig, axes = plt.subplots(1, n)
+        axes_flat = np.array(axes).flatten()
+        assert len(axes_flat) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4])
+    def test_subplots_n_1(self, n):
+        """plt.subplots(n, 1) returns n axes."""
+        import numpy as np
+        fig, axes = plt.subplots(n, 1)
+        axes_flat = np.array(axes).flatten()
+        assert len(axes_flat) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('rows,cols', [(2, 2), (2, 3), (3, 2), (3, 3), (2, 4)])
+    def test_subplots_grid(self, rows, cols):
+        """plt.subplots(rows, cols) returns rows*cols axes."""
+        import numpy as np
+        fig, axes = plt.subplots(rows, cols)
+        axes_flat = np.array(axes).flatten()
+        assert len(axes_flat) == rows * cols
+        plt.close('all')
+
+    @pytest.mark.parametrize('sharex', [True, False])
+    def test_subplots_sharex(self, sharex):
+        """plt.subplots with sharex works."""
+        fig, axes = plt.subplots(2, 1, sharex=sharex)
+        assert len(axes) == 2
+        plt.close('all')
+
+    @pytest.mark.parametrize('sharey', [True, False])
+    def test_subplots_sharey(self, sharey):
+        """plt.subplots with sharey works."""
+        fig, axes = plt.subplots(1, 2, sharey=sharey)
+        assert len(axes) == 2
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Plot A', 'Results', 'Signal', '', 'My Chart'])
+    def test_subplot_title(self, title):
+        """Individual subplot title is set correctly."""
+        fig, axes = plt.subplots(1, 2)
+        axes[0].set_title(title)
+        assert axes[0].get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log'])
+    def test_subplot_xscale(self, scale):
+        """Subplot x-axis scale is set correctly."""
+        fig, axes = plt.subplots(1, 2)
+        axes[0].plot([1, 2, 3], [1, 2, 3])
+        axes[0].set_xscale(scale)
+        assert axes[0].get_xscale() == scale
+        plt.close('all')
