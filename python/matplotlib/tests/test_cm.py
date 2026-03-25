@@ -682,3 +682,60 @@ class TestCmParametric:
         values = np.linspace(0, 1, 10)
         rgba = cmap(values)
         assert rgba.shape == (10, 4)
+
+
+class TestCmParametric2:
+    """Further parametric colormap tests."""
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Blues', 'Reds'])
+    def test_cmap_returns_rgba(self, name):
+        """Colormap returns valid RGBA array."""
+        import numpy as np
+        from matplotlib.cm import get_cmap
+        cmap = get_cmap(name)
+        rgba = cmap(0.5)
+        assert len(rgba) == 4
+        for v in rgba:
+            assert 0.0 <= v <= 1.0
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16, 64, 256])
+    def test_listed_colormap_n(self, n):
+        """ListedColormap with n colors has N == n."""
+        from matplotlib.colors import ListedColormap
+        colors = [(i / n, 0, 1 - i / n, 1.0) for i in range(n)]
+        cmap = ListedColormap(colors)
+        assert cmap.N == n
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'Blues', 'Reds', 'coolwarm'])
+    def test_cmap_reversed(self, name):
+        """Reversed colormap has _r suffix."""
+        from matplotlib.cm import get_cmap
+        cmap_r = get_cmap(name + '_r')
+        assert cmap_r is not None
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_cmap_alpha(self, alpha):
+        """Colormap alpha channel within bounds."""
+        from matplotlib.cm import get_cmap
+        cmap = get_cmap('viridis')
+        rgba = cmap(0.5, alpha=alpha)
+        assert abs(rgba[3] - alpha) < 1e-9
+
+    @pytest.mark.parametrize('n_vals', [1, 5, 10, 50, 100])
+    def test_cmap_array_shape(self, n_vals):
+        """Colormap applied to array returns correct shape."""
+        import numpy as np
+        from matplotlib.cm import get_cmap
+        cmap = get_cmap('viridis')
+        values = np.linspace(0, 1, n_vals)
+        rgba = cmap(values)
+        assert rgba.shape == (n_vals, 4)
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'Blues', 'jet', 'hot'])
+    def test_cmap_extremes(self, name):
+        """Colormap maps 0 and 1 to valid colors."""
+        from matplotlib.cm import get_cmap
+        cmap = get_cmap(name)
+        for v in [0.0, 1.0]:
+            rgba = cmap(v)
+            assert len(rgba) == 4

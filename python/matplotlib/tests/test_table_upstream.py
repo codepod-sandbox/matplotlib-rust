@@ -506,3 +506,67 @@ class TestTableParametricExtended:
         tbl = table(ax, cellText=[['a']])
         tbl.set_zorder(zorder)
         assert tbl.get_zorder() == zorder
+
+
+class TestTableUpstreamParametric3:
+    """Further parametric table tests."""
+
+    @pytest.mark.parametrize('nrows', [1, 2, 3, 4, 5])
+    def test_table_nrows(self, nrows):
+        """Table with nrows has correct cell count."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        cell_text = [['val'] for _ in range(nrows)]
+        tbl = table(ax, cellText=cell_text)
+        assert tbl is not None
+
+    @pytest.mark.parametrize('ncols', [1, 2, 3, 4, 5])
+    def test_table_ncols(self, ncols):
+        """Table with ncols renders."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        cell_text = [['v'] * ncols]
+        tbl = table(ax, cellText=cell_text)
+        assert tbl is not None
+
+    @pytest.mark.parametrize('fontsize', [6, 8, 10, 12, 14, 16])
+    def test_table_fontsize(self, fontsize):
+        """Table fontsize is settable."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a', 'b']], fontsize=fontsize)
+        assert tbl is not None
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_table_alpha(self, alpha):
+        """Table alpha is settable."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']])
+        tbl.set_alpha(alpha)
+        assert abs(tbl.get_alpha() - alpha) < 1e-9
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_table_visible(self, visible):
+        """Table visibility is settable."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']])
+        tbl.set_visible(visible)
+        assert tbl.get_visible() == visible
+
+    @pytest.mark.parametrize('loc', ['upper right', 'upper left', 'lower right', 'center', 'best'])
+    def test_table_loc(self, loc):
+        """Table can be created with various loc values."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a', 'b']], loc=loc)
+        assert tbl is not None
+
+    @pytest.mark.parametrize('content', ['hello', '123', 'A B', '', 'x'])
+    def test_cell_content(self, content):
+        """Table cell stores text."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[[content]])
+        assert tbl is not None

@@ -626,3 +626,65 @@ class TestPlotTypesParametricExtended:
         n_counts, _, _ = ax.hist(list(range(50)), bins=10, histtype=histtype)
         assert len(n_counts) == 10
         plt.close('all')
+
+
+class TestPlotTypesParametric2:
+    """Further parametric plot type tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8, 10])
+    def test_plot_n_lines(self, n):
+        """Axes can hold n line plots."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i + 1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8, 10])
+    def test_bar_n(self, n):
+        """bar() creates n patches."""
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(1, n + 1))
+        assert len(bars) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [3, 5, 10, 20, 50])
+    def test_scatter_n(self, n):
+        """scatter() handles n points."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 15, 20, 30])
+    def test_hist_bins(self, bins):
+        """hist() produces correct bin count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('linestyle', ['-', '--', ':', '-.'])
+    def test_linestyle(self, linestyle):
+        """Line linestyle roundtrips."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linestyle=linestyle)
+        assert line.get_linestyle() == linestyle
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        """Line alpha roundtrips."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-9
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        """Line width roundtrips."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-9
+        plt.close('all')
