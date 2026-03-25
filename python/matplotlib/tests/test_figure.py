@@ -484,3 +484,84 @@ class TestFigureParametric:
         ax.set_title(title)
         assert ax.get_title() == title
         plt.close('all')
+
+
+class TestFigureParametric2:
+    """More parametric tests for Figure."""
+
+    @pytest.mark.parametrize('w,h', [(4, 3), (6, 4), (8, 6), (10, 8), (12, 9)])
+    def test_figure_size2(self, w, h):
+        """Figure stores width and height."""
+        fig = plt.figure(figsize=(w, h))
+        size = fig.get_size_inches()
+        assert abs(size[0] - w) < 1e-10
+        assert abs(size[1] - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150, 200])
+    def test_figure_dpi2(self, dpi):
+        """Figure stores dpi."""
+        fig = plt.figure(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (1, 2), (2, 1), (2, 2), (3, 3)])
+    def test_figure_subplots_count2(self, nrows, ncols):
+        """Figure.subplots returns correct axes count."""
+        fig = plt.figure()
+        axes = fig.subplots(nrows, ncols)
+        import numpy as np
+        axes_arr = np.array(axes).flatten()
+        assert len(axes_arr) == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Figure Title', 'Test', 'My Plot', '', 'Long Title Here'])
+    def test_figure_suptitle2(self, title):
+        """Figure suptitle is stored."""
+        fig = plt.figure()
+        fig.suptitle(title)
+        assert fig.texts[0].get_text() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_figure_add_n_subplots(self, n):
+        """Adding n subplots gives n axes."""
+        fig = plt.figure()
+        for i in range(n):
+            fig.add_subplot(1, n, i+1)
+        assert len(fig.axes) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['ax1', 'ax2', 'my_axes', 'plot'])
+    def test_axes_label_in_figure(self, label):
+        """Axes label is stored."""
+        fig, ax = plt.subplots()
+        ax.set_label(label)
+        assert ax.get_label() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 6])
+    def test_figure_multiple_subplots(self, n):
+        """Figure with n subplots has n axes."""
+        fig = plt.figure()
+        for i in range(n):
+            fig.add_subplot(1, n, i+1)
+        assert len(fig.axes) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_figure_n_axes_after_subplots(self, n):
+        """plt.subplots(1, n) returns n axes."""
+        fig, axes = plt.subplots(1, n)
+        import numpy as np
+        axes_list = np.array(axes).flatten()
+        assert len(axes_list) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('nfigs', [1, 2, 3, 5])
+    def test_plt_close_all(self, nfigs):
+        """plt.close('all') closes all figures."""
+        for _ in range(nfigs):
+            plt.figure()
+        plt.close('all')
+        assert len(plt.get_fignums()) == 0

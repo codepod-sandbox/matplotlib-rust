@@ -389,3 +389,73 @@ class TestCyclerParametric:
         c = cycler(color=['red', 'blue'])
         r = repr(c)
         assert 'color' in r
+
+
+class TestCyclerParametric2:
+    """More parametric tests for cycler."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 7, 10])
+    def test_cycler_length(self, n):
+        """Cycler length equals input count."""
+        c = cycler(color=range(n))
+        assert len(c) == n
+
+    @pytest.mark.parametrize('key', ['color', 'linewidth', 'linestyle', 'marker'])
+    def test_cycler_key_in_keys(self, key):
+        """Cycler key appears in .keys property."""
+        c = cycler(**{key: [1, 2]})
+        assert key in c.keys
+
+    @pytest.mark.parametrize('v', [0.1, 0.5, 1.0, 2.0, 5.0])
+    def test_cycler_single_value(self, v):
+        """Cycler with one value returns it on first iteration."""
+        c = cycler(linewidth=[v])
+        assert list(c)[0]['linewidth'] == v
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5])
+    def test_cycler_iter_count(self, n):
+        """Iterating cycler gives n items."""
+        c = cycler(color=['r'] * n)
+        assert len(list(c)) == n
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_cycler_product_two_keys(self, n):
+        """Product cycler has both keys."""
+        c1 = cycler(color=range(n))
+        c2 = cycler(linewidth=range(n))
+        c3 = c1 * c2
+        first = list(c3)[0]
+        assert 'color' in first and 'linewidth' in first
+
+    @pytest.mark.parametrize('factor', [2, 3, 4])
+    def test_cycler_mul(self, factor):
+        """Multiplying cycler scales length."""
+        c = cycler(color=['r', 'g'])
+        assert len(c * factor) == 2 * factor
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4])
+    def test_cycler_add_len(self, n):
+        """Concatenating two n-cyclers gives 2n."""
+        c1 = cycler(color=['r'] * n)
+        c2 = cycler(color=['b'] * n)
+        assert len(c1 + c2) == 2 * n
+
+    @pytest.mark.parametrize('colors', [['red'], ['red', 'green'], ['red', 'green', 'blue']])
+    def test_cycler_repr_contains_key(self, colors):
+        """Repr contains 'color'."""
+        c = cycler(color=colors)
+        assert 'color' in repr(c)
+
+    @pytest.mark.parametrize('i', [0, 1, 2, 3])
+    def test_cycler_index_value(self, i):
+        """Values are in order."""
+        vals = list(range(4))
+        c = cycler(linewidth=vals)
+        assert list(c)[i]['linewidth'] == vals[i]
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5, 6])
+    def test_cycler_product_length(self, n):
+        """Product of n x n cycler has n^2 entries."""
+        c1 = cycler(alpha=range(n))
+        c2 = cycler(linewidth=range(n))
+        assert len(c1 * c2) == n * n

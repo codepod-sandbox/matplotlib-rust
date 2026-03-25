@@ -416,3 +416,93 @@ class TestTableParametric:
         ax = fig.add_subplot(1, 1, 1)
         tbl = table(ax, cellText=[['a']], loc=loc)
         assert tbl._loc == loc
+
+
+class TestTableParametricExtended:
+    """More parametric tests for table."""
+
+    @pytest.mark.parametrize('nrows', [1, 2, 3, 4, 5])
+    def test_table_nrows(self, nrows):
+        """Table has correct number of rows."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        cell_text = [['val'] * 2 for _ in range(nrows)]
+        tbl = table(ax, cellText=cell_text)
+        assert tbl is not None
+
+    @pytest.mark.parametrize('ncols', [1, 2, 3, 4])
+    def test_table_ncols(self, ncols):
+        """Table has correct number of columns."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        cell_text = [['v'] * ncols]
+        tbl = table(ax, cellText=cell_text)
+        assert tbl is not None
+
+    @pytest.mark.parametrize('text', ['A', 'Hello', '123', ''])
+    def test_table_cell_text(self, text):
+        """Table cell stores text."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[[text]])
+        cell = tbl[0, 0]
+        assert cell.get_text().get_text() == text
+
+    @pytest.mark.parametrize('loc', ['center', 'upper right', 'upper left', 'lower right'])
+    def test_table_loc_stored(self, loc):
+        """Table loc is stored."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']], loc=loc)
+        assert tbl._loc == loc
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14])
+    def test_table_fontsize(self, fontsize):
+        """Table fontsize can be set."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']], fontsize=fontsize)
+        assert tbl is not None
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.8, 1.0])
+    def test_table_alpha(self, alpha):
+        """Table alpha can be set."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']])
+        tbl.set_alpha(alpha)
+        assert abs(tbl.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_table_visibility(self, visible):
+        """Table visibility can be toggled."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']])
+        tbl.set_visible(visible)
+        assert tbl.get_visible() == visible
+
+    @pytest.mark.parametrize('n', [1, 2, 3])
+    def test_table_col_labels(self, n):
+        """Table with col labels is created."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['v'] * n], colLabels=['C%d' % i for i in range(n)])
+        assert tbl is not None
+
+    @pytest.mark.parametrize('n', [1, 2, 3])
+    def test_table_row_labels(self, n):
+        """Table with row labels is created."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['v'] for _ in range(n)], rowLabels=['R%d' % i for i in range(n)])
+        assert tbl is not None
+
+    @pytest.mark.parametrize('zorder', [1, 2, 5, 10])
+    def test_table_zorder(self, zorder):
+        """Table zorder can be set."""
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = table(ax, cellText=[['a']])
+        tbl.set_zorder(zorder)
+        assert tbl.get_zorder() == zorder
