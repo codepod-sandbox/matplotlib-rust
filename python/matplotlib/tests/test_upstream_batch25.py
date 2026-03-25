@@ -567,3 +567,89 @@ class TestTickerParametric:
         for t in ticks:
             remainder = round(t % base, 10)
             assert remainder < 1e-8 or abs(remainder - base) < 1e-8
+
+
+class TestBatch25Parametric2:
+    """More parametric tests for batch25."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_lines(self, n):
+        """n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100)])
+    def test_xlim(self, lo, hi):
+        """xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(lo, hi)
+        assert ax.get_xlim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title', 'Test', ''])
+    def test_title(self, title):
+        """Title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_linewidth(self, lw):
+        """Linewidth stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D'])
+    def test_marker(self, marker):
+        """Marker stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist(self, bins):
+        """Hist bins."""
+        fig, ax = plt.subplots()
+        n, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 5])
+    def test_bar_patches(self, n):
+        """Bar n patches."""
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(n))
+        assert len(bars.patches) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('aspect', ['equal', 'auto'])
+    def test_aspect(self, aspect):
+        """Aspect roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        assert ax.get_aspect() == aspect
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 1.0])
+    def test_line_alpha(self, alpha):
+        """Line alpha stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
