@@ -42,9 +42,16 @@ jobs:
       - name: Install pytest into python/
         run: |
           pip3 install "pytest==8.4.2" pluggy iniconfig packaging pygments py --target python/ --no-deps
-          # RustPython can't handle set comprehensions in certain scopes in pytester.py.
-          # Rewrite to list comprehensions wrapped in set() which RustPython handles fine.
-          sed -i 's/{t\[0\] for t in lines2}/set([t[0] for t in lines2])/g; s/{t\[0\] for t in lines1}/set([t[0] for t in lines1])/g' python/_pytest/pytester.py
+          # pytester.py uses syntax that RustPython can't handle at import time.
+          # It's only needed for testing pytest itself. Stub out what legacypath.py needs.
+          cat > python/_pytest/pytester.py << 'STUB'
+class HookRecorder:
+    pass
+class RunResult:
+    pass
+class Pytester:
+    pass
+STUB
 
       - name: Run Python tests
         run: target/debug/matplotlib-python -m pytest python/matplotlib/tests/
