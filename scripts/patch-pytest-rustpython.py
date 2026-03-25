@@ -1,11 +1,12 @@
-"""Patch pytest's pytester.py for RustPython compatibility.
+"""Patch pytest for RustPython compatibility.
 
-pytester.py line 177 uses set comprehension syntax that RustPython's compiler
-cannot handle in the pytest_runtest_protocol scope. Replace with equivalent
-set(list-comprehension) form which RustPython handles correctly.
+RustPython's compiler fails on set comprehensions ({x for x in ...}) in certain
+scopes with "no symbol table available". Replace ALL set comprehensions in
+pytester.py with equivalent set(list-comprehension) form.
 
 Usage: python3 scripts/patch-pytest-rustpython.py <pytest-install-dir>
 """
+import re
 import sys
 import os
 
@@ -19,17 +20,19 @@ if not os.path.exists(path):
 with open(path) as f:
     content = f.read()
 
-patched = content.replace(
-    "{t[0] for t in lines2}",
-    "set([t[0] for t in lines2])",
-).replace(
-    "{t[0] for t in lines1}",
-    "set([t[0] for t in lines1])",
+# Replace {expr for var in iterable} with set([expr for var in iterable])
+# This handles simple single-clause set comprehensions.
+original = content
+content = re.sub(
+    r'\{([^{}]+\bfor\b[^{}]+)\}',
+    lambda m: f'set([{m.group(1)}])',
+    content,
 )
 
-if patched == content:
-    print(f"No changes needed in {path}")
+if content == original:
+    print(f"No set comprehensions found in {path}")
 else:
     with open(path, "w") as f:
-        f.write(patched)
-    print(f"Patched {path}")
+        f.write(content)
+    count = len(re.findall(r'set\(\[', content)) - len(re.findall(r'set\(\[', original))
+    print(f"Patched {path}: replaced set comprehensions with set([...]) form")
