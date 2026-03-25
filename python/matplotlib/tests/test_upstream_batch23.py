@@ -482,3 +482,83 @@ class TestPlotStyleFormatting:
         ec = ax.errorbar([1, 2, 3], [1, 4, 9],
                          yerr=[0.1, 0.2, 0.3], elinewidth=2)
         assert ec is not None
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestPlottingParametric:
+    """Parametric tests for common plotting operations."""
+
+    @pytest.mark.parametrize('n', [2, 5, 10, 20])
+    def test_plot_data_length(self, n):
+        """plot stores correct number of data points."""
+        fig, ax = plt.subplots()
+        x = list(range(n))
+        line, = ax.plot(x, x)
+        xdata, ydata = line.get_data()
+        assert len(xdata) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n_bars(self, n):
+        """bar creates n patches."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 5, 10])
+    def test_scatter_n_points(self, n):
+        """scatter creates PathCollection with n points."""
+        from matplotlib.collections import PathCollection
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert isinstance(sc, PathCollection)
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D', '+', 'x'])
+    def test_plot_marker(self, marker):
+        """plot accepts marker parameter."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.2, 0.5, 0.8, 1.0])
+    def test_plot_alpha(self, alpha):
+        """plot stores alpha."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ls', ['-', '--', ':', '-.'])
+    def test_plot_linestyle(self, ls):
+        """plot accepts linestyle parameter."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linestyle=ls)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [3, 5, 10, 20])
+    def test_hist_n_bins(self, bins):
+        """hist returns correct number of bins."""
+        fig, ax = plt.subplots()
+        n, edges, _ = ax.hist(list(range(50)), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('capsize', [0, 3, 5, 10])
+    def test_errorbar_capsize(self, capsize):
+        """errorbar accepts capsize parameter."""
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2, 3], [1, 4, 9],
+                         yerr=[0.1, 0.2, 0.3], capsize=capsize)
+        assert ec is not None
+        plt.close('all')

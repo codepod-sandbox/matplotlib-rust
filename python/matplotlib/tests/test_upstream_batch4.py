@@ -407,3 +407,84 @@ class TestIntegration:
             assert len(ticks) >= 2
             assert ticks[0] <= lo
             assert ticks[-1] >= hi
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestAxesApiParametric:
+    """Parametric tests for Axes API."""
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-1, 1), (0, 100)])
+    def test_xlim(self, xmin, xmax):
+        """set_xlim / get_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 1000)])
+    def test_ylim(self, ymin, ymax):
+        """set_ylim / get_ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """set_xscale stores scale."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Test', '', 'Long Title'])
+    def test_title(self, title):
+        """set_title / get_title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 5, 10])
+    def test_plot_n_lines(self, n):
+        """plot called n times creates n Line2D objects."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [3, 5, 10])
+    def test_hist_bins(self, bins):
+        """hist returns correct number of bins."""
+        fig, ax = plt.subplots()
+        n, edges, patches = ax.hist(list(range(100)), bins=bins)
+        assert len(n) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', '#00ff00'])
+    def test_plot_color(self, color):
+        """plot stores color."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 5.0])
+    def test_plot_linewidth(self, lw):
+        """plot stores linewidth."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')

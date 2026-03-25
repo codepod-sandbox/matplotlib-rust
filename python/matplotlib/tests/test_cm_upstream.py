@@ -535,3 +535,83 @@ class TestGetCmapIntegration:
         cmap_copy = cmap.copy()
         assert cmap_copy.name == cmap.name
         assert cmap_copy is not cmap
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+
+
+class TestColormapParametricExtended:
+    """Extended parametric colormap tests."""
+
+    @pytest.mark.parametrize('name', [
+        'viridis', 'plasma', 'inferno', 'magma', 'cividis',
+        'gray', 'hot', 'cool', 'jet', 'rainbow',
+    ])
+    def test_cmap_exists(self, name):
+        """Standard colormap is registered."""
+        cmap = cm.get_cmap(name)
+        assert cmap is not None
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'gray', 'hot'])
+    def test_cmap_name_attr(self, name):
+        """Colormap has correct name attribute."""
+        cmap = cm.get_cmap(name)
+        assert cmap.name == name
+
+    @pytest.mark.parametrize('val', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_cmap_rgba_valid(self, val):
+        """Colormap returns valid RGBA for any value in [0, 1]."""
+        cmap = cm.get_cmap('viridis')
+        rgba = cmap(val)
+        assert len(rgba) == 4
+        assert all(0.0 <= v <= 1.0 for v in rgba)
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16, 64, 256])
+    def test_cmap_array_shape(self, n):
+        """Colormap applied to n values returns (n, 4) array."""
+        cmap = cm.get_cmap('viridis')
+        vals = np.linspace(0, 1, n)
+        colors = cmap(vals)
+        assert colors.shape == (n, 4)
+
+    @pytest.mark.parametrize('n', [8, 16, 32, 64, 128])
+    def test_cmap_n_colors(self, n):
+        """cm.get_cmap(name, n) sets N to n."""
+        cmap = cm.get_cmap('viridis', n)
+        assert cmap.N == n
+
+    def test_cmap_zero_one_differ(self):
+        """Viridis at 0 differs from viridis at 1."""
+        cmap = cm.get_cmap('viridis')
+        assert cmap(0.0) != cmap(1.0)
+
+    def test_cmap_reversed(self):
+        """Reversed colormap maps inversely."""
+        cmap = cm.get_cmap('viridis')
+        cmap_r = cm.get_cmap('viridis_r')
+        rgba0 = cmap(0.0)
+        rgba_r1 = cmap_r(1.0)
+        for a, b in zip(rgba0[:3], rgba_r1[:3]):
+            assert abs(a - b) < 0.01
+
+    @pytest.mark.parametrize('n_colors', [3, 5, 7])
+    def test_listed_colormap(self, n_colors):
+        """ListedColormap has correct N."""
+        colors = [(i/n_colors, 0, 0, 1) for i in range(n_colors)]
+        cmap = mcolors.ListedColormap(colors)
+        assert cmap.N == n_colors
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'gray'])
+    def test_cmap_copy_independent(self, name):
+        """Colormap copy is independent of original."""
+        cmap = cm.get_cmap(name)
+        cmap_copy = cmap.copy()
+        assert cmap_copy is not cmap
+        assert cmap_copy.name == cmap.name

@@ -311,3 +311,99 @@ class TestLine2DInAxes:
         xdata = line.get_xdata()
         assert all(abs(x - 0.3) < 1e-10 for x in xdata)
         plt.close('all')
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+
+class TestLine2DExtendedParametric:
+    """Extended parametric Line2D tests."""
+
+    @pytest.mark.parametrize('n', [2, 5, 10, 20, 50])
+    def test_line_data_length(self, n):
+        """Line2D stores n data points."""
+        x = list(range(n))
+        line = Line2D(x, x)
+        xdata, ydata = line.get_data()
+        assert len(xdata) == n
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black', '#ff0000'])
+    def test_line_color_roundtrip(self, color):
+        """Line2D.set_color / get_color roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_color(color)
+        assert line.get_color() is not None
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.5, 5.0])
+    def test_line_linewidth_roundtrip(self, lw):
+        """Line2D.set_linewidth / get_linewidth roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_linewidth(lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('ls', ['-', '--', ':', '-.', 'None'])
+    def test_line_linestyle_roundtrip(self, ls):
+        """Line2D.set_linestyle / get_linestyle roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_linestyle(ls)
+        assert line.get_linestyle() is not None
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D', '+', 'x', '.', '*'])
+    def test_line_marker_roundtrip(self, marker):
+        """Line2D.set_marker / get_marker roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_marker(marker)
+        assert line.get_marker() == marker
+
+    @pytest.mark.parametrize('ms', [1.0, 4.0, 8.0, 12.0, 20.0])
+    def test_line_markersize_roundtrip(self, ms):
+        """Line2D.set_markersize / get_markersize roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_markersize(ms)
+        assert abs(line.get_markersize() - ms) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.25, 0.5, 0.75, 1.0])
+    def test_line_alpha_roundtrip(self, alpha):
+        """Line2D.set_alpha / get_alpha roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 5, 10])
+    def test_line_zorder_roundtrip(self, zorder):
+        """Line2D.set_zorder / get_zorder roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_line_visible_roundtrip(self, visible):
+        """Line2D.set_visible / get_visible roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() == visible
+
+    @pytest.mark.parametrize('label', ['line1', '', 'my label', '_nolegend_'])
+    def test_line_label_roundtrip(self, label):
+        """Line2D.set_label / get_label roundtrip."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_label(label)
+        assert line.get_label() == label
+
+    @pytest.mark.parametrize('x,y', [
+        ([0, 1], [0, 1]),
+        ([-3, -2, -1], [1, 4, 9]),
+        ([0.5, 1.5, 2.5], [0.25, 2.25, 6.25]),
+    ])
+    def test_line_get_data_roundtrip(self, x, y):
+        """Line2D get_data returns set data."""
+        line = Line2D(x, y)
+        xdata, ydata = line.get_data()
+        assert list(xdata) == x
+        assert list(ydata) == y

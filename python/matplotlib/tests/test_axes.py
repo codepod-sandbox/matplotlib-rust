@@ -633,3 +633,113 @@ class TestAdditionalEdgeCases:
         assert ax.get_xscale() == 'linear'
         assert ax.get_yscale() == 'linear'
         assert ax.get_aspect() == 'auto'
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+
+
+class TestAxesParametricExtended:
+    """Extended parametric Axes tests."""
+
+    @pytest.mark.parametrize('xmin,xmax', [
+        (0, 1), (-1, 1), (0, 100), (-50, 50), (0.001, 0.01),
+    ])
+    def test_xlim_roundtrip(self, xmin, xmax):
+        """set_xlim / get_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [
+        (0, 1), (-5, 5), (0, 1000), (-100, 100),
+    ])
+    def test_ylim_roundtrip(self, ymin, ymax):
+        """set_ylim / get_ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_roundtrip(self, scale):
+        """set_xscale / get_xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_yscale_roundtrip(self, scale):
+        """set_yscale / get_yscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_yscale(scale)
+        assert ax.get_yscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['My Title', '', 'A Long Title'])
+    def test_title_roundtrip(self, title):
+        """set_title / get_title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['X label', '', 'Time (s)'])
+    def test_xlabel_roundtrip(self, label):
+        """set_xlabel / get_xlabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(label)
+        assert ax.get_xlabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['Y label', '', 'Amplitude'])
+    def test_ylabel_roundtrip(self, label):
+        """set_ylabel / get_ylabel roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylabel(label)
+        assert ax.get_ylabel() == label
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_plot_n_lines(self, n):
+        """plot called n times creates n Line2D objects."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 8])
+    def test_bar_n_patches(self, n):
+        """bar creates n patches."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [3, 5, 10, 20])
+    def test_hist_n_bins(self, bins):
+        """hist returns correct number of bins."""
+        fig, ax = plt.subplots()
+        counts, edges, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(counts) == bins
+        assert len(edges) == bins + 1
+        plt.close('all')
+
+    @pytest.mark.parametrize('fontsize', [8, 12, 16, 24])
+    def test_text_fontsize(self, fontsize):
+        """ax.text stores fontsize correctly."""
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+        plt.close('all')

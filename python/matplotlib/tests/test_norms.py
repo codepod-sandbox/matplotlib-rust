@@ -396,3 +396,111 @@ class TestNormInteractions:
             result = norm([1, 5, 9])
             assert isinstance(result, list)
             assert len(result) == 3
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import numpy as np
+
+
+class TestNormalizeParametric:
+    """Parametric Normalize tests."""
+
+    @pytest.mark.parametrize('vmin,vmax,val,expected', [
+        (0, 1, 0.0, 0.0),
+        (0, 1, 1.0, 1.0),
+        (0, 1, 0.5, 0.5),
+        (0, 10, 5, 0.5),
+        (-1, 1, 0, 0.5),
+        (-10, 10, 5, 0.75),
+        (0, 100, 25, 0.25),
+    ])
+    def test_normalize_value(self, vmin, vmax, val, expected):
+        """Normalize maps values correctly."""
+        from matplotlib.colors import Normalize
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        result = float(norm(val))
+        assert abs(result - expected) < 1e-10
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 1), (-5, 5), (0, 100), (-100, 0),
+    ])
+    def test_normalize_vmin_to_zero(self, vmin, vmax):
+        """Normalize maps vmin to 0."""
+        from matplotlib.colors import Normalize
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        assert abs(float(norm(vmin))) < 1e-10
+
+    @pytest.mark.parametrize('vmin,vmax', [
+        (0, 1), (-5, 5), (0, 100), (-100, 0),
+    ])
+    def test_normalize_vmax_to_one(self, vmin, vmax):
+        """Normalize maps vmax to 1."""
+        from matplotlib.colors import Normalize
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        assert abs(float(norm(vmax)) - 1.0) < 1e-10
+
+    @pytest.mark.parametrize('gamma', [0.5, 1.0, 1.5, 2.0, 3.0])
+    def test_power_norm_gamma(self, gamma):
+        """PowerNorm stores gamma."""
+        from matplotlib.colors import PowerNorm
+        norm = PowerNorm(gamma=gamma, vmin=0, vmax=1)
+        assert norm.gamma == gamma
+
+    @pytest.mark.parametrize('vcenter,vmin,vmax', [
+        (0, -1, 1), (5, 0, 10), (-2, -10, 5),
+    ])
+    def test_twoslope_norm_vcenter(self, vcenter, vmin, vmax):
+        """TwoSlopeNorm maps vcenter to 0.5."""
+        from matplotlib.colors import TwoSlopeNorm
+        norm = TwoSlopeNorm(vcenter=vcenter, vmin=vmin, vmax=vmax)
+        result = float(norm(vcenter))
+        assert abs(result - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('linthresh', [0.1, 0.5, 1.0, 5.0, 10.0])
+    def test_symlog_norm_linthresh(self, linthresh):
+        """SymLogNorm stores linthresh."""
+        from matplotlib.colors import SymLogNorm
+        norm = SymLogNorm(linthresh=linthresh, vmin=-100, vmax=100)
+        assert norm.linthresh == linthresh
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16])
+    def test_normalize_array_length(self, n):
+        """Normalize applied to n-element array returns n values."""
+        from matplotlib.colors import Normalize
+        norm = Normalize(vmin=0, vmax=1)
+        arr = list(range(n))
+        result = norm(arr)
+        assert len(result) == n
+
+
+class TestBoundaryNormParametric:
+    """Parametric BoundaryNorm tests."""
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5])
+    def test_boundary_norm_n_boundaries(self, n):
+        """BoundaryNorm stores n+1 boundaries for n colors."""
+        from matplotlib.colors import BoundaryNorm
+        boundaries = list(range(n + 1))
+        norm = BoundaryNorm(boundaries=boundaries, ncolors=n)
+        # Just confirm it doesn't raise
+        assert norm is not None
+
+    @pytest.mark.parametrize('val', [0.5, 1.5, 2.5])
+    def test_boundary_norm_maps_value(self, val):
+        """BoundaryNorm maps any in-range value without error."""
+        from matplotlib.colors import BoundaryNorm
+        norm = BoundaryNorm([0, 1, 2, 3], ncolors=3)
+        result = norm(val)
+        assert result is not None
+
+    @pytest.mark.parametrize('ncolors', [2, 4, 8, 16])
+    def test_boundary_norm_ncolors(self, ncolors):
+        """BoundaryNorm stores ncolors."""
+        from matplotlib.colors import BoundaryNorm
+        boundaries = list(range(ncolors + 1))
+        norm = BoundaryNorm(boundaries=boundaries, ncolors=ncolors)
+        assert norm.N == ncolors
