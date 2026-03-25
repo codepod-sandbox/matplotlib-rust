@@ -743,3 +743,64 @@ class TestAxesParametricExtended:
         t = ax.text(0.5, 0.5, 'test', fontsize=fontsize)
         assert t.get_fontsize() == fontsize
         plt.close('all')
+
+
+class TestAxesParametric2:
+    """More parametric tests for Axes."""
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100), (-5, 5)])
+    def test_ax_xlim2(self, lo, hi):
+        """ax.set_xlim stores xlim."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(lo, hi)
+        assert ax.get_xlim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100), (-5, 5)])
+    def test_ax_ylim2(self, lo, hi):
+        """ax.set_ylim stores ylim."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(lo, hi)
+        assert ax.get_ylim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['My Title', 'Plot', ''])
+    def test_ax_title2(self, title):
+        """ax.set_title stores title."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_ax_visible(self, visible):
+        """ax.set_visible stores visibility."""
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close('all')
+
+    @pytest.mark.parametrize('aspect', ['equal', 'auto'])
+    def test_ax_aspect2(self, aspect):
+        """ax.set_aspect stores aspect."""
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        assert ax.get_aspect() == aspect
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_ax_n_lines(self, n):
+        """ax.plot n times gives n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log'])
+    def test_ax_xscale2(self, scale):
+        """ax.set_xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')

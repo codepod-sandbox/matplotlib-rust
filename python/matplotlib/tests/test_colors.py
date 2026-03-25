@@ -436,3 +436,75 @@ class TestColorsParametricExtended:
         """Normalize maps values correctly."""
         norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
         assert abs(float(norm(val)) - expected) < 1e-10
+
+
+class TestColorsParametric2:
+    """More parametric tests for colors."""
+
+    @pytest.mark.parametrize('name', ['red', 'green', 'blue', 'black', 'white'])
+    def test_to_rgba_named(self, name):
+        """Named colors convert to valid RGBA."""
+        rgba = mcolors.to_rgba(name)
+        assert len(rgba) == 4
+        for v in rgba:
+            assert 0.0 <= v <= 1.0
+
+    @pytest.mark.parametrize('hex_color', ['#ff0000', '#00ff00', '#0000ff', '#ffffff', '#000000'])
+    def test_to_rgba_hex(self, hex_color):
+        """Hex colors convert to valid RGBA."""
+        rgba = mcolors.to_rgba(hex_color)
+        assert len(rgba) == 4
+
+    @pytest.mark.parametrize('v', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_to_rgba_grayscale(self, v):
+        """Grayscale float converts to RGBA with equal RGB."""
+        rgba = mcolors.to_rgba(str(v))
+        assert abs(rgba[0] - rgba[1]) < 1e-10
+        assert abs(rgba[1] - rgba[2]) < 1e-10
+
+    @pytest.mark.parametrize('name', ['red', 'green', 'blue', 'yellow', 'cyan'])
+    def test_to_hex_named(self, name):
+        """Named colors convert to hex string."""
+        h = mcolors.to_hex(name)
+        assert h.startswith('#')
+        assert len(h) == 7
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16, 256])
+    def test_listed_colormap_colors(self, n):
+        """ListedColormap with n colors has N=n."""
+        import numpy as np
+        colors = np.random.rand(n, 4)
+        cmap = mcolors.ListedColormap(colors)
+        assert cmap.N == n
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 100), (-5, 5), (-1, 1)])
+    def test_normalize_vmin_vmax(self, vmin, vmax):
+        """Normalize stores vmin and vmax."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        assert norm.vmin == vmin
+        assert norm.vmax == vmax
+
+    @pytest.mark.parametrize('gamma', [0.5, 1.0, 2.0, 3.0])
+    def test_power_norm_gamma(self, gamma):
+        """PowerNorm maps 0->0 and 1->1."""
+        norm = mcolors.PowerNorm(gamma=gamma, vmin=0, vmax=1)
+        assert abs(float(norm(0)) - 0.0) < 1e-10
+        assert abs(float(norm(1)) - 1.0) < 1e-10
+
+    @pytest.mark.parametrize('linthresh', [0.01, 0.1, 1.0, 10.0])
+    def test_symlog_norm_accepts_linthresh(self, linthresh):
+        """SymLogNorm accepts linthresh."""
+        norm = mcolors.SymLogNorm(linthresh=linthresh, vmin=-100, vmax=100)
+        assert norm is not None
+
+    @pytest.mark.parametrize('vcenter', [-1, 0, 1, 2])
+    def test_two_slope_norm_center(self, vcenter):
+        """TwoSlopeNorm maps vcenter to 0.5."""
+        norm = mcolors.TwoSlopeNorm(vmin=vcenter-2, vcenter=vcenter, vmax=vcenter+2)
+        assert abs(float(norm(vcenter)) - 0.5) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_to_rgba_alpha(self, alpha):
+        """to_rgba with alpha sets correct alpha channel."""
+        rgba = mcolors.to_rgba('red', alpha=alpha)
+        assert abs(rgba[3] - alpha) < 1e-10

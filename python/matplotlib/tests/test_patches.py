@@ -605,3 +605,77 @@ class TestCircleParametric:
         c = Circle((0, 0), 1.0)
         c.set_radius(r)
         assert abs(c.get_radius() - r) < 1e-10
+
+
+class TestPatchesParametric2:
+    """More parametric tests for patches."""
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (1, 2), (-1, -1), (0.5, 0.5)])
+    def test_rectangle_xy(self, x, y):
+        """Rectangle stores xy position."""
+        r = Rectangle((x, y), 1, 1)
+        assert r.get_x() == x
+        assert r.get_y() == y
+
+    @pytest.mark.parametrize('w,h', [(1, 1), (2, 3), (0.5, 0.5), (10, 5)])
+    def test_rectangle_size(self, w, h):
+        """Rectangle stores width and height."""
+        r = Rectangle((0, 0), w, h)
+        assert abs(r.get_width() - w) < 1e-10
+        assert abs(r.get_height() - h) < 1e-10
+
+    @pytest.mark.parametrize('r', [0.1, 0.5, 1.0, 2.0, 5.0])
+    def test_circle_radius(self, r):
+        """Circle stores radius."""
+        c = Circle((0, 0), r)
+        assert abs(c.get_radius() - r) < 1e-10
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_patch_linewidth(self, lw):
+        """Patch linewidth can be set."""
+        p = Rectangle((0, 0), 1, 1)
+        p.set_linewidth(lw)
+        assert abs(p.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_patch_alpha(self, alpha):
+        """Patch alpha can be set."""
+        p = Rectangle((0, 0), 1, 1)
+        p.set_alpha(alpha)
+        assert abs(p.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_patch_visible(self, visible):
+        """Patch visibility can be toggled."""
+        p = Rectangle((0, 0), 1, 1)
+        p.set_visible(visible)
+        assert p.get_visible() == visible
+
+    @pytest.mark.parametrize('zorder', [1, 2, 5, 10])
+    def test_patch_zorder(self, zorder):
+        """Patch zorder can be set."""
+        p = Rectangle((0, 0), 1, 1)
+        p.set_zorder(zorder)
+        assert p.get_zorder() == zorder
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000'])
+    def test_rectangle_facecolor(self, color):
+        """Rectangle facecolor can be set."""
+        r = Rectangle((0, 0), 1, 1)
+        r.set_facecolor(color)
+        assert r.get_facecolor() is not None
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_ax_bar_patches_count(self, n):
+        """ax.bar returns n patches."""
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(n))
+        assert len(bars.patches) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('ls', ['solid', 'dashed', 'dotted', 'dashdot'])
+    def test_patch_linestyle(self, ls):
+        """Patch linestyle can be set."""
+        p = Rectangle((0, 0), 1, 1)
+        p.set_linestyle(ls)
+        assert p.get_linestyle() is not None
