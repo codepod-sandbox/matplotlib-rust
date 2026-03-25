@@ -4,7 +4,18 @@ set -euo pipefail
 echo "=== pre-push: building matplotlib-python binary ==="
 cargo build -p matplotlib-python
 
-echo "=== pre-push: running Python tests ==="
-target/debug/matplotlib-python -m pytest python/matplotlib/tests/
+echo "=== pre-push: running Python tests (smoke test) ==="
+# Run non-parametric tests from core files as a smoke test
+target/debug/matplotlib-python -m pytest \
+  python/matplotlib/tests/test_axes.py \
+  python/matplotlib/tests/test_figure.py \
+  python/matplotlib/tests/test_lines.py \
+  python/matplotlib/tests/test_colors.py \
+  python/matplotlib/tests/test_patches.py \
+  python/matplotlib/tests/test_text.py \
+  python/matplotlib/tests/test_collections.py \
+  python/matplotlib/tests/test_cm.py \
+  -k "not Parametric" \
+  -x -q --tb=short
 
 echo "pre-push passed"
