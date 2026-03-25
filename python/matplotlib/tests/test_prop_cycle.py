@@ -437,3 +437,37 @@ class TestPropCycleParametric3:
         ax.plot([0, 1], [0, 1])
         from matplotlib.colors import to_hex
         assert to_hex(ax.lines[0].get_color()) == to_hex(color)
+
+
+class TestPropCycleParametric4:
+    """Yet more parametric prop_cycle tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    def test_cycler_len_n(self, n):
+        """Cycler of length n has length n."""
+        c = cycler(color=[f'C{i}' for i in range(n)])
+        assert len(c) == n
+
+    @pytest.mark.parametrize('prop,vals', [
+        ('color', ['r', 'g', 'b']),
+        ('linewidth', [1.0, 2.0, 3.0]),
+        ('marker', ['o', 's', '^']),
+        ('alpha', [0.3, 0.6, 1.0]),
+        ('linestyle', ['-', '--', ':']),
+    ])
+    def test_cycler_stores_values(self, prop, vals):
+        """Cycler stores each value correctly."""
+        c = cycler(**{prop: vals})
+        for i, item in enumerate(c):
+            assert item[prop] == vals[i]
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5])
+    def test_axes_color_cycles(self, n):
+        """Axes with color cycler cycles through n colors."""
+        colors = ['red', 'blue', 'green', 'orange', 'purple'][:n]
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_prop_cycle(cycler(color=colors))
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n

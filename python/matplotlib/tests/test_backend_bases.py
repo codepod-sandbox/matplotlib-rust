@@ -796,3 +796,62 @@ class TestBackendBasesParametric3:
         svg = fig.to_svg()
         assert '<svg' in svg
         plt.close('all')
+
+
+class TestBackendBasesParametric4:
+    """Yet more parametric backend tests."""
+
+    @pytest.mark.parametrize('n_subplots', [1, 2, 3, 4, 6])
+    def test_svg_n_subplots(self, n_subplots):
+        """SVG with n subplots renders."""
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, axes = plt.subplots(1, n_subplots)
+        axes_list = np.array(axes).flatten()
+        for ax in axes_list:
+            ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20, 30, 50])
+    def test_svg_histogram(self, bins):
+        """SVG histogram renders."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.hist(list(range(100)), bins=bins)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n_points', [10, 20, 50, 100, 200])
+    def test_svg_scatter(self, n_points):
+        """SVG scatter with n points renders."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.scatter(range(n_points), range(n_points))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('ylabel', ['Y axis', 'Value', 'Frequency', 'Count'])
+    def test_svg_ylabel(self, ylabel):
+        """SVG renders with ylabel."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        ax.set_ylabel(ylabel)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log'])
+    def test_svg_yscale(self, scale):
+        """SVG renders with yscale."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 10, 100])
+        ax.set_yscale(scale)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
