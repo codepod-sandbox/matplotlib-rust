@@ -995,3 +995,85 @@ class TestBatch15Parametric11:
         assert ax.get_visible() == visible
         plt.close("all")
 
+
+
+class TestBatch15Parametric15:
+    """Yet more parametric tests for batch 15."""
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 4, 5])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i + 1])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-5, 5), (0, 100)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        result = ax.get_xlim()
+        assert abs(result[0] - xlim[0]) < 1e-9
+        assert abs(result[1] - xlim[1]) < 1e-9
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 2, 3])
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-9
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(1, n + 1))
+        assert len(bars) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-9
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
