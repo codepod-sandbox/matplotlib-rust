@@ -358,3 +358,77 @@ class TestLinearScaleParametric:
         s = LinearScale()
         result = s.inverse(np.array([val]))
         assert abs(float(result[0]) - val) < abs(val) * 1e-10 + 1e-15
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import LogLocator, AutoLocator, MaxNLocator
+
+
+class TestScaleParametricExtended2:
+    """More parametric scale tests."""
+
+    @pytest.mark.parametrize('scale,xmin,xmax', [
+        ('linear', 0, 10),
+        ('log', 1, 1000),
+        ('symlog', -10, 10),
+    ])
+    def test_scale_tick_values_nonempty(self, scale, xmin, xmax):
+        """Scale generates at least one tick."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        ticks = ax.xaxis.tick_values(xmin, xmax)
+        assert len(ticks) > 0
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale_changes_locator(self, scale):
+        """Changing scale updates the locator."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        loc = ax.xaxis.get_major_locator()
+        assert loc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_yscale_changes_locator(self, scale):
+        """Changing yscale updates the locator."""
+        fig, ax = plt.subplots()
+        ax.set_yscale(scale)
+        loc = ax.yaxis.get_major_locator()
+        assert loc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('base', [2, 5, 10])
+    def test_log_scale_base(self, base):
+        """Log scale with various bases."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('log', base=base)
+        assert ax.get_xscale() == 'log'
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-1, 1), (0, 100)])
+    def test_linear_xlim(self, vmin, vmax):
+        """Linear scale set_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(vmin, vmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - vmin) < 1e-10
+        assert abs(got[1] - vmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('vmin,vmax', [(1, 10), (0.1, 1000), (1, 100)])
+    def test_log_xlim(self, vmin, vmax):
+        """Log scale set_xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale('log')
+        ax.set_xlim(vmin, vmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - vmin) < 1e-10
+        assert abs(got[1] - vmax) < 1e-10
+        plt.close('all')
