@@ -1723,3 +1723,177 @@ class TestPatchesUpstreamParametric17:
         if tight:
             fig.tight_layout()
         plt.close("all")
+
+
+class TestPatchesUpstreamParametric18:
+    """Standard parametric test class A."""
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i + 1])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(*xlim)
+        result = ax.get_xlim()
+        assert abs(result[0] - xlim[0]) < 1e-9 and abs(result[1] - xlim[1]) < 1e-9
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 2, 3])
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-9
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(1, n + 1))
+        assert len(bars) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        assert ax.get_aspect() == aspect
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-9
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestPatchesUpstreamParametric19:
+    """Standard parametric test class B."""
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_subplots(self, n):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, n)
+        if n == 1:
+            axes = [axes]
+        assert len(axes) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("ylim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_ylim(self, ylim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_ylim(*ylim)
+        result = ax.get_ylim()
+        assert abs(result[0] - ylim[0]) < 1e-9 and abs(result[1] - ylim[1]) < 1e-9
+        plt.close("all")
+
+    @pytest.mark.parametrize("color", ["red", "blue", "green", "black", "orange"])
+    def test_line_color(self, color):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line.get_color() is not None
+        plt.close("all")
+
+    @pytest.mark.parametrize("ls", ["-", "--", "-.", ":"])
+    def test_linestyle(self, ls):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linestyle=ls)
+        assert line.get_linestyle() == ls
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [10, 20, 50, 100])
+    def test_scatter(self, n):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        x = np.linspace(0, 1, n)
+        ax.scatter(x, x)
+        plt.close("all")
+
+    @pytest.mark.parametrize("bins", [5, 10, 20, 50])
+    def test_hist_bins(self, bins):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.hist(np.random.randn(100), bins=bins)
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlabel", ["Time", "Frequency", "Distance", "Value", ""])
+    def test_xlabel(self, xlabel):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlabel(xlabel)
+        assert ax.get_xlabel() == xlabel
+        plt.close("all")
+
+    @pytest.mark.parametrize("ylabel", ["Amplitude", "Power", "Count", "Ratio", ""])
+    def test_ylabel(self, ylabel):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_ylabel(ylabel)
+        assert ax.get_ylabel() == ylabel
+        plt.close("all")
+
+    @pytest.mark.parametrize("grid", [True, False])
+    def test_grid(self, grid):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.grid(grid)
+        plt.close("all")
+
+    @pytest.mark.parametrize("tight", [True, False])
+    def test_tight_layout(self, tight):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        if tight:
+            fig.tight_layout()
+        plt.close("all")
