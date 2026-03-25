@@ -1,5 +1,7 @@
 """Tests for Axes.set_prop_cycle and color cycling."""
 
+import itertools
+
 import pytest
 
 from matplotlib.figure import Figure
@@ -496,3 +498,133 @@ class TestPropCycleParametric5:
         """Linewidth cycler stores correct value."""
         c = cycler(linewidth=[lw])
         assert list(c)[0]['linewidth'] == lw
+
+
+class TestPropCycleParametric6:
+    """Extended parametric prop_cycle tests - set 6."""
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D', 'v', '<', '>', 'p', '*', 'h'])
+    def test_marker_cycler(self, marker):
+        c = cycler(marker=[marker])
+        assert list(c)[0]['marker'] == marker
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0])
+    def test_alpha_cycler(self, alpha):
+        c = cycler(alpha=[alpha])
+        assert list(c)[0]['alpha'] == alpha
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8, 13])
+    def test_color_linestyle_combined(self, n):
+        colors = ['C{}'.format(i) for i in range(n)]
+        c = cycler(color=colors)
+        assert len(c) == n
+
+    @pytest.mark.parametrize('prop,val', [
+        ('linewidth', 1.5), ('alpha', 0.5), ('marker', 'o'),
+    ])
+    def test_single_prop(self, prop, val):
+        c = cycler(**{prop: [val]})
+        assert list(c)[0][prop] == val
+
+    @pytest.mark.parametrize('n', [2, 4, 6, 8, 10])
+    def test_cycler_add_lengths(self, n):
+        c = cycler(color=['r'] * n)
+        assert len(c) == n
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    def test_repeat_count(self, n):
+        c = cycler(color=['red'])
+        items = list(itertools.islice(itertools.cycle(list(c)), n))
+        assert len(items) == n
+
+    @pytest.mark.parametrize('colors', [
+        ['red'], ['blue', 'green'], ['cyan', 'magenta', 'yellow'],
+        ['C0', 'C1', 'C2', 'C3'],
+    ])
+    def test_iter_colors(self, colors):
+        c = cycler(color=colors)
+        result = [item['color'] for item in c]
+        assert result == colors
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_fig_line_lw_cycle(self, lw):
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(5):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == 5
+
+    @pytest.mark.parametrize('n_props', [1, 2, 3])
+    def test_mul_props(self, n_props):
+        props = {'color': ['r', 'g', 'b'], 'linewidth': [1, 2, 3], 'alpha': [0.5, 0.7, 0.9]}
+        keys = list(props.keys())[:n_props]
+        c = cycler(**{k: props[k] for k in keys})
+        assert len(c) > 0
+
+    @pytest.mark.parametrize('n', [3, 5, 7, 9, 11])
+    def test_mul_cycler(self, n):
+        c = cycler(color=['r', 'g', 'b']) * cycler(linewidth=[1])
+        items = list(itertools.islice(itertools.cycle(list(c)), n))
+        assert len(items) == n
+
+
+class TestPropCycleParametric7:
+    """More extended parametric prop_cycle tests - set 7."""
+
+    @pytest.mark.parametrize('ls', ['-', '--', '-.', ':', 'solid', 'dashed'])
+    def test_linestyle_cycler(self, ls):
+        c = cycler(linestyle=[ls])
+        assert list(c)[0]['linestyle'] == ls
+
+    @pytest.mark.parametrize('n', range(2, 12))
+    def test_two_prop_cycler_len(self, n):
+        c = cycler(color=['C{}'.format(i) for i in range(n)])
+        assert len(c) == n
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'orange', 'purple', 'black', 'white', 'cyan', 'magenta', 'yellow'])
+    def test_single_color_iter(self, color):
+        c = cycler(color=[color])
+        assert list(c)[0]['color'] == color
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 8])
+    def test_product_length(self, n):
+        c = cycler(color=['r'] * n) * cycler(linewidth=[1])
+        assert len(c) == n
+
+    @pytest.mark.parametrize('val', [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    def test_linewidth_values(self, val):
+        c = cycler(linewidth=[val])
+        assert abs(list(c)[0]['linewidth'] - val) < 1e-9
+
+    @pytest.mark.parametrize('n', [2, 3, 4, 5, 6])
+    def test_matplotlib_default_cycle(self, n):
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(n):
+            line, = ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+
+    @pytest.mark.parametrize('n', [1, 2, 4, 8, 16])
+    def test_cycler_keys(self, n):
+        props = {f'p{i}': [0] for i in range(n)}
+        c = cycler(**props)
+        assert set(c.keys) == set(props.keys())
+
+    @pytest.mark.parametrize('n', [5, 10, 15, 20, 25])
+    def test_cycler_mod_length(self, n):
+        c = cycler(color=['r', 'g', 'b'])
+        items = [list(c)[i % len(c)] for i in range(n)]
+        assert len(items) == n
+
+    @pytest.mark.parametrize('color', ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'])
+    def test_cn_colors(self, color):
+        c = cycler(color=[color])
+        assert list(c)[0]['color'] == color
+
+    @pytest.mark.parametrize('n', [3, 6, 9, 12, 15])
+    def test_cycle_repeat(self, n):
+        c = cycler(linewidth=[1, 2, 3])
+        items = list(itertools.islice(itertools.cycle(list(c)), n))
+        assert all('linewidth' in item for item in items)

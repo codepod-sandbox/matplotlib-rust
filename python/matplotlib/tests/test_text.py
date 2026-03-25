@@ -744,3 +744,124 @@ class TestTextParametric4:
         """Text y position roundtrips."""
         t = Text(0, y, 'test')
         assert abs(t.get_position()[1] - y) < 1e-9
+
+
+class TestTextParametric5:
+    """Extended parametric text tests - set 5."""
+
+    @pytest.mark.parametrize('text', ['', 'a', 'hello', 'Hello World', 'foo bar baz', '12345', 'special!@#'])
+    def test_text_string(self, text):
+        t = Text(0, 0, text)
+        assert t.get_text() == text
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0])
+    def test_text_alpha(self, alpha):
+        t = Text(0, 0, 'test')
+        t.set_alpha(alpha)
+        assert abs(t.get_alpha() - alpha) < 1e-9
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_ha(self, ha):
+        t = Text(0, 0, 'test', ha=ha)
+        assert t.get_ha() == ha
+
+    @pytest.mark.parametrize('va', ['top', 'bottom', 'center', 'baseline', 'center_baseline'])
+    def test_va(self, va):
+        t = Text(0, 0, 'test', va=va)
+        assert t.get_va() == va
+
+    @pytest.mark.parametrize('rotation', [0, 15, 30, 45, 60, 75, 90, 180, 270, 360])
+    def test_rotation(self, rotation):
+        t = Text(0, 0, 'test', rotation=rotation)
+        assert t.get_rotation() == rotation % 360
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black', 'white', 'orange', 'purple', 'cyan', 'magenta', 'yellow'])
+    def test_color(self, color):
+        t = Text(0, 0, 'test', color=color)
+        assert t.get_color() == color
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_visible(self, visible):
+        t = Text(0, 0, 'test')
+        t.set_visible(visible)
+        assert t.get_visible() == visible
+
+    @pytest.mark.parametrize('fontsize', [6, 8, 10, 12, 14, 16, 18, 20, 24, 36])
+    def test_fontsize(self, fontsize):
+        t = Text(0, 0, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('weight', ['ultralight', 'light', 'normal', 'regular', 'book', 'medium', 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy', 'extra bold', 'black'])
+    def test_weight(self, weight):
+        t = Text(0, 0, 'test', fontweight=weight)
+        assert t.get_fontweight() == weight
+
+    @pytest.mark.parametrize('style', ['normal', 'italic', 'oblique'])
+    def test_style(self, style):
+        t = Text(0, 0, 'test', fontstyle=style)
+        assert t.get_fontstyle() == style
+
+
+class TestTextParametric6:
+    """More parametric text tests - set 6."""
+
+    @pytest.mark.parametrize('x,y', [(0, 0), (1, 1), (-1, -1), (100, 200), (0.5, 0.5)])
+    def test_position(self, x, y):
+        t = Text(x, y, 'test')
+        pos = t.get_position()
+        assert abs(pos[0] - x) < 1e-9 and abs(pos[1] - y) < 1e-9
+
+    @pytest.mark.parametrize('zorder', [0, 1, 2, 3, 5, 10, 50, 100])
+    def test_zorder(self, zorder):
+        t = Text(0, 0, 'test')
+        t.set_zorder(zorder)
+        assert t.get_zorder() == zorder
+
+    @pytest.mark.parametrize('clip_on', [True, False])
+    def test_clip_on(self, clip_on):
+        t = Text(0, 0, 'test')
+        t.set_clip_on(clip_on)
+        assert t.get_clip_on() == clip_on
+
+    @pytest.mark.parametrize('text_content', ['Short', 'A bit longer text here', 'x' * 50, 'Line1\nLine2\nLine3'])
+    def test_multiline(self, text_content):
+        t = Text(0, 0, text_content)
+        assert t.get_text() == text_content
+
+    @pytest.mark.parametrize('fontsize', [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48])
+    def test_fontsize_range2(self, fontsize):
+        t = Text(0, 0, 'hello', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+
+    @pytest.mark.parametrize('x', [-1000, -100, -10, -1, -0.5, 0, 0.5, 1, 10, 100, 1000])
+    def test_x_values(self, x):
+        t = Text(x, 0, 'test')
+        assert abs(t.get_position()[0] - x) < 1e-9
+
+    @pytest.mark.parametrize('rotation', [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 240, 270, 300, 330])
+    def test_rotation_values(self, rotation):
+        t = Text(0, 0, 'test', rotation=rotation)
+        assert t.get_rotation() == rotation % 360
+
+    @pytest.mark.parametrize('n', [5, 10, 15, 20, 25])
+    def test_many_texts(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.text(i, i, str(i))
+        assert len(ax.texts) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_multiple_texts(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.text(i, i, str(i))
+        assert len(ax.texts) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['#ff0000', '#00ff00', '#0000ff', '#ffffff', '#000000'])
+    def test_hex_color(self, color):
+        t = Text(0, 0, 'test', color=color)
+        assert t.get_color() == color
