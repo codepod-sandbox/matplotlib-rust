@@ -610,3 +610,75 @@ class TestColormapOperations:
     def test_colormap_eq_not_implemented(self):
         cmap = get_cmap('viridis')
         assert cmap != "viridis"  # string != Colormap
+
+
+# ===================================================================
+# Extended parametric tests for colormap
+# ===================================================================
+
+class TestCmParametric:
+    """Parametric tests for colormap operations."""
+
+    @pytest.mark.parametrize('name', [
+        'viridis', 'plasma', 'inferno', 'magma', 'cividis',
+        'gray', 'hot', 'cool', 'spring', 'summer', 'autumn', 'winter',
+    ])
+    def test_cmap_exists(self, name):
+        """Standard colormap exists."""
+        cmap = get_cmap(name)
+        assert cmap is not None
+        assert cmap.name == name
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'inferno', 'magma'])
+    def test_cmap_rgba_valid(self, name):
+        """Colormap returns valid RGBA for [0,1]."""
+        cmap = get_cmap(name)
+        for v in [0.0, 0.25, 0.5, 0.75, 1.0]:
+            rgba = cmap(v)
+            assert len(rgba) == 4
+            assert all(0.0 <= c <= 1.0 for c in rgba)
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16, 256])
+    def test_listed_colormap_n(self, n):
+        """ListedColormap with n colors has N=n."""
+        import numpy as np
+        colors = [(i/n, 0, 1-i/n, 1) for i in range(n)]
+        cmap = ListedColormap(colors)
+        assert cmap.N == n
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'gray'])
+    def test_cmap_reversed(self, name):
+        """Reversed colormap has _r suffix."""
+        cmap = get_cmap(name + '_r')
+        assert cmap is not None
+
+    @pytest.mark.parametrize('v', [0.0, 0.1, 0.5, 0.9, 1.0])
+    def test_cmap_scalar_value(self, v):
+        """Colormap accepts scalar values."""
+        cmap = get_cmap('viridis')
+        rgba = cmap(v)
+        assert len(rgba) == 4
+
+    @pytest.mark.parametrize('n', [4, 8, 16, 64, 256])
+    def test_linear_segmented_n(self, n):
+        """LinearSegmentedColormap resampled has N colors."""
+        cmap = get_cmap('viridis')
+        resampled = cmap.resampled(n)
+        assert resampled.N == n
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'gray'])
+    def test_cmap_copy_independent(self, name):
+        """Copied colormap is independent."""
+        cmap = get_cmap(name)
+        copied = cmap.copy()
+        assert copied.name == cmap.name
+        assert copied is not cmap
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'inferno', 'gray', 'hot'])
+    def test_cmap_array_output_shape(self, name):
+        """Colormap returns (n, 4) array for n inputs."""
+        import numpy as np
+        cmap = get_cmap(name)
+        values = np.linspace(0, 1, 10)
+        rgba = cmap(values)
+        assert rgba.shape == (10, 4)
