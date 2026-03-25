@@ -635,3 +635,88 @@ class TestRenderingParametricExtended2:
         svg = fig.to_svg()
         assert '<svg' in svg
         plt.close('all')
+
+
+class TestRenderingUpstreamParametric3:
+    """More parametric SVG rendering tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_svg_n_plots(self, n):
+        """SVG output for figure with n plots."""
+        fig, axes = plt.subplots(1, n)
+        import numpy as np
+        axes_list = np.array(axes).flatten()
+        for ax in axes_list:
+            ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title A', 'My Chart', ''])
+    def test_svg_with_title(self, title):
+        """SVG renders with axis title."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('xlabel', ['X', 'Time', ''])
+    def test_svg_with_xlabel(self, xlabel):
+        """SVG renders with xlabel."""
+        fig, ax = plt.subplots()
+        ax.set_xlabel(xlabel)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('ylabel', ['Y', 'Amplitude', ''])
+    def test_svg_with_ylabel(self, ylabel):
+        """SVG renders with ylabel."""
+        fig, ax = plt.subplots()
+        ax.set_ylabel(ylabel)
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_svg_linewidth(self, lw):
+        """SVG renders with linewidth."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], linewidth=lw)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_svg_histogram(self, bins):
+        """SVG renders histogram."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.hist(np.random.randn(50), bins=bins)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [5, 10, 20])
+    def test_svg_scatter(self, n):
+        """SVG renders scatter plot."""
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.scatter(np.random.randn(n), np.random.randn(n))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log'])
+    def test_svg_xscale(self, scale):
+        """SVG renders with xscale."""
+        fig, ax = plt.subplots()
+        ax.plot([1, 10, 100], [1, 2, 3])
+        ax.set_xscale(scale)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')

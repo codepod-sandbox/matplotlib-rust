@@ -696,3 +696,40 @@ class TestRenderingParametricExtended:
         svg = fig.to_svg()
         assert '<svg' in svg
         plt.close('all')
+
+
+class TestRenderingParametricExtended2:
+    """More parametric rendering tests."""
+
+    @pytest.mark.parametrize('scale', ['linear', 'log'])
+    def test_svg_scale(self, scale):
+        """SVG renders with axis scale."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([1, 10, 100], [1, 2, 3])
+        ax.set_xscale(scale)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('n', [1, 2, 3])
+    def test_svg_n_subplots(self, n):
+        """SVG with n subplots renders."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        for i in range(n):
+            ax = fig.add_subplot(1, n, i+1)
+            ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_svg_hist(self, bins):
+        """SVG histogram renders."""
+        import numpy as np
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.hist(np.random.randn(50), bins=bins)
+        svg = fig.to_svg()
+        assert '<svg' in svg
