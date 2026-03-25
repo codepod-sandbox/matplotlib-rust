@@ -558,3 +558,87 @@ class TestArtistUpstreamParametric:
         line = Line2D([0, 1], [0, 1])
         line.set_url(url)
         assert line.get_url() == url
+
+
+class TestArtistUpstreamParametric2:
+    """More parametric tests for artist_upstream."""
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.25, 0.5, 0.75, 1.0])
+    def test_artist_alpha(self, alpha):
+        """Artist alpha stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_artist_visible(self, visible):
+        """Artist visibility stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() == visible
+
+    @pytest.mark.parametrize('zorder', [1, 2, 5, 10, 20])
+    def test_artist_zorder(self, zorder):
+        """Artist zorder stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+    @pytest.mark.parametrize('label', ['line1', 'series_a', ''])
+    def test_artist_label(self, label):
+        """Artist label stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1])
+        line.set_label(label)
+        assert line.get_label() == label
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0])
+    def test_artist_linewidth(self, lw):
+        """Line2D linewidth stored."""
+        from matplotlib.lines import Line2D
+        line = Line2D([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_ax_n_lines(self, n):
+        """ax.plot n times gives n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-1, 1), (0, 100)])
+    def test_xlim(self, lo, hi):
+        """xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(lo, hi)
+        assert ax.get_xlim() == (lo, hi)
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title', 'Test', ''])
+    def test_title(self, title):
+        """Title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 5])
+    def test_bar(self, n):
+        """Bar patches."""
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), range(n))
+        assert len(bars.patches) == n
+        plt.close('all')
