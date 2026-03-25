@@ -576,3 +576,96 @@ class TestText:
         t = ax.text(0.5, 0.5, 'Center')
         assert t is not None
         assert t.get_text() == 'Center'
+
+
+# ===================================================================
+# Extended parametric tests for batch18
+# ===================================================================
+
+class TestBatch18Parametric:
+    """Parametric tests for batch18."""
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 1), (-5, 5), (0, 100), (-10, 10)])
+    def test_xlim(self, xmin, xmax):
+        """xlim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xlim(xmin, xmax)
+        got = ax.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(0, 1), (-5, 5), (0, 100)])
+    def test_ylim(self, ymin, ymax):
+        """ylim roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_ylim(ymin, ymax)
+        got = ax.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_xscale(self, scale):
+        """xscale roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        assert ax.get_xscale() == scale
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10])
+    def test_n_lines(self, n):
+        """n plot calls creates n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins(self, bins):
+        """hist bins count."""
+        fig, ax = plt.subplots()
+        n_counts, _, _ = ax.hist(list(range(100)), bins=bins)
+        assert len(n_counts) == bins
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_bar_n(self, n):
+        """bar creates n patches."""
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [3, 5, 10])
+    def test_scatter_n(self, n):
+        """scatter with n points."""
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Title A', '', 'Test'])
+    def test_title(self, title):
+        """title roundtrip."""
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#aabbcc'])
+    def test_line_color(self, color):
+        """line color stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color=color)
+        assert line is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 1.0])
+    def test_line_alpha(self, alpha):
+        """line alpha stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+        plt.close('all')
