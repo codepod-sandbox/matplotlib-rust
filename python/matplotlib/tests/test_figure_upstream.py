@@ -1033,3 +1033,73 @@ class TestFigureUpstreamParametric:
         ax = fig.add_subplot(1, 1, 1)
         line, = ax.plot([0, 1], [0, 1], label=label)
         assert line.get_label() == label
+
+
+class TestFigureUpstreamParametric2:
+    """More parametric tests for figure_upstream."""
+
+    @pytest.mark.parametrize('w,h', [(4, 3), (6, 4), (8, 6), (10, 8)])
+    def test_figsize(self, w, h):
+        """Figure stores figsize."""
+        fig = plt.figure(figsize=(w, h))
+        size = fig.get_size_inches()
+        assert abs(size[0] - w) < 1e-10 and abs(size[1] - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150])
+    def test_dpi(self, dpi):
+        """Figure stores dpi."""
+        fig = plt.figure(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (1, 2), (2, 1), (2, 2)])
+    def test_subplots_count(self, nrows, ncols):
+        """subplots returns nrows*ncols axes."""
+        import numpy as np
+        fig, axes = plt.subplots(nrows, ncols)
+        count = np.array(axes).flatten().shape[0]
+        assert count == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_axes(self, n):
+        """Adding n subplots gives n axes."""
+        fig = plt.figure()
+        for i in range(n):
+            fig.add_subplot(1, n, i+1)
+        assert len(fig.axes) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('title', ['Figure Title', 'Test', ''])
+    def test_suptitle(self, title):
+        """suptitle stored."""
+        fig = plt.figure()
+        fig.suptitle(title)
+        assert fig.texts[0].get_text() == title
+        plt.close('all')
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0])
+    def test_axes_linewidth(self, lw):
+        """ax line linewidth stored."""
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_n_lines(self, n):
+        """n lines in figure axes."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('nfigs', [1, 2, 3, 5])
+    def test_close_all(self, nfigs):
+        """plt.close all clears figures."""
+        for _ in range(nfigs):
+            plt.figure()
+        plt.close('all')
+        assert len(plt.get_fignums()) == 0
