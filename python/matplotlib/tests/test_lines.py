@@ -407,3 +407,79 @@ class TestLine2DExtendedParametric:
         xdata, ydata = line.get_data()
         assert list(xdata) == x
         assert list(ydata) == y
+
+
+class TestLinesParametric3:
+    """More parametric tests for lines."""
+
+    @pytest.mark.parametrize('n', [2, 3, 5, 10, 20])
+    def test_line2d_n_points(self, n):
+        """Line2D stores n points."""
+        x = list(range(n))
+        y = list(range(n))
+        line = Line2D(x, y)
+        xdata, ydata = line.get_data()
+        assert len(xdata) == n
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_line2d_linewidth(self, lw):
+        """Line2D linewidth stored."""
+        line = Line2D([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-10
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.25, 0.5, 0.75, 1.0])
+    def test_line2d_alpha(self, alpha):
+        """Line2D alpha stored."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_alpha(alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D', 'x', '+'])
+    def test_line2d_marker(self, marker):
+        """Line2D marker stored."""
+        line = Line2D([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+
+    @pytest.mark.parametrize('visible', [True, False])
+    def test_line2d_visible(self, visible):
+        """Line2D visibility."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(visible)
+        assert line.get_visible() == visible
+
+    @pytest.mark.parametrize('zorder', [1, 2, 5, 10])
+    def test_line2d_zorder(self, zorder):
+        """Line2D zorder."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+    @pytest.mark.parametrize('label', ['line1', 'series', ''])
+    def test_line2d_label(self, label):
+        """Line2D label stored."""
+        line = Line2D([0, 1], [0, 1])
+        line.set_label(label)
+        assert line.get_label() == label
+
+    @pytest.mark.parametrize('ms', [1, 2, 5, 10])
+    def test_line2d_markersize(self, ms):
+        """Line2D markersize stored."""
+        line = Line2D([0, 1], [0, 1], markersize=ms)
+        assert abs(line.get_markersize() - ms) < 1e-10
+
+    @pytest.mark.parametrize('x,y', [([0], [0]), ([0, 1, 2], [0, 1, 2]), ([0, 0.5, 1], [1, 0, 1])])
+    def test_line2d_positions(self, x, y):
+        """Line2D stores positions correctly."""
+        line = Line2D(x, y)
+        xdata, ydata = line.get_data()
+        assert list(xdata) == x
+        assert list(ydata) == y
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5])
+    def test_ax_n_lines(self, n):
+        """ax.plot n times gives n lines."""
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
