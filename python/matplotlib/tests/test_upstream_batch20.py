@@ -440,3 +440,137 @@ class TestImshow:
         data = [[1, 2], [3, 4]]
         im = ax.imshow(data, extent=[-1, 1, -1, 1])
         assert im is not None
+
+
+# ===================================================================
+# Parametric tests
+# ===================================================================
+
+import pytest
+
+
+class TestBoxplotParametric:
+    """Parametric tests for boxplot."""
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_boxplot_count(self, n):
+        """boxplot with n datasets returns n boxes."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        data = [list(range(i, i + 10)) for i in range(n)]
+        result = ax.boxplot(data)
+        assert len(result['boxes']) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('notch', [True, False])
+    def test_boxplot_notch(self, notch):
+        """boxplot accepts notch parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.boxplot([1, 2, 3, 4, 5], notch=notch)
+        assert result is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('vert', [True, False])
+    def test_boxplot_vert(self, vert):
+        """boxplot accepts vert parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        result = ax.boxplot([1, 2, 3], vert=vert)
+        assert result is not None
+        plt.close('all')
+
+
+class TestHistParametric:
+    """Parametric tests for histogram."""
+
+    @pytest.mark.parametrize('bins', [5, 10, 20])
+    def test_hist_bins_count(self, bins):
+        """hist returns correct number of bins."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        n, edges, patches = ax.hist(list(range(100)), bins=bins)
+        assert len(n) == bins
+        assert len(edges) == bins + 1
+        plt.close('all')
+
+    @pytest.mark.parametrize('histtype', ['bar', 'step', 'stepfilled'])
+    def test_hist_type(self, histtype):
+        """hist accepts histtype parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        n, edges, patches = ax.hist([1, 2, 3, 4, 5], histtype=histtype)
+        assert sum(n) == 5
+        plt.close('all')
+
+    @pytest.mark.parametrize('density', [True, False])
+    def test_hist_density(self, density):
+        """hist accepts density parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        n, edges, patches = ax.hist(list(range(20)), bins=5, density=density)
+        assert len(n) == 5
+        plt.close('all')
+
+
+class TestBarParametric:
+    """Parametric tests for bar."""
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_count(self, n):
+        """bar returns container with n patches."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        container = ax.bar(range(n), range(n))
+        assert len(container) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff0000'])
+    def test_bar_color(self, color):
+        """bar accepts color parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        container = ax.bar([1, 2, 3], [1, 2, 3], color=color)
+        assert container is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.3, 0.5, 0.7, 1.0])
+    def test_bar_alpha(self, alpha):
+        """bar accepts alpha parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        container = ax.bar([1, 2, 3], [1, 2, 3], alpha=alpha)
+        assert container is not None
+        plt.close('all')
+
+
+class TestScatterParametric:
+    """Parametric tests for scatter."""
+
+    @pytest.mark.parametrize('n', [1, 5, 10, 50])
+    def test_scatter_count(self, n):
+        """scatter returns PathCollection."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import PathCollection
+        fig, ax = plt.subplots()
+        sc = ax.scatter(range(n), range(n))
+        assert isinstance(sc, PathCollection)
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D', '+'])
+    def test_scatter_marker(self, marker):
+        """scatter accepts marker parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], marker=marker)
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('s', [10, 50, 100, 200])
+    def test_scatter_size(self, s):
+        """scatter accepts size parameter."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [1, 2, 3], s=s)
+        assert sc is not None
+        plt.close('all')

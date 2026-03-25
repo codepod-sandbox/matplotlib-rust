@@ -463,3 +463,80 @@ class TestGridSpecSubplotParams:
         assert params.right == 0.8
         assert params.top == 0.9
         assert params.bottom == 0.1
+
+
+# ===================================================================
+# Additional parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+
+
+class TestSubplotsParametricExtended:
+    """Extended parametric tests for subplots."""
+
+    @pytest.mark.parametrize('nrows,ncols', [
+        (1, 1), (1, 2), (2, 1), (2, 3), (3, 3),
+    ])
+    def test_subplots_axes_count(self, nrows, ncols):
+        """plt.subplots creates correct total number of axes."""
+        fig, axes = plt.subplots(nrows, ncols)
+        all_axes = fig.get_axes()
+        assert len(all_axes) == nrows * ncols
+        plt.close('all')
+
+    @pytest.mark.parametrize('figsize', [(4, 3), (6.4, 4.8), (10, 8)])
+    def test_subplots_figsize(self, figsize):
+        """plt.subplots passes figsize."""
+        w, h = figsize
+        fig, _ = plt.subplots(figsize=figsize)
+        assert abs(fig.get_figwidth() - w) < 1e-10
+        assert abs(fig.get_figheight() - h) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('dpi', [72, 96, 100, 150])
+    def test_subplots_dpi(self, dpi):
+        """plt.subplots passes dpi."""
+        fig, _ = plt.subplots(dpi=dpi)
+        assert fig.get_dpi() == dpi
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 4])
+    def test_sharex_n_subplots(self, n):
+        """sharex=True links all n horizontal subplots."""
+        fig, axes = plt.subplots(n, 1, sharex=True)
+        axes[0].set_xlim(0, 10)
+        for ax in axes[1:]:
+            assert ax.get_xlim() == (0, 10)
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 4])
+    def test_sharey_n_subplots(self, n):
+        """sharey=True links all n vertical subplots."""
+        fig, axes = plt.subplots(1, n, sharey=True)
+        axes[0].set_ylim(-5, 5)
+        for ax in axes[1:]:
+            assert ax.get_ylim() == (-5, 5)
+        plt.close('all')
+
+    @pytest.mark.parametrize('xmin,xmax', [(0, 10), (-1, 1), (0, 100)])
+    def test_shared_xlim_values(self, xmin, xmax):
+        """Shared x-limits reflect correct values."""
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+        ax1.set_xlim(xmin, xmax)
+        got = ax2.get_xlim()
+        assert abs(got[0] - xmin) < 1e-10
+        assert abs(got[1] - xmax) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('ymin,ymax', [(-5, 5), (0, 100), (-100, 0)])
+    def test_shared_ylim_values(self, ymin, ymax):
+        """Shared y-limits reflect correct values."""
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+        ax1.set_ylim(ymin, ymax)
+        got = ax2.get_ylim()
+        assert abs(got[0] - ymin) < 1e-10
+        assert abs(got[1] - ymax) < 1e-10
+        plt.close('all')

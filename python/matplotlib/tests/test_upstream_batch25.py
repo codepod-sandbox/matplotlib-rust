@@ -426,3 +426,144 @@ class TestHistogramVariants:
         data = [1, 2, 3]
         n, bins, patches = ax.hist(data, bins=3, color='red')
         assert n is not None
+
+
+# ===================================================================
+# Parametric tests
+# ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.cm as cm
+
+
+class TestColorParametric:
+    """Parametric color conversion tests."""
+
+    @pytest.mark.parametrize('color,r,g,b', [
+        ('red', 1.0, 0.0, 0.0),
+        ('blue', 0.0, 0.0, 1.0),
+        ('black', 0.0, 0.0, 0.0),
+        ('white', 1.0, 1.0, 1.0),
+        ('cyan', 0.0, 1.0, 1.0),
+    ])
+    def test_named_color_rgb(self, color, r, g, b):
+        """Named colors convert to correct RGB."""
+        rgba = mcolors.to_rgba(color)
+        assert abs(rgba[0] - r) < 1e-3
+        assert abs(rgba[1] - g) < 1e-3
+        assert abs(rgba[2] - b) < 1e-3
+
+    @pytest.mark.parametrize('hex_color', [
+        '#ff0000', '#00ff00', '#0000ff', '#ffffff', '#000000',
+    ])
+    def test_hex_converts_to_rgba(self, hex_color):
+        """Hex colors convert to valid RGBA."""
+        rgba = mcolors.to_rgba(hex_color)
+        assert len(rgba) == 4
+        assert all(0.0 <= v <= 1.0 for v in rgba)
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_alpha_channel(self, alpha):
+        """to_rgba preserves alpha."""
+        rgba = mcolors.to_rgba('red', alpha=alpha)
+        assert abs(rgba[3] - alpha) < 1e-10
+
+    @pytest.mark.parametrize('color', ['red', '#ff0000', 'r', (1, 0, 0)])
+    def test_to_hex_format(self, color):
+        """to_hex returns #RRGGBB format."""
+        hex_color = mcolors.to_hex(color)
+        assert hex_color.startswith('#')
+        assert len(hex_color) == 7
+
+
+class TestNormalizationParametric:
+    """Parametric Normalize tests."""
+
+    @pytest.mark.parametrize('vmin,vmax,val,expected', [
+        (0, 1, 0.0, 0.0),
+        (0, 1, 1.0, 1.0),
+        (0, 1, 0.5, 0.5),
+        (0, 10, 5, 0.5),
+        (-1, 1, 0, 0.5),
+    ])
+    def test_normalize_value(self, vmin, vmax, val, expected):
+        """Normalize maps values correctly."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        result = float(norm(val))
+        assert abs(result - expected) < 1e-10
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_normalize_vmin_maps_to_zero(self, vmin, vmax):
+        """Normalize maps vmin to 0."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        assert abs(float(norm(vmin))) < 1e-10
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-5, 5), (0, 100)])
+    def test_normalize_vmax_maps_to_one(self, vmin, vmax):
+        """Normalize maps vmax to 1."""
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        assert abs(float(norm(vmax)) - 1.0) < 1e-10
+
+
+class TestColormapParametric:
+    """Parametric colormap tests."""
+
+    @pytest.mark.parametrize('name', [
+        'viridis', 'plasma', 'inferno', 'magma', 'gray', 'hot', 'cool',
+    ])
+    def test_cmap_exists(self, name):
+        """Standard colormap names are registered."""
+        cmap = cm.get_cmap(name)
+        assert cmap is not None
+
+    @pytest.mark.parametrize('val', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_cmap_returns_rgba(self, val):
+        """viridis returns valid RGBA for any value in [0, 1]."""
+        cmap = cm.get_cmap('viridis')
+        rgba = cmap(val)
+        assert len(rgba) == 4
+        assert all(0.0 <= v <= 1.0 for v in rgba)
+
+    @pytest.mark.parametrize('n', [2, 4, 8, 16])
+    def test_cmap_array_length(self, n):
+        """Colormap applied to n values returns n colors."""
+        import numpy as np
+        cmap = cm.get_cmap('viridis')
+        vals = np.linspace(0, 1, n)
+        colors = cmap(vals)
+        assert colors.shape[0] == n
+
+
+class TestTickerParametric:
+    """Parametric ticker tests."""
+
+    @pytest.mark.parametrize('ticks', [
+        [], [0], [0, 1], [-5, 0, 5], [1, 10, 100],
+    ])
+    def test_fixed_locator_roundtrip(self, ticks):
+        """FixedLocator returns exact ticks."""
+        from matplotlib.ticker import FixedLocator
+        loc = FixedLocator(ticks)
+        assert list(loc()) == ticks
+
+    @pytest.mark.parametrize('labels', [
+        ['a', 'b'], ['x', 'y', 'z'], ['one', 'two', 'three'],
+    ])
+    def test_fixed_formatter_roundtrip(self, labels):
+        """FixedFormatter returns correct labels."""
+        from matplotlib.ticker import FixedFormatter
+        fmt = FixedFormatter(labels)
+        for i, label in enumerate(labels):
+            assert fmt(i, i) == label
+
+    @pytest.mark.parametrize('base', [2, 5, 10, 100])
+    def test_multiple_locator_multiples(self, base):
+        """MultipleLocator returns multiples of base."""
+        from matplotlib.ticker import MultipleLocator
+        loc = MultipleLocator(base=base)
+        ticks = loc.tick_values(0, base * 5)
+        for t in ticks:
+            remainder = round(t % base, 10)
+            assert remainder < 1e-8 or abs(remainder - base) < 1e-8
