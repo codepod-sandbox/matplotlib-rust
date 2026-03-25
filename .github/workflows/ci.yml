@@ -42,14 +42,7 @@ jobs:
       - name: Install pytest into python/
         run: |
           pip3 install "pytest==8.4.2" pluggy iniconfig packaging pygments py --target python/ --no-deps
-          # pytester.py line 177 uses set-comprehension syntax RustPython can't handle.
-          # Use system Python3 to replace with equivalent set(list-comprehension) form.
-          python3 -c "
-f = open('python/_pytest/pytester.py', 'r'); c = f.read(); f.close()
-c = c.replace('{t[0] for t in lines2}', 'set([t[0] for t in lines2])')
-c = c.replace('{t[0] for t in lines1}', 'set([t[0] for t in lines1])')
-f = open('python/_pytest/pytester.py', 'w'); f.write(c); f.close()
-"
+          python3 scripts/patch-pytest-rustpython.py python
 
       - name: Run Python tests
         run: target/debug/matplotlib-python -m pytest python/matplotlib/tests/
