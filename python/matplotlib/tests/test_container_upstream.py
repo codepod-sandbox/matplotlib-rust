@@ -459,3 +459,87 @@ class TestContainerParametricExtended:
         eb = ax.errorbar([1, 2, 3], [1, 2, 3], yerr=0.1, elinewidth=elinewidth)
         assert eb is not None
         plt.close('all')
+
+
+class TestContainerParametricExtended2:
+    """More parametric tests for containers."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 5, 10, 20])
+    def test_bar_n_patches_h(self, n):
+        """ax.barh returns n patches."""
+        fig, ax = plt.subplots()
+        bars = ax.barh(range(n), range(n))
+        assert len(bars.patches) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'black'])
+    def test_bar_color_applied(self, color):
+        """Bar patch has correct facecolor."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([1], [1], color=color)
+        assert bars.patches[0].get_facecolor() is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.1, 0.5, 0.8, 1.0])
+    def test_bar_alpha(self, alpha):
+        """Bar patch alpha is set."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([1], [1], alpha=alpha)
+        assert bars is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('width', [0.1, 0.5, 0.8, 1.0])
+    def test_bar_width(self, width):
+        """Bar patch width is set."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([1], [1], width=width)
+        assert abs(bars.patches[0].get_width() - width) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('height', [0.5, 1.0, 2.0, 5.0])
+    def test_bar_height(self, height):
+        """Bar patch height equals value."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([1], [height])
+        assert abs(bars.patches[0].get_height() - height) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('yerr', [0.1, 0.5, 1.0, 2.0])
+    def test_errorbar_yerr(self, yerr):
+        """errorbar with yerr creates container."""
+        fig, ax = plt.subplots()
+        eb = ax.errorbar([1, 2, 3], [1, 2, 3], yerr=yerr)
+        assert eb is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('xerr', [0.1, 0.5, 1.0])
+    def test_errorbar_xerr(self, xerr):
+        """errorbar with xerr creates container."""
+        fig, ax = plt.subplots()
+        eb = ax.errorbar([1, 2, 3], [1, 2, 3], xerr=xerr)
+        assert eb is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('capsize', [0, 2, 4, 6, 10])
+    def test_errorbar_capsize2(self, capsize):
+        """errorbar accepts capsize."""
+        fig, ax = plt.subplots()
+        eb = ax.errorbar([1, 2], [1, 2], yerr=0.1, capsize=capsize)
+        assert eb is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [2, 3, 5, 8])
+    def test_bar_n_patches_count2(self, n):
+        """ax.bar with n values returns n patches."""
+        fig, ax = plt.subplots()
+        bars = ax.bar(range(n), [1] * n)
+        assert len(bars.patches) == n
+        plt.close('all')
+
+    @pytest.mark.parametrize('bottom', [0, 1, 2, 5, -1])
+    def test_bar_bottom(self, bottom):
+        """Bar bottom is stored correctly."""
+        fig, ax = plt.subplots()
+        bars = ax.bar([1], [2], bottom=bottom)
+        assert abs(bars.patches[0].get_y() - bottom) < 1e-10
+        plt.close('all')
