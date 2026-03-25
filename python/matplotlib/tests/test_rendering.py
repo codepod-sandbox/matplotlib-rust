@@ -733,3 +733,82 @@ class TestRenderingParametricExtended2:
         ax.hist(np.random.randn(50), bins=bins)
         svg = fig.to_svg()
         assert '<svg' in svg
+
+
+class TestRenderingParametricExtended3:
+    """Further parametric rendering tests."""
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4, 5])
+    def test_svg_n_plots(self, n):
+        """SVG with n line plots renders."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('title', ['Hello', 'Test Title', 'X vs Y', 'Signal', 'Data'])
+    def test_svg_with_title(self, title):
+        """SVG renders with axis title."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1])
+        ax.set_title(title)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('xlabel', ['X', 'Time (s)', 'Distance (m)', 'Frequency'])
+    def test_svg_xlabel(self, xlabel):
+        """SVG renders with x label."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1])
+        ax.set_xlabel(xlabel)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_svg_linewidth(self, lw):
+        """SVG renders with various line widths."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([0, 1], [0, 1], linewidth=lw)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('bins', [5, 10, 15, 20, 30])
+    def test_svg_histogram(self, bins):
+        """SVG histogram renders for varying bin counts."""
+        import numpy as np
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.hist(list(range(50)), bins=bins)
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('n_points', [5, 10, 20, 50])
+    def test_svg_scatter(self, n_points):
+        """SVG scatter renders for varying point counts."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.scatter(list(range(n_points)), list(range(n_points)))
+        svg = fig.to_svg()
+        assert '<svg' in svg
+
+    @pytest.mark.parametrize('scale', ['linear', 'log'])
+    def test_svg_yscale(self, scale):
+        """SVG renders with y-axis scale."""
+        from matplotlib.figure import Figure
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot([1, 2, 3], [1, 10, 100])
+        ax.set_yscale(scale)
+        svg = fig.to_svg()
+        assert '<svg' in svg
