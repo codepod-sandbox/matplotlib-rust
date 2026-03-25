@@ -42,11 +42,9 @@ jobs:
       - name: Install pytest into python/
         run: |
           pip3 install "pytest==8.4.2" pluggy iniconfig packaging pygments py --target python/ --no-deps
-          # legacypath imports pytester which uses syntax RustPython can't handle.
-          # We don't use tmpdir fixtures, so remove the legacypath import from pytest/__init__.py
-          sed -i '/legacypath/d' python/pytest/__init__.py
-          # Also stub legacypath so nothing else breaks
-          printf 'class TempdirFactory: pass\nclass TempPathFactory: pass\n' > python/_pytest/legacypath.py
+          # RustPython can't handle set comprehensions in certain scopes in pytester.py.
+          # Rewrite to list comprehensions wrapped in set() which RustPython handles fine.
+          sed -i 's/{t\[0\] for t in lines2}/set([t[0] for t in lines2])/g; s/{t\[0\] for t in lines1}/set([t[0] for t in lines1])/g' python/_pytest/pytester.py
 
       - name: Run Python tests
         run: target/debug/matplotlib-python -m pytest python/matplotlib/tests/
