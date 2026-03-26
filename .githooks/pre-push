@@ -5,17 +5,9 @@ echo "=== pre-push: building matplotlib-python binary ==="
 cargo build -p matplotlib-python
 
 echo "=== pre-push: running Python tests (smoke test) ==="
-# Run non-parametric tests from core files as a smoke test
+# Run dedicated smoke test file — fast collection, no parametric overhead
 target/debug/matplotlib-python -m pytest \
-  python/matplotlib/tests/test_axes.py \
-  python/matplotlib/tests/test_figure.py \
-  python/matplotlib/tests/test_lines.py \
-  python/matplotlib/tests/test_colors.py \
-  python/matplotlib/tests/test_patches.py \
-  python/matplotlib/tests/test_text.py \
-  python/matplotlib/tests/test_collections.py \
-  python/matplotlib/tests/test_cm.py \
-  -k "not Parametric" \
+  python/matplotlib/tests/test_smoke.py \
   -x -q --tb=short
 
 echo "pre-push passed"
