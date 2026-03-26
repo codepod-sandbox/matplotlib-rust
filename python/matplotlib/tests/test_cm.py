@@ -13811,3 +13811,813 @@ class TestCmParametric173:
         ax.set_visible(visible)
         assert ax.get_visible() == visible
         plt.close("all")
+
+
+class TestCmParametric174:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric175:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric176:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric177:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric178:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric179:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric180:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric181:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric182:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
+
+
+class TestCmParametric183:
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8, 10])
+    def test_n_lines(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i])
+        assert len(ax.lines) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("xlim", [(-1, 1), (0, 10), (-100, 100), (0.5, 1.5)])
+    def test_xlim(self, xlim):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xlim(xlim)
+        assert ax.get_xlim() == xlim
+        plt.close("all")
+
+    @pytest.mark.parametrize("scale", ["linear", "log", "symlog"])
+    def test_xscale(self, scale):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_xscale(scale)
+        plt.close("all")
+
+    @pytest.mark.parametrize("lw", [0.5, 1.0, 2.0, 3.0, 5.0])
+    def test_linewidth(self, lw):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], lw=lw)
+        assert line.get_linewidth() == lw
+        plt.close("all")
+
+    @pytest.mark.parametrize("marker", ["o", "s", "^", "D", "v"])
+    def test_marker(self, marker):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+        plt.close("all")
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 5, 8])
+    def test_bar(self, n):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.bar(range(n), range(n))
+        assert len(ax.patches) == n
+        plt.close("all")
+
+    @pytest.mark.parametrize("aspect", ["auto", "equal"])
+    def test_aspect(self, aspect):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+        plt.close("all")
+
+    @pytest.mark.parametrize("title", ["Test", "My Plot", "Signal", "", "Results"])
+    def test_title(self, title):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        assert ax.get_title() == title
+        plt.close("all")
+
+    @pytest.mark.parametrize("alpha", [0.1, 0.3, 0.5, 0.7, 1.0])
+    def test_line_alpha(self, alpha):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], alpha=alpha)
+        assert line.get_alpha() == alpha
+        plt.close("all")
+
+    @pytest.mark.parametrize("visible", [True, False])
+    def test_visible(self, visible):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_visible(visible)
+        assert ax.get_visible() == visible
+        plt.close("all")
