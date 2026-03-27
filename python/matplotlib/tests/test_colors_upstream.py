@@ -2,9 +2,31 @@
 
 import numpy as np
 import pytest
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from matplotlib import colors as mcolors
 from matplotlib.colors import is_color_like, to_rgba_array
+
+
+# ---------------------------------------------------------------------------
+# Helper functions (from upstream test_colors.py)
+# ---------------------------------------------------------------------------
+def _inverse_tester(norm_instance, vals):
+    """Checks if the inverse of the given normalization is working."""
+    assert_array_almost_equal(norm_instance.inverse(norm_instance(vals)), vals)
+
+
+def _scalar_tester(norm_instance, vals):
+    """Checks if scalars and arrays are handled the same way."""
+    scalar_result = [norm_instance(float(v)) for v in vals]
+    assert_array_almost_equal(scalar_result, norm_instance(vals))
+
+
+def _mask_tester(norm_instance, vals):
+    """Checks mask handling."""
+    masked_array = np.ma.array(vals)
+    masked_array[0] = np.ma.masked
+    assert_array_equal(masked_array.mask, norm_instance(masked_array).mask)
 
 
 # ---------------------------------------------------------------------------
@@ -565,17 +587,17 @@ def test_normalize_repr_none():
 def test_normalize_scaled():
     """scaled returns True when both vmin and vmax are set."""
     n = mcolors.Normalize(0, 1)
-    assert n.scaled is True
+    assert n.scaled() is True
 
 
 def test_normalize_not_scaled():
     """scaled returns False when vmin or vmax is None."""
     n = mcolors.Normalize()
-    assert n.scaled is False
+    assert n.scaled() is False
     n2 = mcolors.Normalize(vmin=0)
-    assert n2.scaled is False
+    assert n2.scaled() is False
     n3 = mcolors.Normalize(vmax=1)
-    assert n3.scaled is False
+    assert n3.scaled() is False
 
 
 # ---------------------------------------------------------------------------
@@ -627,7 +649,9 @@ def test_normalize_list_input():
     """Normalize accepts a list of values."""
     n = mcolors.Normalize(0, 10)
     result = n([0, 5, 10])
-    assert result == [0.0, 0.5, 1.0]
+    assert abs(result[0] - 0.0) < 1e-10
+    assert abs(result[1] - 0.5) < 1e-10
+    assert abs(result[2] - 1.0) < 1e-10
 
 
 # ---------------------------------------------------------------------------
@@ -666,7 +690,7 @@ def test_normalize_autoscale():
     n.autoscale([2, 5, 8])
     assert n.vmin == 2
     assert n.vmax == 8
-    assert n.scaled is True
+    assert n.scaled() is True
 
 
 # ---------------------------------------------------------------------------
@@ -780,11 +804,12 @@ class TestPowerNorm:
         n = mcolors.PowerNorm(gamma=0.5, vmin=0, vmax=1)
         assert abs(n(1.0) - 1.0) < 1e-10
 
-    def test_no_vmin_raises(self):
-        """PowerNorm without vmin raises ValueError."""
+    def test_no_vmin_autoscales(self):
+        """PowerNorm without vmin autoscales from data."""
         n = mcolors.PowerNorm(gamma=1.0)
-        with pytest.raises(ValueError):
-            n(5.0)
+        # Autoscale from data: vmin=vmax=5.0 → maps to 0
+        result = n(5.0)
+        assert result == 0.0  # vmin==vmax case
 
     def test_inverse_gamma_1(self):
         """Inverse of linear norm is itself."""
@@ -1217,3 +1242,213 @@ def test_lognorm_inverse():
         normed = n(v)
         recovered = n.inverse(normed)
         assert abs(recovered - v) < 1e-6
+
+
+# ===========================================================================
+# Upstream tests from test_colors.py
+# ===========================================================================
+
+def test_TwoSlopeNorm_autoscale():
+    norm = mcolors.TwoSlopeNorm(vcenter=20)
+    norm.autoscale([10, 20, 30, 40])
+    assert norm.vmin == 10.
+    assert norm.vmax == 40.
+
+
+def test_TwoSlopeNorm_autoscale_None_vmin():
+    norm = mcolors.TwoSlopeNorm(2, vmin=0, vmax=None)
+    norm.autoscale_None([1, 2, 3, 4, 5])
+    assert norm(5) == 1
+    assert norm.vmax == 5
+
+
+def test_TwoSlopeNorm_autoscale_None_vmax():
+    norm = mcolors.TwoSlopeNorm(2, vmin=None, vmax=10)
+    norm.autoscale_None([1, 2, 3, 4, 5])
+    assert norm(1) == 0
+    assert norm.vmin == 1
+
+
+def test_TwoSlopeNorm_scale():
+    norm = mcolors.TwoSlopeNorm(2)
+    assert norm.scaled() is False
+    norm([1, 2, 3, 4])
+    assert norm.scaled() is True
+
+
+def test_TwoSlopeNorm_scaleout_center():
+    # test the vmin never goes above vcenter
+    norm = mcolors.TwoSlopeNorm(vcenter=0)
+    norm([0, 1, 2, 3, 5])
+    assert norm.vmin == -5
+    assert norm.vmax == 5
+
+
+def test_TwoSlopeNorm_scaleout_center_max():
+    # test the vmax never goes below vcenter
+    norm = mcolors.TwoSlopeNorm(vcenter=0)
+    norm([0, -1, -2, -3, -5])
+    assert norm.vmax == 5
+    assert norm.vmin == -5
+
+
+def test_TwoSlopeNorm_Even():
+    norm = mcolors.TwoSlopeNorm(vmin=-1, vcenter=0, vmax=4)
+    vals = np.array([-1.0, -0.5, 0.0, 1.0, 2.0, 3.0, 4.0])
+    expected = np.array([0.0, 0.25, 0.5, 0.625, 0.75, 0.875, 1.0])
+    assert_array_equal(norm(vals), expected)
+
+
+def test_TwoSlopeNorm_Odd():
+    norm = mcolors.TwoSlopeNorm(vmin=-2, vcenter=0, vmax=5)
+    vals = np.array([-2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    expected = np.array([0.0, 0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    assert_array_equal(norm(vals), expected)
+
+
+def test_TwoSlopeNorm_VcenterGTVmax():
+    with pytest.raises(ValueError):
+        mcolors.TwoSlopeNorm(vmin=10, vcenter=25, vmax=20)
+
+
+def test_TwoSlopeNorm_premature_scaling():
+    norm = mcolors.TwoSlopeNorm(vcenter=2)
+    with pytest.raises(ValueError):
+        norm.inverse(np.array([0.1, 0.5, 0.9]))
+
+
+def test_SymLogNorm():
+    """Test SymLogNorm behavior."""
+    norm = mcolors.SymLogNorm(3, vmax=5, linscale=1.2, base=np.e)
+    vals = np.array([-30, -1, 2, 6], dtype=float)
+    normed_vals = norm(vals)
+    expected = [0., 0.53980074, 0.826991, 1.02758204]
+    assert_array_almost_equal(normed_vals, expected)
+    _inverse_tester(norm, vals)
+    _scalar_tester(norm, vals)
+
+    # Ensure that specifying vmin returns the same result as above
+    norm = mcolors.SymLogNorm(3, vmin=-30, vmax=5, linscale=1.2, base=np.e)
+    normed_vals = norm(vals)
+    assert_array_almost_equal(normed_vals, expected)
+
+    # test something more easily checked.
+    norm = mcolors.SymLogNorm(1, vmin=-np.e**3, vmax=np.e**3, base=np.e)
+    nn = norm([-np.e**3, -np.e**2, -np.e**1, -1,
+              0, 1, np.e**1, np.e**2, np.e**3])
+    xx = np.array([0., 0.109123, 0.218246, 0.32737, 0.5, 0.67263,
+                   0.781754, 0.890877, 1.])
+    assert_array_almost_equal(nn, xx)
+    norm = mcolors.SymLogNorm(1, vmin=-10**3, vmax=10**3, base=10)
+    nn = norm([-10**3, -10**2, -10**1, -1,
+              0, 1, 10**1, 10**2, 10**3])
+    xx = np.array([0., 0.121622, 0.243243, 0.364865, 0.5, 0.635135,
+                   0.756757, 0.878378, 1.])
+    assert_array_almost_equal(nn, xx)
+
+
+def test_FuncNorm():
+    def forward(x):
+        return (x**2)
+    def inverse(x):
+        return np.sqrt(x)
+
+    norm = mcolors.FuncNorm((forward, inverse), vmin=0, vmax=10)
+    expected = np.array([0, 0.25, 1])
+    input_vals = np.array([0, 5, 10])
+    assert_array_almost_equal(norm(input_vals), expected)
+    assert_array_almost_equal(norm.inverse(expected), input_vals)
+
+    def forward(x):
+        return np.log10(x)
+    def inverse(x):
+        return 10**x
+    norm = mcolors.FuncNorm((forward, inverse), vmin=0.1, vmax=10)
+    lognorm = mcolors.LogNorm(vmin=0.1, vmax=10)
+    assert_array_almost_equal(norm([0.2, 5, 10]), lognorm([0.2, 5, 10]))
+    assert_array_almost_equal(norm.inverse([0.2, 5, 10]),
+                              lognorm.inverse([0.2, 5, 10]))
+
+
+def test_PowerNorm_translation_invariance():
+    a = np.array([0, 1/2, 1], dtype=float)
+    expected = [0, 1/8, 1]
+    pnorm = mcolors.PowerNorm(vmin=0, vmax=1, gamma=3)
+    assert_array_almost_equal(pnorm(a), expected)
+    pnorm = mcolors.PowerNorm(vmin=-2, vmax=-1, gamma=3)
+    assert_array_almost_equal(pnorm(a - 2), expected)
+
+
+def test_PowerNorm_upstream():
+    # Check an exponent of 1 gives same results as a normal linear normalization.
+    a = np.array([0, 0.5, 1, 1.5], dtype=float)
+    pnorm = mcolors.PowerNorm(1)
+    norm = mcolors.Normalize()
+    assert_array_almost_equal(norm(a), pnorm(a))
+
+    a = np.array([-0.5, 0, 2, 4, 8], dtype=float)
+    expected = [-1/16, 0, 1/16, 1/4, 1]
+    pnorm = mcolors.PowerNorm(2, vmin=0, vmax=8)
+    assert_array_almost_equal(pnorm(a), expected)
+    assert pnorm(a[0]) == expected[0]
+    assert pnorm(a[2]) == expected[2]
+    # Check inverse
+    a_roundtrip = pnorm.inverse(pnorm(a))
+    assert_array_almost_equal(a, a_roundtrip)
+    # PowerNorm inverse adds a mask, so check that is correct too
+    assert_array_equal(a_roundtrip.mask, np.zeros(a.shape, dtype=bool))
+
+    # Clip = True
+    a = np.array([-0.5, 0, 1, 8, 16], dtype=float)
+    expected = [0, 0, 0, 1, 1]
+    pnorm = mcolors.PowerNorm(2, vmin=2, vmax=8, clip=True)
+    assert_array_almost_equal(pnorm(a), expected)
+    assert pnorm(a[0]) == expected[0]
+    assert pnorm(a[-1]) == expected[-1]
+    # Clip = True at call time
+    pnorm = mcolors.PowerNorm(2, vmin=2, vmax=8, clip=False)
+    assert_array_almost_equal(pnorm(a, clip=True), expected)
+    assert pnorm(a[0], clip=True) == expected[0]
+    assert pnorm(a[-1], clip=True) == expected[-1]
+
+    # Check clip=True preserves masked values
+    a = np.ma.array([5, 2], mask=[True, False])
+    out = pnorm(a, clip=True)
+    assert_array_equal(out.mask, [True, False])
+
+
+def test_Normalize_upstream():
+    norm = mcolors.Normalize()
+    vals = np.arange(-10, 10, 1, dtype=float)
+    _inverse_tester(norm, vals)
+    _scalar_tester(norm, vals)
+    _mask_tester(norm, vals)
+
+    # Handle integer input correctly (don't overflow)
+    vals = np.array([-128, 127], dtype=np.int8)
+    norm = mcolors.Normalize(vals.min(), vals.max())
+    assert_array_equal(norm(vals), [0, 1])
+
+
+def test_LogNorm_upstream():
+    """LogNorm clip=True clips to [0, 1]."""
+    ln = mcolors.LogNorm(clip=True, vmax=5)
+    assert_array_equal(ln([1, 6]), [0, 1.0])
+
+
+@pytest.mark.parametrize("vmin,vmax", [[-1, 2], [3, 1]])
+def test_lognorm_invalid(vmin, vmax):
+    norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
+    with pytest.raises(ValueError):
+        norm(1)
+    with pytest.raises(ValueError):
+        norm.inverse(1)
+
+
+def test_LogNorm_inverse_upstream():
+    """Test that lists work, and that the inverse works."""
+    norm = mcolors.LogNorm(vmin=0.1, vmax=10)
+    assert_array_almost_equal(norm([0.5, 0.4]), [0.349485, 0.30103])
+    assert_array_almost_equal([0.5, 0.4], norm.inverse([0.349485, 0.30103]))
+    assert_array_almost_equal(norm(0.4), [0.30103])
+    assert_array_almost_equal([0.4], norm.inverse([0.30103]))

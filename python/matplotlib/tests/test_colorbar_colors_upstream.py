@@ -516,15 +516,18 @@ class TestNormalizeUpstream:
     def test_list_input(self):
         norm = Normalize(0, 10)
         result = norm([0, 5, 10])
-        assert result == [approx(0.0), approx(0.5), approx(1.0)]
+        expected = [0.0, 0.5, 1.0]
+        result_list = result.tolist() if hasattr(result, 'tolist') else list(result)
+        for r, e in zip(result_list, expected):
+            assert abs(r - e) < 1e-6
 
     def test_scaled(self):
         norm = Normalize(0, 10)
-        assert norm.scaled is True
+        assert norm.scaled() is True
 
     def test_not_scaled(self):
         norm = Normalize()
-        assert norm.scaled is False
+        assert norm.scaled() is False
 
 
 # ===================================================================

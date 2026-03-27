@@ -721,30 +721,46 @@ class Normalize:
 
         Parameters
         ----------
-        value : float or list of float
+        value : float or list of float or np.ndarray
             Data value(s) to normalize.
         clip : bool, optional
             Override instance clip setting.
 
         Returns
         -------
-        float or list of float
+        float or np.ndarray
             Normalised value(s).
         """
         if clip is None:
             clip = self.clip
-        if self.vmin is None or self.vmax is None:
-            raise ValueError("Normalize requires vmin and vmax to be set")
+
+        is_masked = isinstance(value, np.ma.MaskedArray)
+        scalar = (not hasattr(value, '__len__') and not hasattr(value, 'shape')) \
+                 or (hasattr(value, 'shape') and getattr(value, 'shape', None) == ())
+
+        if is_masked:
+            arr = np.ma.array(value, dtype=float)
+            data_arr = arr.filled(np.nan)
+        elif scalar:
+            data_arr = np.array([float(value)])
+        else:
+            data_arr = np.asarray(value, dtype=float)
+
+        self.autoscale_None(data_arr[np.isfinite(data_arr)])
         vmin, vmax = float(self.vmin), float(self.vmax)
 
-        if isinstance(value, (list, tuple)):
-            return [self._normalize_scalar(v, vmin, vmax, clip) for v in value]
-        if hasattr(value, '__len__') or hasattr(value, 'shape'):
-            arr = np.asarray(value, dtype=float)
-            flat = arr.flatten().tolist()
-            result = [self._normalize_scalar(v, vmin, vmax, clip) for v in flat]
-            return np.array(result).reshape(arr.shape)
-        return self._normalize_scalar(value, vmin, vmax, clip)
+        if vmax == vmin:
+            result = np.zeros_like(data_arr)
+        else:
+            result = (data_arr - vmin) / (vmax - vmin)
+            if clip:
+                result = np.clip(result, 0.0, 1.0)
+
+        if is_masked:
+            return np.ma.array(result, mask=np.ma.getmaskarray(value))
+        if scalar:
+            return float(result.tolist()[0])
+        return result
 
     def _normalize_scalar(self, value, vmin, vmax, clip):
         if vmax == vmin:
@@ -759,17 +775,20 @@ class Normalize:
 
         Parameters
         ----------
-        value : float or list of float
+        value : float or list of float or np.ndarray
 
         Returns
         -------
-        float or list of float
+        float or np.ndarray
         """
         if self.vmin is None or self.vmax is None:
             raise ValueError("Normalize requires vmin and vmax to be set")
         vmin, vmax = float(self.vmin), float(self.vmax)
         if isinstance(value, (list, tuple)):
             return [vmin + float(v) * (vmax - vmin) for v in value]
+        if hasattr(value, 'shape') or hasattr(value, '__len__'):
+            arr = np.asarray(value, dtype=float)
+            return vmin + arr * (vmax - vmin)
         return vmin + float(value) * (vmax - vmin)
 
     def __eq__(self, other):
@@ -799,18 +818,20 @@ class Normalize:
         self.vmin = min(data)
         self.vmax = max(data)
 
-    @property
     def scaled(self):
-        """Return whether vmin and vmax are set."""
+        """Return whether vmin and vmax are both set."""
         return self.vmin is not None and self.vmax is not None
 
     def autoscale_None(self, data):
         """Autoscale only if vmin/vmax are not already set."""
-        data = [float(v) for v in data]
+        arr = np.asarray(data, dtype=float).ravel()
+        arr = arr[np.isfinite(arr)]
+        if len(arr) == 0:
+            return
         if self.vmin is None:
-            self.vmin = min(data)
+            self.vmin = float(arr.min())
         if self.vmax is None:
-            self.vmax = max(data)
+            self.vmax = float(arr.max())
 
 
 class LogNorm(Normalize):
@@ -834,9 +855,25 @@ class LogNorm(Normalize):
     def __call__(self, value, clip=None):
         if clip is None:
             clip = self.clip
-        if self.vmin is None or self.vmax is None:
-            raise ValueError("LogNorm requires vmin and vmax to be set")
-        vmin, vmax = float(self.vmin), float(self.vmax)
+
+        scalar = (not hasattr(value, '__len__') and not hasattr(value, 'shape')) \
+                 or (hasattr(value, 'shape') and getattr(value, 'shape', None) == ())
+        is_masked = isinstance(value, np.ma.MaskedArray)
+
+        if is_masked:
+            data_arr = np.ma.array(value, dtype=float)
+        elif scalar:
+            data_arr = np.array([float(value)])
+        else:
+            data_arr = np.asarray(value, dtype=float)
+
+        self.autoscale_None(data_arr.compressed() if is_masked
+                            else data_arr.ravel())
+
+        vmin, vmax = float(self.vmin) if self.vmin is not None else None, \
+                     float(self.vmax) if self.vmax is not None else None
+        if vmin is None or vmax is None:
+            raise ValueError("LogNorm requires vmin and vmax")
         if vmin <= 0:
             raise ValueError(
                 f"LogNorm requires vmin > 0, got vmin={vmin}")
@@ -844,21 +881,32 @@ class LogNorm(Normalize):
             raise ValueError(
                 f"LogNorm requires vmin < vmax, got vmin={vmin}, vmax={vmax}")
 
-        if isinstance(value, (list, tuple)):
-            return [self._log_normalize(v, vmin, vmax, clip) for v in value]
-        return self._log_normalize(value, vmin, vmax, clip)
+        log_vmin = math.log(vmin)
+        log_vmax = math.log(vmax)
 
-    def _log_normalize(self, value, vmin, vmax, clip):
-        value = float(value)
-        if clip:
-            value = max(vmin, min(vmax, value))
-        if value <= 0:
-            return 0.0
-        result = (math.log10(value) - math.log10(vmin)) / \
-                 (math.log10(vmax) - math.log10(vmin))
-        if clip:
-            result = max(0.0, min(1.0, result))
-        return result
+        def _norm_single(v):
+            if v <= 0:
+                return 0.0
+            r = (math.log(v) - log_vmin) / (log_vmax - log_vmin)
+            if clip:
+                r = max(0.0, min(1.0, r))
+            return r
+
+        if is_masked:
+            flat = data_arr.data.ravel()
+            result = np.array([_norm_single(v) for v in flat]).reshape(
+                data_arr.shape)
+            result = np.ma.array(result, mask=np.ma.getmaskarray(data_arr))
+            if scalar:
+                return float(result.filled(0).tolist()[0])
+            return result
+        else:
+            flat = data_arr.ravel()
+            result = np.array([_norm_single(v) for v in flat]).reshape(
+                data_arr.shape)
+            if scalar:
+                return float(result.tolist()[0])
+            return result
 
     def inverse(self, value):
         if self.vmin is None or self.vmax is None:
@@ -870,12 +918,13 @@ class LogNorm(Normalize):
         if vmin >= vmax:
             raise ValueError(
                 f"LogNorm requires vmin < vmax, got vmin={vmin}, vmax={vmax}")
-        log_vmin = math.log10(vmin)
-        log_vmax = math.log10(vmax)
+        ratio = vmax / vmin
         if isinstance(value, (list, tuple)):
-            return [10.0 ** (log_vmin + float(v) * (log_vmax - log_vmin))
-                    for v in value]
-        return 10.0 ** (log_vmin + float(value) * (log_vmax - log_vmin))
+            return [vmin * (ratio ** float(v)) for v in value]
+        if hasattr(value, 'shape') or hasattr(value, '__len__'):
+            arr = np.asarray(value, dtype=float)
+            return vmin * np.power(ratio, arr)
+        return vmin * (ratio ** float(value))
 
 
 # ---------------------------------------------------------------------------
@@ -951,19 +1000,27 @@ class Colormap:
             # Detect masked arrays and extract the mask before converting
             if hasattr(X, 'mask'):
                 masked_mask = np.asarray(X.mask).flatten() if X.mask is not np.ma.nomask else None
+                # Extract underlying data to avoid object arrays
+                if hasattr(X, '_data'):
+                    X = np.asarray(X._data, dtype=float)
+                elif hasattr(X, 'data'):
+                    X = np.asarray(X.data, dtype=float)
+                else:
+                    X = np.asarray(X.filled(0), dtype=float)
             else:
                 masked_mask = None
-            X = np.asarray(X, dtype=float)
+                X = np.asarray(X, dtype=float)
 
         orig_shape = X.shape
         X = X.flatten()
 
-        bad_mask = np.isnan(X)
+        bad_mask_list = [bool(v) for v in (np.isnan(X).tolist() if hasattr(np.isnan(X), 'tolist') else [np.isnan(X)])]
         # Also mark masked array entries as bad
         if masked_mask is not None:
-            flat_masked = np.asarray(masked_mask, dtype=bool).flatten()
-            if len(flat_masked) == len(bad_mask):
-                bad_mask = bad_mask | flat_masked
+            flat_masked_list = [bool(v) for v in (masked_mask.tolist() if hasattr(masked_mask, 'tolist') else list(masked_mask))]
+            if len(flat_masked_list) == len(bad_mask_list):
+                bad_mask_list = [a or b for a, b in zip(bad_mask_list, flat_masked_list)]
+        bad_mask = np.array(bad_mask_list, dtype=bool)
         under_mask = X < 0.0
         over_mask = X > 1.0
 
@@ -1590,34 +1647,79 @@ class PowerNorm(Normalize):
     def __call__(self, value, clip=None):
         if clip is None:
             clip = self.clip
+
+        is_masked = isinstance(value, np.ma.MaskedArray)
+        scalar = (not hasattr(value, '__len__') and not hasattr(value, 'shape')) \
+                 or (hasattr(value, 'shape') and getattr(value, 'shape', None) == ())
+
+        if is_masked:
+            data_arr = np.ma.array(value, dtype=float)
+        elif scalar:
+            data_arr = np.array([float(value)])
+        else:
+            data_arr = np.asarray(value, dtype=float)
+
+        self.autoscale_None(data_arr.compressed() if is_masked
+                            else data_arr.ravel())
+
         if self.vmin is None or self.vmax is None:
             raise ValueError("PowerNorm requires vmin and vmax to be set")
         vmin, vmax = float(self.vmin), float(self.vmax)
+        if vmin > vmax:
+            raise ValueError("vmin must be <= vmax")
 
-        if isinstance(value, (list, tuple)):
-            return [self._power_norm(v, vmin, vmax, clip) for v in value]
-        return self._power_norm(value, vmin, vmax, clip)
+        if is_masked:
+            raw = data_arr.data.astype('float64')
+        else:
+            raw = data_arr.astype('float64')
 
-    def _power_norm(self, value, vmin, vmax, clip):
-        value = float(value)
-        if clip:
-            value = max(vmin, min(vmax, value))
-        if vmax == vmin:
-            return 0.0
-        # Shift to positive range
-        val_shifted = (value - vmin) / (vmax - vmin)
-        # Clamp before raising to power to avoid complex numbers
-        val_shifted = max(0.0, min(1.0, val_shifted))
-        return val_shifted ** self.gamma
+        if vmin == vmax:
+            result = np.zeros_like(raw)
+        else:
+            if clip:
+                mask = np.ma.getmask(data_arr) if is_masked else False
+                raw = np.clip(raw, vmin, vmax)
+            raw_vals = raw.tolist() if hasattr(raw, 'tolist') else list(raw)
+            result_vals = []
+            for v in raw_vals:
+                n = (v - vmin) / (vmax - vmin)
+                if n > 0:
+                    n = n ** self.gamma
+                result_vals.append(n)
+            result = np.array(result_vals, dtype=float)
+
+        if is_masked:
+            result = np.ma.array(result, mask=np.ma.getmaskarray(data_arr))
+            if scalar:
+                return float(result.filled(0).tolist()[0])
+            return result
+        if scalar:
+            return float(result.tolist()[0])
+        return result
 
     def inverse(self, value):
-        if self.vmin is None or self.vmax is None:
-            raise ValueError("PowerNorm requires vmin and vmax to be set")
+        if not self.scaled():
+            raise ValueError("Not invertible until scaled")
         vmin, vmax = float(self.vmin), float(self.vmax)
-        if isinstance(value, (list, tuple)):
-            return [vmin + float(v) ** (1.0 / self.gamma) * (vmax - vmin)
-                    for v in value]
-        return vmin + float(value) ** (1.0 / self.gamma) * (vmax - vmin)
+        scalar = not hasattr(value, '__len__') and not hasattr(value, 'shape')
+        if scalar:
+            arr = np.array([float(value)])
+        else:
+            arr = np.asarray(value, dtype=float)
+
+        vals = arr.tolist() if hasattr(arr, 'tolist') else list(arr)
+        inv_gamma = 1.0 / self.gamma
+        result_vals = [
+            v ** inv_gamma * (vmax - vmin) + vmin if v > 0
+            else v * (vmax - vmin) + vmin
+            for v in vals
+        ]
+
+        if scalar:
+            return float(result_vals[0])
+        resdat = np.array(result_vals, dtype=float)
+        result = np.ma.MaskedArray(resdat, [False] * len(result_vals))
+        return result
 
     def __repr__(self):
         return (f"PowerNorm(gamma={self.gamma!r}, "
@@ -1652,25 +1754,39 @@ class SymLogNorm(Normalize):
             raise ValueError("linthresh must be positive")
 
     def _transform(self, value):
-        """Apply the symlog transform."""
+        """Apply the symlog transform (matches upstream SymmetricalLogTransform)."""
+        linscale_adj = self.linscale / (1.0 - self.base ** -1)
         sign = 1.0 if value >= 0 else -1.0
         aval = abs(value)
         if aval <= self.linthresh:
-            return value * self.linscale / self.linthresh
+            return value * linscale_adj
         else:
             log_val = math.log(aval / self.linthresh) / math.log(self.base)
-            return sign * (self.linscale + log_val)
+            return sign * self.linthresh * (linscale_adj + log_val)
 
     def __call__(self, value, clip=None):
         if clip is None:
             clip = self.clip
+
+        scalar = (not hasattr(value, '__len__') and not hasattr(value, 'shape')) \
+                 or (hasattr(value, 'shape') and getattr(value, 'shape', None) == ())
+        if scalar:
+            data_arr = np.array([float(value)])
+        else:
+            data_arr = np.asarray(value, dtype=float)
+
+        self.autoscale_None(data_arr.ravel())
+
         if self.vmin is None or self.vmax is None:
             raise ValueError("SymLogNorm requires vmin and vmax to be set")
         vmin, vmax = float(self.vmin), float(self.vmax)
 
-        if isinstance(value, (list, tuple)):
-            return [self._symlog_norm(v, vmin, vmax, clip) for v in value]
-        return self._symlog_norm(value, vmin, vmax, clip)
+        flat = data_arr.ravel()
+        result = np.array([self._symlog_norm(v, vmin, vmax, clip)
+                           for v in flat]).reshape(data_arr.shape)
+        if scalar:
+            return float(result.tolist()[0])
+        return result
 
     def _symlog_norm(self, value, vmin, vmax, clip):
         value = float(value)
@@ -1690,14 +1806,22 @@ class SymLogNorm(Normalize):
         t_vmin = self._transform(vmin)
         t_vmax = self._transform(vmax)
 
+        linscale_adj = self.linscale / (1.0 - self.base ** -1)
+        invlinthresh = self.linthresh * linscale_adj  # = _transform(linthresh)
+
         def _inv_transform(t):
-            if abs(t) <= self.linscale:
-                return t * self.linthresh / self.linscale
+            # Invert the SymmetricalLogTransform
+            if abs(t) <= invlinthresh:
+                return t / linscale_adj
             else:
                 sign = 1.0 if t >= 0 else -1.0
-                return sign * self.linthresh * self.base ** (abs(t) - self.linscale)
+                return sign * self.linthresh * self.base ** (
+                    abs(t) / self.linthresh - linscale_adj)
 
         if isinstance(value, (list, tuple)):
+            return [_inv_transform(t_vmin + float(v) * (t_vmax - t_vmin))
+                    for v in value]
+        if hasattr(value, '__iter__') and not isinstance(value, str):
             return [_inv_transform(t_vmin + float(v) * (t_vmax - t_vmin))
                     for v in value]
         return _inv_transform(t_vmin + float(value) * (t_vmax - t_vmin))
@@ -1742,36 +1866,44 @@ class FuncNorm(Normalize):
         self._forward, self._inverse = functions
 
     def __call__(self, value, clip=None):
-        import numpy as np
         if clip is None:
             clip = self.clip
 
-        scalar = not hasattr(value, '__iter__')
+        scalar = not hasattr(value, '__iter__') and not hasattr(value, 'shape')
         values = np.atleast_1d(np.asarray(value, dtype=float))
 
-        self.autoscale_None(values)
-        vmin, vmax = self.vmin, self.vmax
+        self.autoscale_None(values.ravel())
+        vmin, vmax = float(self.vmin), float(self.vmax)
 
-        if vmin == vmax:
-            result = np.zeros_like(values)
+        # Apply the forward function directly to the data values.
+        # Normalization is done relative to forward(vmin) and forward(vmax).
+        fvmin = float(np.atleast_1d(self._forward(np.array([vmin])))[0])
+        fvmax = float(np.atleast_1d(self._forward(np.array([vmax])))[0])
+        fvalues = np.asarray(self._forward(values), dtype=float)
+
+        if fvmax == fvmin:
+            result = np.zeros_like(fvalues)
         else:
-            # Normalize to [vmin, vmax], apply forward function
-            t = (values - vmin) / (vmax - vmin)
+            result = (fvalues - fvmin) / (fvmax - fvmin)
             if clip:
-                t = np.clip(t, 0, 1)
-            result = self._forward(t)
+                result = np.clip(result, 0.0, 1.0)
 
         if scalar:
-            return float(result[0])
-        return np.ma.array(result)
+            return float(result.tolist()[0])
+        return result
 
     def inverse(self, value):
-        import numpy as np
-        scalar = not hasattr(value, '__iter__')
+        scalar = not hasattr(value, '__iter__') and not hasattr(value, 'shape')
         values = np.atleast_1d(np.asarray(value, dtype=float))
-        t = self._inverse(values)
-        vmin, vmax = self.vmin, self.vmax
-        result = t * (vmax - vmin) + vmin
+        vmin, vmax = float(self.vmin), float(self.vmax)
+
+        fvmin = float(np.atleast_1d(self._forward(np.array([vmin])))[0])
+        fvmax = float(np.atleast_1d(self._forward(np.array([vmax])))[0])
+
+        # Scale from [0, 1] back to [fvmin, fvmax], then apply inverse
+        fscaled = values * (fvmax - fvmin) + fvmin
+        result = np.asarray(self._inverse(fscaled), dtype=float)
+
         if scalar:
-            return float(result[0])
+            return float(result.tolist()[0])
         return result
