@@ -519,10 +519,11 @@ class TestCollection:
         assert c.get_linestyle() == ['dashed']
 
     def test_get_array(self):
+        import numpy as np
         c = Collection()
         assert c.get_array() is None
         c.set_array([1, 2, 3])
-        assert c.get_array() == [1, 2, 3]
+        np.testing.assert_array_equal(c.get_array(), [1, 2, 3])
 
     def test_get_paths(self):
         c = Collection()

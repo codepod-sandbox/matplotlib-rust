@@ -5,6 +5,7 @@ Provides minimal transform classes needed by many upstream tests.
 """
 
 import math
+import numpy as np
 
 
 class BboxBase:
@@ -376,7 +377,7 @@ class Affine2DBase(Transform):
 class Affine2D(Affine2DBase):
     """A mutable 2D affine transform.
 
-    The transform is represented by a 3x3 matrix::
+    The transform is represented by a 3x3 numpy matrix::
 
         | a  b  tx |
         | c  d  ty |
@@ -386,35 +387,46 @@ class Affine2D(Affine2DBase):
     def __init__(self, matrix=None):
         super().__init__()
         if matrix is not None:
-            self._mtx = [row[:] for row in matrix]
+            self._mtx = np.array(matrix, dtype=float)
         else:
-            # Identity
-            self._mtx = [[1.0, 0.0, 0.0],
-                          [0.0, 1.0, 0.0],
-                          [0.0, 0.0, 1.0]]
+            self._mtx = np.eye(3)
 
     def get_matrix(self):
-        return [row[:] for row in self._mtx]
+        """Return the internal 3x3 numpy matrix (a view, not a copy)."""
+        return self._mtx
+
+    @classmethod
+    def from_values(cls, a, b, c, d, e, f):
+        """Create from the six values of an affine matrix:
+           | a  c  e |
+           | b  d  f |
+           | 0  0  1 |
+        """
+        mtx = np.array([[a, c, e], [b, d, f], [0., 0., 1.]])
+        return cls(mtx)
+
+    def to_values(self):
+        """Return (a, b, c, d, e, f) from the matrix."""
+        m = self._mtx
+        return np.array([m[0, 0], m[1, 0], m[0, 1], m[1, 1], m[0, 2], m[1, 2]])
 
     def set(self, other):
         """Copy matrix from *other*."""
         if isinstance(other, Affine2D):
-            self._mtx = [row[:] for row in other._mtx]
+            self._mtx[:] = other._mtx
         return self
 
     def clear(self):
         """Reset to identity."""
-        self._mtx = [[1.0, 0.0, 0.0],
-                      [0.0, 1.0, 0.0],
-                      [0.0, 0.0, 1.0]]
+        self._mtx[:] = np.eye(3)
         return self
 
     def rotate(self, theta):
         """Add a rotation (in radians) to this transform."""
         c = math.cos(theta)
         s = math.sin(theta)
-        self._mtx = _mmul([[c, -s, 0], [s, c, 0], [0, 0, 1]],
-                           self._mtx)
+        rot = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=float)
+        self._mtx[:] = rot @ self._mtx
         return self
 
     def rotate_deg(self, degrees):
@@ -431,24 +443,24 @@ class Affine2D(Affine2DBase):
 
     def translate(self, tx, ty):
         """Add a translation."""
-        self._mtx = _mmul([[1, 0, tx], [0, 1, ty], [0, 0, 1]],
-                           self._mtx)
+        t = np.array([[1, 0, tx], [0, 1, ty], [0, 0, 1]], dtype=float)
+        self._mtx[:] = t @ self._mtx
         return self
 
     def scale(self, sx, sy=None):
         """Add a scaling."""
         if sy is None:
             sy = sx
-        self._mtx = _mmul([[sx, 0, 0], [0, sy, 0], [0, 0, 1]],
-                           self._mtx)
+        s = np.array([[sx, 0, 0], [0, sy, 0], [0, 0, 1]], dtype=float)
+        self._mtx[:] = s @ self._mtx
         return self
 
     def skew(self, xShear, yShear):
         """Add a skew (in radians)."""
-        self._mtx = _mmul([[1, math.tan(xShear), 0],
-                            [math.tan(yShear), 1, 0],
-                            [0, 0, 1]],
-                           self._mtx)
+        sk = np.array([[1, math.tan(xShear), 0],
+                       [math.tan(yShear), 1, 0],
+                       [0, 0, 1]], dtype=float)
+        self._mtx[:] = sk @ self._mtx
         return self
 
     def skew_deg(self, xShear, yShear):
@@ -456,67 +468,57 @@ class Affine2D(Affine2DBase):
         return self.skew(math.radians(xShear), math.radians(yShear))
 
     def transform(self, values):
-        """Transform points."""
-        if not values:
+        """Transform points. Accepts single point, list of points, or numpy array."""
+        # Handle empty input
+        if hasattr(values, '__len__') and len(values) == 0:
             return values
-        # Handle single point
-        if isinstance(values[0], (int, float)):
-            x, y = values[0], values[1]
-            nx = self._mtx[0][0] * x + self._mtx[0][1] * y + self._mtx[0][2]
-            ny = self._mtx[1][0] * x + self._mtx[1][1] * y + self._mtx[1][2]
-            return (nx, ny)
-        # List of points
-        result = []
-        for pt in values:
-            x, y = pt[0], pt[1]
-            nx = self._mtx[0][0] * x + self._mtx[0][1] * y + self._mtx[0][2]
-            ny = self._mtx[1][0] * x + self._mtx[1][1] * y + self._mtx[1][2]
-            result.append((nx, ny))
-        return result
+        arr = np.asarray(values, dtype=float)
+        if arr.ndim == 0:
+            raise ValueError("Need at least 1D input")
+        if arr.ndim == 1:
+            if arr.shape[0] == 0:
+                return arr
+            if arr.shape[0] != 2:
+                if arr.shape[0] == 1:
+                    raise RuntimeError("Need (x, y) input")
+                raise ValueError(f"Expected shape (2,), got {arr.shape}")
+            return self._mtx[:2, :2] @ arr + self._mtx[:2, 2]
+        if arr.ndim == 2:
+            if arr.shape[0] == 0:
+                return arr
+            if arr.shape[1] != 2:
+                raise ValueError(f"Expected shape (N, 2), got {arr.shape}")
+            return (self._mtx[:2, :2] @ arr.T + self._mtx[:2, 2:3]).T
+        raise ValueError(f"Expected 1D or 2D array, got {arr.ndim}D")
 
     def transform_point(self, point):
-        x, y = point[0], point[1]
-        nx = self._mtx[0][0] * x + self._mtx[0][1] * y + self._mtx[0][2]
-        ny = self._mtx[1][0] * x + self._mtx[1][1] * y + self._mtx[1][2]
-        return (nx, ny)
+        pt = np.asarray(point, dtype=float)
+        return self._mtx[:2, :2] @ pt + self._mtx[:2, 2]
 
     def inverted(self):
         """Return the inverse Affine2D."""
-        m = self._mtx
-        det = m[0][0] * m[1][1] - m[0][1] * m[1][0]
-        if abs(det) < 1e-15:
-            raise ValueError("Singular transform matrix")
-        inv_det = 1.0 / det
-        inv = [
-            [m[1][1] * inv_det, -m[0][1] * inv_det, 0],
-            [-m[1][0] * inv_det, m[0][0] * inv_det, 0],
-            [0, 0, 1],
-        ]
-        inv[0][2] = -(inv[0][0] * m[0][2] + inv[0][1] * m[1][2])
-        inv[1][2] = -(inv[1][0] * m[0][2] + inv[1][1] * m[1][2])
-        return Affine2D(inv)
+        return Affine2D(np.linalg.inv(self._mtx))
 
     def is_identity(self):
         """Return whether this is the identity transform."""
-        m = self._mtx
-        return (abs(m[0][0] - 1) < 1e-15 and abs(m[0][1]) < 1e-15 and
-                abs(m[0][2]) < 1e-15 and abs(m[1][0]) < 1e-15 and
-                abs(m[1][1] - 1) < 1e-15 and abs(m[1][2]) < 1e-15)
+        return np.allclose(self._mtx, np.eye(3))
 
     def frozen(self):
-        return Affine2D([row[:] for row in self._mtx])
+        return Affine2D(self._mtx.copy())
+
+    def __add__(self, other):
+        """Compose: apply self then other."""
+        if isinstance(other, Affine2D):
+            return Affine2D(other._mtx @ self._mtx)
+        return super().__add__(other)
 
     def __repr__(self):
-        return f"Affine2D({self._mtx!r})"
+        return f"Affine2D({self._mtx.tolist()!r})"
 
     def __eq__(self, other):
         if not isinstance(other, Affine2D):
             return NotImplemented
-        for i in range(3):
-            for j in range(3):
-                if abs(self._mtx[i][j] - other._mtx[i][j]) > 1e-12:
-                    return False
-        return True
+        return np.allclose(self._mtx, other._mtx)
 
     @staticmethod
     def identity():

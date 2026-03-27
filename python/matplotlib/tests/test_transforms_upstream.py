@@ -885,3 +885,237 @@ class TestNonsingular:
         vmin, vmax = nonsingular(10, 1, increasing=False)
         assert vmin == 10
         assert vmax == 1
+
+
+# ===================================================================
+# Upstream TestAffine2D — from test_transforms.py
+# ===================================================================
+
+class TestAffine2DUpstream:
+    """Port of upstream TestAffine2D class from test_transforms.py."""
+
+    single_point = [1.0, 1.0]
+    multiple_points = [[0.0, 2.0], [3.0, 3.0], [4.0, 0.0]]
+    pivot = single_point
+
+    def test_init(self):
+        import numpy as np
+        Affine2D([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        Affine2D(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], int))
+        Affine2D(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], float))
+
+    def test_values(self):
+        import numpy as np
+        np.random.seed(19680801)
+        values = np.random.random(6)
+        np.testing.assert_array_equal(
+            Affine2D.from_values(*values).to_values(), values)
+
+    def test_modify_inplace(self):
+        import numpy as np
+        trans = Affine2D()
+        mtx = trans.get_matrix()
+        mtx[0, 0] = 42
+        np.testing.assert_array_equal(
+            trans.get_matrix(), [[42, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+    def test_clear(self):
+        import numpy as np
+        a = Affine2D(np.random.rand(3, 3) + 5)
+        a.clear()
+        np.testing.assert_array_equal(
+            a.get_matrix(), [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+    def test_rotate(self):
+        import numpy as np
+        r_pi_2 = Affine2D().rotate(np.pi / 2)
+        r90 = Affine2D().rotate_deg(90)
+        np.testing.assert_array_equal(r_pi_2.get_matrix(), r90.get_matrix())
+        np.testing.assert_array_almost_equal(r90.transform(self.single_point), [-1, 1])
+        np.testing.assert_array_almost_equal(
+            r90.transform(self.multiple_points), [[-2, 0], [-3, 3], [0, 4]])
+
+        r_pi = Affine2D().rotate(np.pi)
+        r180 = Affine2D().rotate_deg(180)
+        np.testing.assert_array_equal(r_pi.get_matrix(), r180.get_matrix())
+        np.testing.assert_array_almost_equal(r180.transform(self.single_point), [-1, -1])
+        np.testing.assert_array_almost_equal(
+            r180.transform(self.multiple_points), [[0, -2], [-3, -3], [-4, 0]])
+
+        r_pi_3_2 = Affine2D().rotate(3 * np.pi / 2)
+        r270 = Affine2D().rotate_deg(270)
+        np.testing.assert_array_equal(r_pi_3_2.get_matrix(), r270.get_matrix())
+        np.testing.assert_array_almost_equal(r270.transform(self.single_point), [1, -1])
+        np.testing.assert_array_almost_equal(
+            r270.transform(self.multiple_points), [[2, 0], [3, -3], [0, -4]])
+
+        np.testing.assert_array_equal(
+            (r90 + r90).get_matrix(), r180.get_matrix())
+        np.testing.assert_array_equal(
+            (r90 + r180).get_matrix(), r270.get_matrix())
+
+    def test_rotate_around(self):
+        import numpy as np
+        r_pi_2 = Affine2D().rotate_around(*self.pivot, np.pi / 2)
+        r90 = Affine2D().rotate_deg_around(*self.pivot, 90)
+        np.testing.assert_array_equal(r_pi_2.get_matrix(), r90.get_matrix())
+        np.testing.assert_array_almost_equal(r90.transform(self.single_point), [1, 1])
+        np.testing.assert_array_almost_equal(
+            r90.transform(self.multiple_points), [[0, 0], [-1, 3], [2, 4]])
+
+        r_pi = Affine2D().rotate_around(*self.pivot, np.pi)
+        r180 = Affine2D().rotate_deg_around(*self.pivot, 180)
+        np.testing.assert_array_equal(r_pi.get_matrix(), r180.get_matrix())
+        np.testing.assert_array_almost_equal(r180.transform(self.single_point), [1, 1])
+        np.testing.assert_array_almost_equal(
+            r180.transform(self.multiple_points), [[2, 0], [-1, -1], [-2, 2]])
+
+    def test_scale(self):
+        import numpy as np
+        sx = Affine2D().scale(3, 1)
+        sy = Affine2D().scale(1, -2)
+        trans = Affine2D().scale(3, -2)
+        np.testing.assert_array_equal((sx + sy).get_matrix(), trans.get_matrix())
+        np.testing.assert_array_equal(trans.transform(self.single_point), [3, -2])
+        np.testing.assert_array_equal(
+            trans.transform(self.multiple_points), [[0, -4], [9, -6], [12, 0]])
+
+    def test_skew(self):
+        import numpy as np
+        trans_rad = Affine2D().skew(np.pi / 8, np.pi / 12)
+        trans_deg = Affine2D().skew_deg(22.5, 15)
+        np.testing.assert_array_equal(trans_rad.get_matrix(), trans_deg.get_matrix())
+        trans = Affine2D().skew_deg(26.5650512, 14.0362435)
+        np.testing.assert_array_almost_equal(trans.transform(self.single_point), [1.5, 1.25])
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.multiple_points), [[1, 2], [4.5, 3.75], [4, 1]])
+
+    def test_translate(self):
+        import numpy as np
+        tx = Affine2D().translate(23, 0)
+        ty = Affine2D().translate(0, 42)
+        trans = Affine2D().translate(23, 42)
+        np.testing.assert_array_equal((tx + ty).get_matrix(), trans.get_matrix())
+        np.testing.assert_array_equal(trans.transform(self.single_point), [24, 43])
+        np.testing.assert_array_equal(
+            trans.transform(self.multiple_points), [[23, 44], [26, 45], [27, 42]])
+
+    def test_rotate_plus_other(self):
+        import numpy as np
+        trans = Affine2D().rotate_deg(90).rotate_deg_around(*self.pivot, 180)
+        trans_added = (Affine2D().rotate_deg(90) +
+                       Affine2D().rotate_deg_around(*self.pivot, 180))
+        np.testing.assert_array_equal(trans.get_matrix(), trans_added.get_matrix())
+        np.testing.assert_array_almost_equal(trans.transform(self.single_point), [3, 1])
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.multiple_points), [[4, 2], [5, -1], [2, -2]])
+
+        trans = Affine2D().rotate_deg(90).scale(3, -2)
+        trans_added = Affine2D().rotate_deg(90) + Affine2D().scale(3, -2)
+        np.testing.assert_array_equal(trans.get_matrix(), trans_added.get_matrix())
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.single_point), [-3, -2])
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.multiple_points), [[-6, 0], [-9, -6], [0, -8]])
+
+        trans = Affine2D().rotate_deg(90).translate(23, 42)
+        trans_added = Affine2D().rotate_deg(90) + Affine2D().translate(23, 42)
+        np.testing.assert_array_equal(trans.get_matrix(), trans_added.get_matrix())
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.single_point), [22, 43])
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.multiple_points), [[21, 42], [20, 45], [23, 46]])
+
+    def test_scale_plus_other(self):
+        import numpy as np
+        trans = Affine2D().scale(3, -2).rotate_deg(90)
+        trans_added = Affine2D().scale(3, -2) + Affine2D().rotate_deg(90)
+        np.testing.assert_array_equal(trans.get_matrix(), trans_added.get_matrix())
+        np.testing.assert_array_equal(trans.transform(self.single_point), [2, 3])
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.multiple_points), [[4, 0], [6, 9], [0, 12]])
+
+        trans = Affine2D().scale(3, -2).translate(23, 42)
+        trans_added = Affine2D().scale(3, -2) + Affine2D().translate(23, 42)
+        np.testing.assert_array_equal(trans.get_matrix(), trans_added.get_matrix())
+        np.testing.assert_array_equal(trans.transform(self.single_point), [26, 40])
+        np.testing.assert_array_equal(
+            trans.transform(self.multiple_points), [[23, 38], [32, 36], [35, 42]])
+
+    def test_skew_plus_other(self):
+        import numpy as np
+        trans = Affine2D().skew_deg(26.5650512, 14.0362435).translate(23, 42)
+        trans_added = (Affine2D().skew_deg(26.5650512, 14.0362435) +
+                       Affine2D().translate(23, 42))
+        np.testing.assert_array_equal(trans.get_matrix(), trans_added.get_matrix())
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.single_point), [24.5, 43.25])
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.multiple_points),
+            [[24, 44], [27.5, 45.75], [27, 43]])
+
+    def test_translate_plus_other(self):
+        import numpy as np
+        trans = Affine2D().translate(23, 42).rotate_deg(90)
+        trans_added = Affine2D().translate(23, 42) + Affine2D().rotate_deg(90)
+        np.testing.assert_array_equal(trans.get_matrix(), trans_added.get_matrix())
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.single_point), [-43, 24])
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.multiple_points),
+            [[-44, 23], [-45, 26], [-42, 27]])
+
+        trans = Affine2D().translate(23, 42).scale(3, -2)
+        trans_added = Affine2D().translate(23, 42) + Affine2D().scale(3, -2)
+        np.testing.assert_array_equal(trans.get_matrix(), trans_added.get_matrix())
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.single_point), [72, -86])
+        np.testing.assert_array_almost_equal(
+            trans.transform(self.multiple_points), [[69, -88], [78, -90], [81, -84]])
+
+
+# ===================================================================
+# Upstream standalone transform tests
+# ===================================================================
+
+def test_Affine2D_from_values():
+    """Upstream test_Affine2D_from_values: from_values creates correct transform."""
+    import numpy as np
+    from numpy.testing import assert_almost_equal
+    from matplotlib.transforms import Affine2D
+
+    points = np.array([[0, 0], [10, 20], [-1, 0]])
+
+    t = Affine2D.from_values(1, 0, 0, 0, 0, 0)
+    assert_almost_equal(t.transform(points), [[0, 0], [10, 0], [-1, 0]])
+
+    t = Affine2D.from_values(0, 2, 0, 0, 0, 0)
+    assert_almost_equal(t.transform(points), [[0, 0], [0, 20], [0, -2]])
+
+    t = Affine2D.from_values(0, 0, 3, 0, 0, 0)
+    assert_almost_equal(t.transform(points), [[0, 0], [60, 0], [0, 0]])
+
+    t = Affine2D.from_values(0, 0, 0, 4, 0, 0)
+    assert_almost_equal(t.transform(points), [[0, 0], [0, 80], [0, 0]])
+
+    t = Affine2D.from_values(0, 0, 0, 0, 5, 0)
+    assert_almost_equal(t.transform(points), [[5, 0], [5, 0], [5, 0]])
+
+    t = Affine2D.from_values(0, 0, 0, 0, 0, 6)
+    assert_almost_equal(t.transform(points), [[0, 6], [0, 6], [0, 6]])
+
+
+def test_affine_inverted_invalidated():
+    """Upstream test_affine_inverted_invalidated: inverse stays valid after translate."""
+    from numpy.testing import assert_almost_equal
+    from matplotlib.transforms import Affine2D
+
+    point = [1.0, 1.0]
+    t = Affine2D()
+
+    result = t.transform(t.inverted().transform(point))
+    assert_almost_equal(point, result)
+
+    t.translate(1.0, 1.0).get_matrix()
+    result = t.transform(t.inverted().transform(point))
+    assert_almost_equal(point, result)

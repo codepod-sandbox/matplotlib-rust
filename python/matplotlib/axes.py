@@ -500,6 +500,11 @@ class Axes:
         self.texts = []
         self.images = []
 
+        # Transforms
+        from matplotlib.transforms import IdentityTransform
+        self.transData = IdentityTransform()
+        self.transAxes = IdentityTransform()
+
         # Axis state
         from matplotlib.scale import LinearScale
         self._x_inverted = False

@@ -441,11 +441,12 @@ class TestCollectionBase:
 
     def test_get_set_array(self):
         """get_array/set_array roundtrip."""
+        import numpy as np
         from matplotlib.collections import PathCollection
         pc = PathCollection()
         assert pc.get_array() is None
         pc.set_array([1, 2, 3])
-        assert pc.get_array() == [1, 2, 3]
+        np.testing.assert_array_equal(pc.get_array(), [1, 2, 3])
 
     def test_get_set_paths(self):
         """get_paths/set_paths roundtrip."""
@@ -735,4 +736,161 @@ def test_collection_remove():
     assert sc in ax.collections
     sc.remove()
     assert sc not in ax.collections
+    plt.close('all')
+
+
+# ---------------------------------------------------------------------------
+# Upstream: EventCollection tests (no image comparison)
+# ---------------------------------------------------------------------------
+
+def test_EventCollection_nosort():
+    """EventCollection should not sort input positions in-place."""
+    arr = np.array([3, 2, 1, 10])
+    EventCollection(arr)
+    np.testing.assert_array_equal(arr, np.array([3, 2, 1, 10]))
+
+
+def test_EventCollection_positions():
+    """EventCollection get/set positions."""
+    positions = np.array([0., 1., 2., 3., 5.])
+    coll = EventCollection(positions)
+    np.testing.assert_array_equal(coll.get_positions(), positions)
+    new_pos = np.array([10., 20.])
+    coll.set_positions(new_pos)
+    np.testing.assert_array_equal(coll.get_positions(), new_pos)
+
+
+def test_EventCollection_orientation():
+    """EventCollection orientation and is_horizontal."""
+    coll = EventCollection([0, 1, 2], orientation='horizontal')
+    assert coll.get_orientation() == 'horizontal'
+    assert coll.is_horizontal()
+    coll.switch_orientation()
+    assert coll.get_orientation() == 'vertical'
+    assert not coll.is_horizontal()
+    coll.switch_orientation()
+    assert coll.is_horizontal()
+
+
+def test_EventCollection_add_positions():
+    """EventCollection add/extend/append positions."""
+    arr = np.array([0., 1., 2.])
+    coll = EventCollection(arr)
+    coll.add_positions(5.0)
+    assert 5.0 in coll.get_positions()
+
+    arr2 = np.array([3., 4.])
+    coll.extend_positions(arr2)
+    for p in [3., 4.]:
+        assert p in coll.get_positions()
+
+    coll.append_positions(99.0)
+    assert 99.0 in coll.get_positions()
+
+
+def test_EventCollection_lineoffset():
+    """EventCollection get/set lineoffset."""
+    coll = EventCollection([0, 1], lineoffset=1.5)
+    assert coll.get_lineoffset() == 1.5
+    coll.set_lineoffset(-2.0)
+    assert coll.get_lineoffset() == -2.0
+
+
+def test_EventCollection_linelength():
+    """EventCollection get/set linelength."""
+    coll = EventCollection([0, 1], linelength=0.5)
+    assert coll.get_linelength() == 0.5
+    coll.set_linelength(2.0)
+    assert coll.get_linelength() == 2.0
+
+
+# ---------------------------------------------------------------------------
+# Upstream: Collection cap/joinstyle and linestyle validation
+# ---------------------------------------------------------------------------
+
+def test_capstyle():
+    """PathCollection capstyle getter/setter."""
+    col = PathCollection([])
+    assert col.get_capstyle() is None
+    col = PathCollection([], capstyle='round')
+    assert col.get_capstyle() == 'round'
+    col.set_capstyle('butt')
+    assert col.get_capstyle() == 'butt'
+
+
+def test_joinstyle():
+    """PathCollection joinstyle getter/setter."""
+    from matplotlib.collections import PathCollection
+    col = PathCollection([])
+    assert col.get_joinstyle() is None
+    col = PathCollection([], joinstyle='round')
+    assert col.get_joinstyle() == 'round'
+    col.set_joinstyle('miter')
+    assert col.get_joinstyle() == 'miter'
+
+
+def test_set_wrong_linestyle():
+    """Collection raises ValueError for unknown linestyle string."""
+    from matplotlib.collections import Collection
+    c = Collection()
+    with pytest.raises(ValueError, match="Do not know how to convert"):
+        c.set_linestyle('fuzzy')
+
+
+# ---------------------------------------------------------------------------
+# Upstream: Collection.set_array copies input
+# ---------------------------------------------------------------------------
+
+def test_collection_set_array():
+    """set_array copies data; rejects non-numeric types."""
+    from matplotlib.collections import Collection
+    vals = list(range(10))
+
+    c = Collection()
+    c.set_array(vals)
+
+    with pytest.raises(TypeError, match="Image data of dtype"):
+        c.set_array("wrong_input")
+
+    # Array is copied — modifying source doesn't change stored array
+    vals[5] = 45
+    assert np.not_equal(vals, c.get_array()).any()
+
+
+# ---------------------------------------------------------------------------
+# Upstream: EllipseCollection setter/getter
+# ---------------------------------------------------------------------------
+
+def test_EllipseCollection_setter_getter():
+    """EllipseCollection stores half-widths, returns full widths."""
+    from matplotlib.collections import EllipseCollection
+    rng = np.random.default_rng(0)
+
+    widths = (2,)
+    heights = (3,)
+    angles = (45,)
+    offsets = rng.random((10, 2)) * 10
+
+    fig, ax = plt.subplots()
+    ec = EllipseCollection(
+        widths=widths, heights=heights, angles=angles,
+        offsets=offsets, units='x', offset_transform=ax.transData)
+
+    np.testing.assert_array_almost_equal(ec._widths, np.array(widths).ravel() * 0.5)
+    np.testing.assert_array_almost_equal(ec._heights, np.array(heights).ravel() * 0.5)
+    np.testing.assert_array_almost_equal(ec._angles, np.deg2rad(angles))
+
+    np.testing.assert_array_almost_equal(ec.get_widths(), widths)
+    np.testing.assert_array_almost_equal(ec.get_heights(), heights)
+    np.testing.assert_array_almost_equal(ec.get_angles(), angles)
+
+    new_widths = rng.random((10, 2)) * 2
+    new_heights = rng.random((10, 2)) * 3
+    new_angles = rng.random((10, 2)) * 180
+
+    ec.set(widths=new_widths, heights=new_heights, angles=new_angles)
+    np.testing.assert_array_almost_equal(ec.get_widths(), new_widths.ravel())
+    np.testing.assert_array_almost_equal(ec.get_heights(), new_heights.ravel())
+    np.testing.assert_array_almost_equal(ec.get_angles(), new_angles.ravel())
+
     plt.close('all')

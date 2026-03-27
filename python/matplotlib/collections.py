@@ -1,7 +1,13 @@
 """matplotlib.collections --- Collection and PathCollection artists."""
 
+import numpy as np
 from matplotlib.artist import Artist
 from matplotlib.colors import to_hex, to_rgba
+
+_LINESTYLE_ALIASES = {
+    '-': 'solid', '--': 'dashed', '-.': 'dashdot', ':': 'dotted',
+    'solid': 'solid', 'dashed': 'dashed', 'dashdot': 'dashdot', 'dotted': 'dotted',
+}
 
 
 class Collection(Artist):
@@ -16,6 +22,8 @@ class Collection(Artist):
         self._linewidths = [1.0]
         self._linestyles = ['solid']
         self._offsets = []
+        self._capstyle = None
+        self._joinstyle = None
         self.norm = None
         if kwargs:
             self.set(**kwargs)
@@ -75,8 +83,22 @@ class Collection(Artist):
     def get_linestyle(self):
         return list(self._linestyles)
 
+    def get_capstyle(self):
+        return self._capstyle
+
+    def set_capstyle(self, cs):
+        self._capstyle = cs
+
+    def get_joinstyle(self):
+        return self._joinstyle
+
+    def set_joinstyle(self, js):
+        self._joinstyle = js
+
     def set_linestyle(self, ls):
         if isinstance(ls, str):
+            if ls not in _LINESTYLE_ALIASES and not isinstance(ls, tuple):
+                raise ValueError(f"Do not know how to convert {ls!r} to dashes")
             self._linestyles = [ls]
         elif hasattr(ls, '__iter__'):
             self._linestyles = list(ls)
@@ -105,8 +127,11 @@ class Collection(Artist):
         return getattr(self, '_array', None)
 
     def set_array(self, A):
-        """Set the data array."""
-        self._array = A
+        """Set the data array (copied)."""
+        if isinstance(A, str):
+            raise TypeError(f"Image data of dtype {type(A)!r} cannot be converted "
+                            "to float")
+        self._array = np.array(A, copy=True) if A is not None else None
 
     def set_color(self, c):
         """Set both facecolor and edgecolor."""
@@ -395,6 +420,79 @@ class EventCollection(Collection):
 
     def set_linelength(self, linelength):
         self._linelength = linelength
+
+    def is_horizontal(self):
+        return self._orientation.lower() in ('horizontal', 'none')
+
+    def switch_orientation(self):
+        self._orientation = ('vertical' if self.is_horizontal()
+                             else 'horizontal')
+
+    def add_positions(self, position):
+        """Add a single position."""
+        positions = self._positions
+        positions.append(position)
+        self._positions = positions
+
+    def extend_positions(self, positions):
+        """Add multiple positions."""
+        self._positions = list(self._positions) + list(positions)
+
+    def append_positions(self, position):
+        """Append a single position (alias for add_positions)."""
+        self._positions = list(self._positions) + [position]
+
+    def get_color(self):
+        return list(self._edgecolors)
+
+    def get_colors(self):
+        return list(self._edgecolors)
+
+    def get_segments(self):
+        """Return line segments for all positions."""
+        positions = self._positions
+        ll = self._linelength
+        lo = self._lineoffset
+        segs = []
+        for p in positions:
+            if self.is_horizontal():
+                segs.append(np.array([[p, lo + ll / 2], [p, lo - ll / 2]]))
+            else:
+                segs.append(np.array([[lo + ll / 2, p], [lo - ll / 2, p]]))
+        return segs
+
+
+class EllipseCollection(Collection):
+    """A collection of ellipses."""
+
+    def __init__(self, widths, heights, angles, units='points',
+                 offsets=None, offset_transform=None, **kwargs):
+        super().__init__(**kwargs)
+        self._widths = np.array(widths).ravel() * 0.5
+        self._heights = np.array(heights).ravel() * 0.5
+        self._angles = np.deg2rad(np.array(angles).ravel())
+        self._units = units
+        if offsets is not None:
+            self._offsets = np.asarray(offsets)
+        self._offset_transform = offset_transform
+
+    def get_widths(self):
+        return self._widths * 2
+
+    def get_heights(self):
+        return self._heights * 2
+
+    def get_angles(self):
+        return np.rad2deg(self._angles)
+
+    def set_widths(self, widths):
+        self._widths = np.array(widths).ravel() * 0.5
+
+    def set_heights(self, heights):
+        self._heights = np.array(heights).ravel() * 0.5
+
+    def set_angles(self, angles):
+        self._angles = np.deg2rad(np.array(angles).ravel())
 
 
 class QuadMesh(Collection):
