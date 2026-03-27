@@ -133,10 +133,11 @@ class Patch(Artist):
 class Rectangle(Patch):
     """A rectangle defined by an anchor point, width, and height."""
 
-    def __init__(self, xy, width, height, **kwargs):
+    def __init__(self, xy, width, height, angle=0, **kwargs):
         self._xy = tuple(xy)
         self._width = width
         self._height = height
+        self._angle = angle
         super().__init__(**kwargs)
 
     def get_x(self):
@@ -151,6 +152,12 @@ class Rectangle(Patch):
     def get_height(self):
         return self._height
 
+    def get_angle(self):
+        return self._angle
+
+    def set_angle(self, angle):
+        self._angle = angle
+
     def get_xy(self):
         return self._xy
 
@@ -163,14 +170,43 @@ class Rectangle(Patch):
     def set_height(self, h):
         self._height = h
 
+    def _rotate_point(self, px, py, cx, cy, angle_deg):
+        """Rotate (px, py) around (cx, cy) by angle_deg degrees."""
+        import math
+        a = math.radians(angle_deg)
+        dx, dy = px - cx, py - cy
+        return (cx + dx * math.cos(a) - dy * math.sin(a),
+                cy + dx * math.sin(a) + dy * math.cos(a))
+
     def get_corners(self):
-        """Return the four corners as a list of (x, y) tuples.
+        """Return the four corners as a list of (x, y) tuples, respecting angle.
 
         Order: bottom-left, bottom-right, top-right, top-left.
+        Rotation is applied around the anchor point (xy).
         """
         x0, y0 = self._xy
         x1, y1 = x0 + self._width, y0 + self._height
-        return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+        corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+        if self._angle == 0:
+            return corners
+        return [self._rotate_point(px, py, x0, y0, self._angle)
+                for px, py in corners]
+
+    def get_center(self):
+        """Return the center of the rectangle, respecting angle."""
+        x0, y0 = self._xy
+        cx = x0 + self._width / 2
+        cy = y0 + self._height / 2
+        if self._angle == 0:
+            return (cx, cy)
+        return self._rotate_point(cx, cy, x0, y0, self._angle)
+
+    def get_verts(self):
+        """Return the 5 vertices of the closed rectangle as a numpy array."""
+        import numpy as np
+        corners = self.get_corners()
+        verts = np.array(corners + [corners[0]], dtype=float)
+        return verts
 
     def get_bbox(self):
         from .transforms import Bbox
@@ -205,12 +241,16 @@ class Rectangle(Patch):
                            self._resolved_edgecolor_hex(),
                            self._resolved_facecolor_hex())
 
+    def __str__(self):
+        return (f'Rectangle(xy={self._xy}, width={self._width}, '
+                f'height={self._height}, angle={self._angle})')
+
 
 class Circle(Patch):
     """A circle defined by a center point and radius."""
 
-    def __init__(self, center=(0.0, 0.0), radius=0.5, **kwargs):
-        self._center = tuple(center)
+    def __init__(self, xy=(0.0, 0.0), radius=0.5, **kwargs):
+        self._center = tuple(xy)
         self._radius = radius
         super().__init__(**kwargs)
 
@@ -225,6 +265,9 @@ class Circle(Patch):
 
     def set_radius(self, radius):
         self._radius = radius
+
+    def __str__(self):
+        return f'Circle(xy={self._center}, radius={self._radius})'
 
     def draw(self, renderer, layout):
         if not self.get_visible():
@@ -242,21 +285,35 @@ class Polygon(Patch):
     """A polygon defined by a list of (x, y) vertices."""
 
     def __init__(self, xy, closed=True, **kwargs):
-        self._xy = [tuple(pt) for pt in xy]
         self._closed = closed
+        self._xy = []
+        self.set_xy(xy)
         super().__init__(**kwargs)
 
     def get_xy(self):
         return list(self._xy)
 
     def set_xy(self, xy):
-        self._xy = [tuple(pt) for pt in xy]
+        pts = [tuple(pt) for pt in xy]
+        if self._closed:
+            # Ensure the path is closed (last point == first point)
+            if len(pts) >= 2 and pts[-1] != pts[0]:
+                pts = pts + [pts[0]]
+        else:
+            # Ensure the path is open (remove duplicate last == first)
+            if len(pts) >= 2 and pts[-1] == pts[0]:
+                pts = pts[:-1]
+        self._xy = pts
 
     def get_closed(self):
         return self._closed
 
     def set_closed(self, closed):
+        old_closed = self._closed
         self._closed = closed
+        if old_closed != closed:
+            # Re-process existing points for the new closed state
+            self.set_xy(self._xy)
 
     def get_path(self):
         """Return a path-like object for this polygon."""
@@ -346,6 +403,67 @@ class Ellipse(Patch):
     def angle(self, val):
         self._angle = val
 
+    def get_corners(self):
+        """Return the 4 corners of the bounding box, rotated around center."""
+        import math
+        cx, cy = self._center
+        hw, hh = self._width / 2, self._height / 2
+        corners = [(cx - hw, cy - hh), (cx + hw, cy - hh),
+                   (cx + hw, cy + hh), (cx - hw, cy + hh)]
+        if self._angle == 0:
+            return corners
+        a = math.radians(self._angle)
+        cos_a, sin_a = math.cos(a), math.sin(a)
+        result = []
+        for px, py in corners:
+            dx, dy = px - cx, py - cy
+            result.append((cx + dx * cos_a - dy * sin_a,
+                           cy + dx * sin_a + dy * cos_a))
+        return result
+
+    def get_vertices(self):
+        """Return the two vertices (endpoints of major axis)."""
+        import math
+        cx, cy = self._center
+        a_rad = math.radians(self._angle)
+        r = self._width / 2
+        return [(cx + r * math.cos(a_rad), cy + r * math.sin(a_rad)),
+                (cx - r * math.cos(a_rad), cy - r * math.sin(a_rad))]
+
+    def get_co_vertices(self):
+        """Return the two co-vertices (endpoints of minor axis)."""
+        import math
+        cx, cy = self._center
+        a_rad = math.radians(self._angle + 90)
+        r = self._height / 2
+        return [(cx + r * math.cos(a_rad), cy + r * math.sin(a_rad)),
+                (cx - r * math.cos(a_rad), cy - r * math.sin(a_rad))]
+
+    def _process_radius(self, radius):
+        """Return radius, defaulting to 0 if None."""
+        return 0 if radius is None else radius
+
+    def contains_point(self, point, radius=None):
+        """Return True if *point* is inside the ellipse."""
+        import math
+        x, y = point
+        cx, cy = self._center
+        a = self._width / 2
+        b = self._height / 2
+        if a <= 0 or b <= 0:
+            return False
+        # Rotate point into ellipse frame
+        ang = math.radians(-self._angle)
+        cos_a, sin_a = math.cos(ang), math.sin(ang)
+        dx, dy = x - cx, y - cy
+        xr = dx * cos_a - dy * sin_a
+        yr = dx * sin_a + dy * cos_a
+        return (xr / a) ** 2 + (yr / b) ** 2 <= 1.0
+
+    def __str__(self):
+        return (f'Ellipse(xy={self._center}, width={self._width}, '
+                f'height={self._height}, angle={self._angle})')
+
     def draw(self, renderer, layout):
         if not self.get_visible():
             return
@@ -400,6 +518,11 @@ class Arc(Ellipse):
     @theta2.setter
     def theta2(self, val):
         self._theta2 = val
+
+    def __str__(self):
+        return (f'Arc(xy={self._center}, width={self._width}, '
+                f'height={self._height}, angle={self._angle}, '
+                f'theta1={self._theta1}, theta2={self._theta2})')
 
     def draw(self, renderer, layout):
         if not self.get_visible():
@@ -808,14 +931,27 @@ class ConnectionPatch(FancyArrowPatch):
 
 
 class Wedge(Patch):
-    """A wedge (pie slice) defined by center, radius, and two angles."""
+    """A wedge (pie slice) defined by center, radius, and two angles.
 
-    def __init__(self, center, r, theta1, theta2, **kwargs):
+    The optional *width* parameter gives the radial thickness of an annular
+    wedge (inner radius = r - width).
+    """
+
+    def __init__(self, center, r, theta1, theta2, *, width=None, **kwargs):
         self._center = tuple(center)
         self._r = r
         self._theta1 = theta1  # start angle in degrees
         self._theta2 = theta2  # end angle in degrees
+        self._width = width    # radial thickness (None = full pie slice)
         super().__init__(**kwargs)
+
+    @property
+    def center(self):
+        return self._center
+
+    @center.setter
+    def center(self, val):
+        self._center = tuple(val)
 
     def get_center(self):
         return self._center
@@ -828,6 +964,14 @@ class Wedge(Patch):
 
     def set_r(self, r):
         self._r = r
+
+    @property
+    def r(self):
+        return self._r
+
+    @r.setter
+    def r(self, val):
+        self._r = val
 
     def set_radius(self, radius):
         self._r = radius
@@ -860,13 +1004,27 @@ class Wedge(Patch):
     def theta2(self, val):
         self._theta2 = val
 
+    @property
+    def width(self):
+        """Radial width of the annular wedge (None = full pie slice)."""
+        return self._width
+
+    @width.setter
+    def width(self, val):
+        self._width = val
+
     def set_width(self, width):
-        """Set the angular width (theta2 - theta1)."""
-        self._theta2 = self._theta1 + width
+        """Set the radial width of the annular wedge."""
+        self._width = width
 
     def get_width(self):
-        """Get the angular width (theta2 - theta1)."""
-        return self._theta2 - self._theta1
+        """Get the radial width of the annular wedge."""
+        return self._width
+
+    def __str__(self):
+        return (f'Wedge(center={self._center}, r={self._r}, '
+                f'theta1={self._theta1}, theta2={self._theta2}, '
+                f'width={self._width})')
 
     def draw(self, renderer, layout):
         if not self.get_visible():

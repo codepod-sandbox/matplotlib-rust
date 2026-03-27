@@ -291,14 +291,18 @@ def test_wedge_movement():
 
 
 # ---------------------------------------------------------------------------
-# test_wedge_width (upstream-inspired)
+# test_wedge_width (upstream: radial width of annular wedge)
 # ---------------------------------------------------------------------------
 def test_wedge_width():
-    """Wedge set_width/get_width angular width."""
+    """Wedge width is radial thickness of annular wedge (None = full slice)."""
     w = Wedge((0, 0), 1.0, 30, 120)
-    assert w.get_width() == 90
-    w.set_width(45)
-    assert w.get_theta2() == 75  # 30 + 45
+    assert w.get_width() is None  # No radial width by default
+    w.set_width(0.5)
+    assert w.get_width() == 0.5
+    assert w.width == 0.5
+    # theta1/theta2 unaffected by radial width
+    assert w.get_theta1() == 30
+    assert w.get_theta2() == 120
 
 
 # ---------------------------------------------------------------------------
@@ -497,12 +501,14 @@ def test_circle_default_radius():
 # Polygon
 # ---------------------------------------------------------------------------
 def test_polygon_get_xy():
-    """Polygon.get_xy returns vertices."""
+    """Polygon.get_xy returns vertices including closing vertex when closed=True."""
     from matplotlib.patches import Polygon
     poly = Polygon([(0, 0), (1, 0), (1, 1)])
     verts = poly.get_xy()
-    assert len(verts) == 3
+    # closed=True (default): auto-appends first vertex, so 3+1=4 points
+    assert len(verts) == 4
     assert verts[0] == (0, 0)
+    assert verts[-1] == verts[0]  # closing vertex matches first
 
 
 def test_polygon_set_xy():
@@ -581,11 +587,11 @@ def test_wedge_set_theta2():
 
 
 def test_wedge_width():
-    """Wedge get_width / set_width."""
+    """Wedge radial width property."""
     w = Wedge((0, 0), 1.0, 0, 90)
-    assert w.get_width() == 90
-    w.set_width(180)
-    assert w.get_theta2() == 180
+    assert w.get_width() is None  # No radial width by default
+    w.set_width(0.3)
+    assert w.get_width() == 0.3
 
 
 # ---------------------------------------------------------------------------
@@ -1373,19 +1379,23 @@ def test_wedge_get_theta():
 
 
 def test_degenerate_polygon():
-    """Polygon with collinear points stores correct vertex count."""
+    """Polygon with collinear points: closed polygon has N+1 vertices."""
     from matplotlib.patches import Polygon
     verts = [(0, 0), (1, 0), (2, 0), (3, 0)]
     p = Polygon(verts)
-    assert len(p.get_xy()) == len(verts)
+    # closed=True (default): auto-appends closing vertex
+    assert len(p.get_xy()) == len(verts) + 1
 
 
 def test_polygon_vertex_roundtrip():
-    """Polygon vertices round-trip through set_xy/get_xy."""
+    """Polygon closed=True: get_xy() includes closing vertex."""
     from matplotlib.patches import Polygon
     verts = [(0, 0), (1, 0), (1, 1), (0, 1)]
-    p = Polygon(verts)
-    assert p.get_xy() == verts
+    p = Polygon(verts)  # closed=True by default
+    result = p.get_xy()
+    # First 4 elements match input, 5th closes the polygon
+    assert result[:4] == verts
+    assert result[4] == verts[0]
 
 
 def test_polygon_autocloses():
@@ -1397,3 +1407,283 @@ def test_polygon_autocloses():
     # The path should contain one extra closing vertex
     path = p.get_path()
     assert len(path.vertices) >= len(verts)
+
+# ---------------------------------------------------------------------------
+# Upstream ports: test_patches.py from CPython matplotlib
+# ---------------------------------------------------------------------------
+
+def test_Polygon_close():
+    """Upstream test_Polygon_close: closed/open path handling in set_xy."""
+    from numpy.testing import assert_array_equal
+    from matplotlib.patches import Polygon
+
+    xy = [[0, 0], [0, 1], [1, 1]]
+    xyclosed = xy + [[0, 0]]
+
+    # Start with open path and close it
+    p = Polygon(xy, closed=True)
+    assert p.get_closed()
+    assert_array_equal(p.get_xy(), xyclosed)
+    p.set_xy(xy)
+    assert_array_equal(p.get_xy(), xyclosed)
+
+    # Start with closed path and open it
+    p = Polygon(xyclosed, closed=False)
+    assert_array_equal(p.get_xy(), xy)
+    p.set_xy(xyclosed)
+    assert_array_equal(p.get_xy(), xy)
+
+    # Start with open path and leave it open
+    p = Polygon(xy, closed=False)
+    assert not p.get_closed()
+    assert_array_equal(p.get_xy(), xy)
+    p.set_xy(xy)
+    assert_array_equal(p.get_xy(), xy)
+
+    # Start with closed path and leave it closed
+    p = Polygon(xyclosed, closed=True)
+    assert_array_equal(p.get_xy(), xyclosed)
+    p.set_xy(xyclosed)
+    assert_array_equal(p.get_xy(), xyclosed)
+
+
+def test_corner_center_rectangle():
+    """Upstream test_corner_center: Rectangle corners and center with angle."""
+    import numpy as np
+    from numpy.testing import assert_array_equal, assert_almost_equal
+    import matplotlib.transforms as mtransforms
+    from matplotlib.patches import Rectangle
+
+    loc = [10, 20]
+    width = 1
+    height = 2
+
+    # No rotation
+    corners = ((10, 20), (11, 20), (11, 22), (10, 22))
+    rect = Rectangle(loc, width, height)
+    assert_array_equal(rect.get_corners(), corners)
+    assert_array_equal(rect.get_center(), (10.5, 21))
+
+    # 90 deg rotation
+    corners_rot = ((10, 20), (10, 21), (8, 21), (8, 20))
+    rect.set_angle(90)
+    assert_almost_equal(rect.get_corners(), corners_rot)
+    assert_almost_equal(rect.get_center(), (9, 20.5))
+
+    # Rotation not a multiple of 90 deg
+    theta = 33
+    t = mtransforms.Affine2D().rotate_around(*loc, np.deg2rad(theta))
+    corners_rot = t.transform(corners)
+    rect.set_angle(theta)
+    assert_almost_equal(rect.get_corners(), corners_rot)
+
+
+def test_corner_center_ellipse():
+    """Upstream test_corner_center: Ellipse corners and center with angle."""
+    import numpy as np
+    from numpy.testing import assert_array_equal, assert_almost_equal
+    import matplotlib.transforms as mtransforms
+    from matplotlib.patches import Ellipse
+
+    loc_center = (10.5, 21)  # center of the ellipse
+    width = 1
+    height = 2
+    corners = ((10, 20), (11, 20), (11, 22), (10, 22))
+
+    ellipse = Ellipse(loc_center, width, height)
+
+    # No rotation
+    assert_almost_equal(ellipse.get_corners(), corners)
+
+    # 90 deg rotation
+    corners_rot = ((11.5, 20.5), (11.5, 21.5), (9.5, 21.5), (9.5, 20.5))
+    ellipse.set_angle(90)
+    assert_almost_equal(ellipse.get_corners(), corners_rot)
+    # Rotation shouldn't change ellipse center
+    assert_array_equal(ellipse.get_center(), loc_center)
+
+    # Rotation not a multiple of 90 deg
+    theta = 33
+    t = mtransforms.Affine2D().rotate_around(*loc_center, np.deg2rad(theta))
+    corners_rot = t.transform(corners)
+    ellipse.set_angle(theta)
+    assert_almost_equal(ellipse.get_corners(), corners_rot)
+
+
+def test_ellipse_vertices():
+    """Upstream test_ellipse_vertices: get_vertices and get_co_vertices."""
+    import numpy as np
+    from numpy.testing import assert_almost_equal
+    from matplotlib.patches import Ellipse
+
+    # Zero ellipse
+    ellipse = Ellipse(xy=(0, 0), width=0, height=0, angle=0)
+    assert_almost_equal(ellipse.get_vertices(), [(0.0, 0.0), (0.0, 0.0)])
+    assert_almost_equal(ellipse.get_co_vertices(), [(0.0, 0.0), (0.0, 0.0)])
+
+    # Standard ellipse
+    ellipse = Ellipse(xy=(0, 0), width=2, height=1, angle=30)
+    v1, v2 = np.array(ellipse.get_vertices())
+    np.testing.assert_almost_equal((v1 + v2) / 2, ellipse.center)
+    cv1, cv2 = np.array(ellipse.get_co_vertices())
+    np.testing.assert_almost_equal((cv1 + cv2) / 2, ellipse.center)
+
+    # Check actual values for width=2, angle=30
+    expected_v = [
+        (ellipse.center[0] + ellipse.width / 4 * np.sqrt(3),
+         ellipse.center[1] + ellipse.width / 4),
+        (ellipse.center[0] - ellipse.width / 4 * np.sqrt(3),
+         ellipse.center[1] - ellipse.width / 4),
+    ]
+    assert_almost_equal(ellipse.get_vertices(), expected_v)
+
+    # Another ellipse: verify midpoint of vertices is center
+    ellipse = Ellipse(xy=(2.252, -10.859), width=2.265, height=1.98, angle=68.78)
+    v1, v2 = np.array(ellipse.get_vertices())
+    np.testing.assert_almost_equal((v1 + v2) / 2, ellipse.center)
+    cv1, cv2 = np.array(ellipse.get_co_vertices())
+    np.testing.assert_almost_equal((cv1 + cv2) / 2, ellipse.center)
+
+
+def test_rotate_rect():
+    """Upstream test_rotate_rect: rotated rectangle vertices match manual rotation."""
+    import numpy as np
+    from numpy.testing import assert_almost_equal
+    from matplotlib.patches import Rectangle
+
+    loc = np.asarray([1.0, 2.0])
+    width = 2
+    height = 3
+    angle = 30.0
+
+    # A rotated rectangle
+    rect1 = Rectangle(loc, width, height, angle=angle)
+
+    # A non-rotated rectangle
+    rect2 = Rectangle(loc, width, height)
+
+    # Set up an explicit rotation matrix (in radians)
+    angle_rad = np.pi * angle / 180.0
+    rotation_matrix = np.array([[np.cos(angle_rad), -np.sin(angle_rad)],
+                                [np.sin(angle_rad),  np.cos(angle_rad)]])
+
+    # Rotate each non-rotated vertex around the anchor point
+    new_verts = np.inner(rotation_matrix, rect2.get_verts() - loc).T + loc
+
+    # They should be the same
+    assert_almost_equal(rect1.get_verts(), new_verts)
+
+
+def test_negative_rect():
+    """Upstream test_negative_rect: negative width/height vertices."""
+    import numpy as np
+    from numpy.testing import assert_array_equal
+    from matplotlib.patches import Rectangle
+
+    # These two rectangles have the same vertices, but starting from a
+    # different point.
+    pos_vertices = Rectangle((-3, -2), 3, 2).get_verts()[:-1]
+    neg_vertices = Rectangle((0, 0), -3, -2).get_verts()[:-1]
+    assert_array_equal(np.roll(neg_vertices, 2, 0), pos_vertices)
+
+
+def test_patch_str_circle():
+    """Upstream test_patch_str: Circle __str__."""
+    import matplotlib.patches as mpatches
+    p = mpatches.Circle(xy=(1, 2), radius=3)
+    assert str(p) == 'Circle(xy=(1, 2), radius=3)'
+
+
+def test_patch_str_ellipse():
+    """Upstream test_patch_str: Ellipse __str__."""
+    import matplotlib.patches as mpatches
+    p = mpatches.Ellipse(xy=(1, 2), width=3, height=4, angle=5)
+    assert str(p) == 'Ellipse(xy=(1, 2), width=3, height=4, angle=5)'
+
+
+def test_patch_str_rectangle():
+    """Upstream test_patch_str: Rectangle __str__."""
+    import matplotlib.patches as mpatches
+    p = mpatches.Rectangle(xy=(1, 2), width=3, height=4, angle=5)
+    assert str(p) == 'Rectangle(xy=(1, 2), width=3, height=4, angle=5)'
+
+
+def test_patch_str_wedge():
+    """Upstream test_patch_str: Wedge __str__."""
+    import matplotlib.patches as mpatches
+    p = mpatches.Wedge(center=(1, 2), r=3, theta1=4, theta2=5, width=6)
+    assert str(p) == 'Wedge(center=(1, 2), r=3, theta1=4, theta2=5, width=6)'
+
+
+def test_patch_str_arc():
+    """Upstream test_patch_str: Arc __str__."""
+    import matplotlib.patches as mpatches
+    p = mpatches.Arc(xy=(1, 2), width=3, height=4, angle=5, theta1=6, theta2=7)
+    assert str(p) == 'Arc(xy=(1, 2), width=3, height=4, angle=5, theta1=6, theta2=7)'
+
+
+def test_wedge_movement_upstream():
+    """Upstream test_wedge_movement: Wedge setters/getters including width."""
+    import matplotlib.patches as mpatches
+
+    param_dict = {'center': ((0, 0), (1, 1), 'set_center'),
+                  'r': (5, 8, 'set_radius'),
+                  'width': (2, 3, 'set_width'),
+                  'theta1': (0, 30, 'set_theta1'),
+                  'theta2': (45, 50, 'set_theta2')}
+
+    init_args = {k: v[0] for k, v in param_dict.items()}
+    w = mpatches.Wedge(**init_args)
+
+    for attr, (old_v, new_v, func) in param_dict.items():
+        assert getattr(w, attr) == old_v, f"{attr}: expected {old_v}, got {getattr(w, attr)}"
+        getattr(w, func)(new_v)
+        assert getattr(w, attr) == new_v, f"{attr}: expected {new_v}, got {getattr(w, attr)}"
+
+
+def test_patch_linestyle_accents():
+    """Upstream test_patch_linestyle_accents: PathPatch accepts shorthand linestyles."""
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    import matplotlib.path as mpath
+
+    circle = mpath.Path.unit_circle()
+    linestyles = ["-", "--", "-.", ":", "solid", "dashed", "dashdot", "dotted"]
+
+    fig, ax = plt.subplots()
+    for i, ls in enumerate(linestyles):
+        star = mpath.Path(circle.vertices + i, circle.codes)
+        patch = mpatches.PathPatch(star, linewidth=3, linestyle=ls,
+                                   facecolor=(1, 0, 0), edgecolor=(0, 0, 1))
+        ax.add_patch(patch)
+    plt.close('all')
+
+
+def test_contains_point_ellipse():
+    """Upstream test_contains_point: Ellipse contains_point via path."""
+    import numpy as np
+    import matplotlib.patches as mpatches
+
+    ell = mpatches.Ellipse((0.5, 0.5), 0.5, 1.0)
+    points = [(0.0, 0.5), (0.2, 0.5), (0.25, 0.5), (0.5, 0.5)]
+    result = np.array([ell.contains_point(point) for point in points])
+    # Center should be inside, far-left should be outside
+    assert result[3]   # center (0.5, 0.5) is inside
+    assert not result[0]  # (0.0, 0.5) is outside (width=0.5, so x in [0.25, 0.75])
+
+
+def test_rectangle_get_verts():
+    """Rectangle.get_verts returns 5 closed vertices as numpy array."""
+    import numpy as np
+    from matplotlib.patches import Rectangle
+
+    rect = Rectangle((0, 0), 2, 3)
+    verts = rect.get_verts()
+    assert verts.shape == (5, 2)
+    # First and last are the same (closed)
+    np.testing.assert_array_equal(verts[0], verts[-1])
+    # Corners are correct
+    np.testing.assert_array_equal(verts[0], [0, 0])
+    np.testing.assert_array_equal(verts[1], [2, 0])
+    np.testing.assert_array_equal(verts[2], [2, 3])
+    np.testing.assert_array_equal(verts[3], [0, 3])

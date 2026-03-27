@@ -373,7 +373,8 @@ class TestPolygonPatch:
 
     def test_init(self):
         p = Polygon([(0, 0), (1, 1), (2, 0)], facecolor='#00ff00')
-        assert len(p.get_xy()) == 3
+        # closed=True (default): auto-appends closing vertex → 4 points
+        assert len(p.get_xy()) == 4
 
     def test_draw_produces_polygon(self):
         p = Polygon([(0, 0), (10, 10), (10, 0)], facecolor='#00ff00')
@@ -384,7 +385,8 @@ class TestPolygonPatch:
     def test_get_set_xy(self):
         p = Polygon([(0, 0), (1, 1)])
         p.set_xy([(2, 2), (3, 3), (4, 4)])
-        assert len(p.get_xy()) == 3
+        # closed=True: auto-appends closing vertex → 4 points
+        assert len(p.get_xy()) == 4
 
 
 class TestPathCollectionDraw:
