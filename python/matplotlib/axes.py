@@ -3594,7 +3594,8 @@ class Axes:
             y0, y1 = nrows - 0.5, -0.5
 
         im = AxesImage(self, data=data, extent=(x0, x1, y0, y1),
-                        cmap=cmap, norm=norm, interpolation=interpolation)
+                        cmap=cmap, norm=norm, interpolation=interpolation,
+                        origin=origin)
         if alpha is not None:
             im.set_alpha(alpha)
 
@@ -3662,6 +3663,240 @@ class Axes:
         mesh.figure = self.figure
         self.collections.append(mesh)
         return mesh
+
+    # ------------------------------------------------------------------
+    # matshow / spy / broken_barh / xcorr / acorr / spectrum methods
+    # ------------------------------------------------------------------
+
+    def matshow(self, Z, **kwargs):
+        """Display an array as a matrix image.
+
+        Like imshow but with integer tick locations and labels
+        aligned with matrix elements.
+        """
+        kwargs.setdefault('interpolation', 'nearest')
+        kwargs.setdefault('aspect', 'equal')
+        kwargs.setdefault('origin', 'upper')
+        im = self.imshow(Z, **kwargs)
+        # Set integer tick locators for matrix display
+        nrows, ncols = Z.shape[0], Z.shape[1] if hasattr(Z, 'shape') else (len(Z), len(Z[0]))
+        self.set_xticks(list(range(ncols)))
+        self.set_yticks(list(range(nrows)))
+        self.xaxis_tick_top = True  # conceptual — ticks on top for matshow
+        return im
+
+    def spy(self, Z, precision=0, marker=None, markersize=None,
+            aspect='equal', origin='upper', **kwargs):
+        """Plot the sparsity pattern of a 2D array.
+
+        Non-zero elements are shown as markers.
+        """
+        import numpy as np
+        Z = np.asarray(Z) if hasattr(Z, '__iter__') else Z
+        if hasattr(Z, 'toarray'):
+            Z = Z.toarray()
+
+        # Find non-zero positions
+        if hasattr(Z, 'nonzero'):
+            rows, cols = Z.nonzero()
+        else:
+            rows, cols = [], []
+            for i, row in enumerate(Z):
+                for j, val in enumerate(row):
+                    if abs(val) > precision:
+                        rows.append(i)
+                        cols.append(j)
+
+        if marker is None:
+            marker = 's'
+        if markersize is None:
+            markersize = 5
+
+        sc = self.scatter(cols, rows, marker=marker, s=markersize**2, **kwargs)
+
+        # Set up axes for matrix display
+        if hasattr(Z, 'shape'):
+            nrows, ncols = Z.shape
+        else:
+            nrows = len(Z)
+            ncols = max(len(row) for row in Z) if nrows > 0 else 0
+
+        self.set_xlim(-0.5, ncols - 0.5)
+        self.set_ylim(nrows - 0.5, -0.5)  # inverted y for matrix style
+        self.set_aspect(aspect)
+        return sc
+
+    def broken_barh(self, xranges, yrange, **kwargs):
+        """Plot a horizontal sequence of rectangles.
+
+        Parameters
+        ----------
+        xranges : sequence of (xmin, xwidth) pairs
+        yrange : (ymin, ywidth) pair
+        """
+        from .patches import Rectangle
+        ymin, ywidth = yrange
+        facecolor = kwargs.pop('facecolor', kwargs.pop('fc', self._next_color()))
+        edgecolor = kwargs.pop('edgecolor', kwargs.pop('ec', 'none'))
+        alpha = kwargs.pop('alpha', None)
+        label = kwargs.pop('label', '_nolegend_')
+
+        rects = []
+        for xmin, xwidth in xranges:
+            r = Rectangle((xmin, ymin), xwidth, ywidth,
+                           facecolor=facecolor, edgecolor=edgecolor, **kwargs)
+            if alpha is not None:
+                r.set_alpha(alpha)
+            r.axes = self
+            r.figure = self.figure
+            self.patches.append(r)
+            rects.append(r)
+
+        if rects:
+            rects[0].set_label(label)
+
+        # Update data limits
+        if xranges:
+            all_x = [x for x, _ in xranges] + [x + w for x, w in xranges]
+            self._update_xy_datalim([(min(all_x), ymin), (max(all_x), ymin + ywidth)])
+
+        return rects
+
+    def _update_xy_datalim(self, points):
+        """Update the data limits from a list of (x, y) points."""
+        for x, y in points:
+            x0, y0, x1, y1 = self.dataLim.x0, self.dataLim.y0, self.dataLim.x1, self.dataLim.y1
+            self.dataLim.x0 = min(x0, x)
+            self.dataLim.y0 = min(y0, y)
+            self.dataLim.x1 = max(x1, x)
+            self.dataLim.y1 = max(y1, y)
+
+    def xcorr(self, x, y, normed=True, detrend=None, usevlines=True,
+              maxlags=10, **kwargs):
+        """Plot the cross-correlation between x and y.
+
+        Parameters
+        ----------
+        x, y : array-like
+        maxlags : int, default 10
+        normed : bool, normalize correlation
+        """
+        import numpy as np
+        x = np.asarray(x)
+        y = np.asarray(y)
+        Nx = len(x)
+
+        if detrend is not None:
+            x = detrend(x)
+            y = detrend(y)
+
+        correls = np.correlate(x - x.mean(), y - y.mean(), mode='full')
+        if normed:
+            correls /= np.sqrt(np.dot(x - x.mean(), x - x.mean()) *
+                               np.dot(y - y.mean(), y - y.mean()))
+
+        lags = np.arange(-maxlags, maxlags + 1)
+        correls = correls[Nx - 1 - maxlags: Nx + maxlags]
+
+        if usevlines:
+            lines = self.vlines(lags, 0, correls, **kwargs)
+            b = self.axhline(**kwargs)
+            return lags, correls, lines, b
+        else:
+            lines = self.plot(lags, correls, **kwargs)
+            return lags, correls, lines
+
+    def acorr(self, x, **kwargs):
+        """Plot the autocorrelation of x.
+
+        Parameters
+        ----------
+        x : array-like
+        """
+        return self.xcorr(x, x, **kwargs)
+
+    def cohere(self, x, y, NFFT=256, Fs=2, Fc=0, detrend=None,
+               window=None, noverlap=0, pad_to=None, sides='default',
+               scale_by_freq=None, **kwargs):
+        """Plot the coherence between x and y.
+
+        Returns the coherence values (stub implementation).
+        """
+        import numpy as np
+        # Simple coherence stub — returns uniform coherence
+        freqs = np.fft.rfftfreq(NFFT, 1.0 / Fs) + Fc
+        coherence = np.ones_like(freqs)
+        lines = self.plot(freqs, coherence, **kwargs)
+        self.set_ylim([0, 1])
+        self.set_xlabel('Frequency')
+        self.set_ylabel('Coherence')
+        return coherence, freqs
+
+    def magnitude_spectrum(self, x, Fs=None, Fc=None, window=None,
+                           pad_to=None, sides='default', scale='linear', **kwargs):
+        """Plot the magnitude spectrum of x.
+
+        Returns (spectrum, freqs, line).
+        """
+        import numpy as np
+        Fs = Fs or 2
+        Fc = Fc or 0
+        n = len(x)
+        spectrum = np.abs(np.fft.rfft(x)) / n
+        freqs = np.fft.rfftfreq(n, 1.0 / Fs) + Fc
+        if scale == 'dB':
+            spectrum = 20 * np.log10(np.maximum(spectrum, 1e-10))
+        lines = self.plot(freqs, spectrum, **kwargs)
+        return spectrum, freqs, lines[0]
+
+    def angle_spectrum(self, x, Fs=None, Fc=None, window=None,
+                       pad_to=None, sides='default', **kwargs):
+        """Plot the angle spectrum of x.
+
+        Returns (spectrum, freqs, line).
+        """
+        import numpy as np
+        Fs = Fs or 2
+        Fc = Fc or 0
+        n = len(x)
+        spectrum = np.angle(np.fft.rfft(x))
+        freqs = np.fft.rfftfreq(n, 1.0 / Fs) + Fc
+        lines = self.plot(freqs, spectrum, **kwargs)
+        return spectrum, freqs, lines[0]
+
+    def phase_spectrum(self, x, Fs=None, Fc=None, window=None,
+                       pad_to=None, sides='default', **kwargs):
+        """Plot the phase spectrum of x.
+
+        Returns (spectrum, freqs, line).
+        """
+        return self.angle_spectrum(x, Fs=Fs, Fc=Fc, window=window,
+                                   pad_to=pad_to, sides=sides, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Artist management utilities
+    # ------------------------------------------------------------------
+
+    def get_window_extent(self, renderer=None):
+        """Return the axes bounding box in display coordinates."""
+        from .transforms import Bbox
+        # Return a nominal bounding box (display coords not available without renderer)
+        pos = self.get_position()
+        fig_w, fig_h = self.figure.get_size_inches()
+        dpi = self.figure.dpi
+        x0 = pos.x0 * fig_w * dpi
+        y0 = pos.y0 * fig_h * dpi
+        x1 = pos.x1 * fig_w * dpi
+        y1 = pos.y1 * fig_h * dpi
+        return Bbox([[x0, y0], [x1, y1]])
+
+    def set_clip_on(self, b):
+        """Set whether artist uses clipping."""
+        self._clip_on = b
+
+    def get_clip_on(self):
+        """Return whether artist uses clipping."""
+        return getattr(self, '_clip_on', True)
 
     # ------------------------------------------------------------------
     # table

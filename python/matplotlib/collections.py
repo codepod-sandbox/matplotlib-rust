@@ -467,3 +467,101 @@ class QuadMesh(Collection):
     def draw(self, renderer, layout):
         """Draw this quad mesh (stub)."""
         pass
+
+
+class CircleCollection(Collection):
+    """A collection of circles, used for scatter-like plots."""
+
+    def __init__(self, sizes, **kwargs):
+        """
+        Parameters
+        ----------
+        sizes : array-like of float
+            Diameters (in points^2) of circles.
+        """
+        super().__init__(**kwargs)
+        import numpy as np
+        self._sizes = np.asarray(sizes, dtype=float)
+
+    def get_sizes(self):
+        return list(self._sizes)
+
+    def set_sizes(self, sizes):
+        import numpy as np
+        self._sizes = np.asarray(sizes, dtype=float)
+
+    def draw(self, renderer, layout):
+        pass  # handled by renderer
+
+
+class RegularPolyCollection(Collection):
+    """A collection of regular polygons."""
+
+    def __init__(self, numsides, sizes=(1,), **kwargs):
+        """
+        Parameters
+        ----------
+        numsides : int
+            Number of sides of the polygon.
+        sizes : array-like
+            Area of each polygon in points^2.
+        """
+        super().__init__(**kwargs)
+        self._numsides = numsides
+        import numpy as np
+        self._sizes = np.asarray(sizes, dtype=float)
+
+    def get_numsides(self):
+        return self._numsides
+
+    def get_sizes(self):
+        return list(self._sizes)
+
+    def set_sizes(self, sizes):
+        import numpy as np
+        self._sizes = np.asarray(sizes, dtype=float)
+
+    def draw(self, renderer, layout):
+        pass
+
+
+class BrokenBarHCollection(PolyCollection):
+    """A collection of horizontal bars with gaps."""
+
+    def __init__(self, xranges, yrange, **kwargs):
+        """
+        Parameters
+        ----------
+        xranges : sequence of (xmin, xwidth) pairs
+        yrange : (ymin, ywidth) pair
+        """
+        import numpy as np
+        ymin, ywidth = yrange
+        ymax = ymin + ywidth
+        verts = []
+        for xmin, xwidth in xranges:
+            xmax = xmin + xwidth
+            verts.append(np.array([[xmin, ymin], [xmax, ymin],
+                                    [xmax, ymax], [xmin, ymax]]))
+        self._xranges = list(xranges)
+        self._yrange = yrange
+        super().__init__(verts, **kwargs)
+
+    @classmethod
+    def span_where(cls, x, ymin, ymax, where, **kwargs):
+        """Create BrokenBarHCollection from boolean mask."""
+        import numpy as np
+        x = np.asarray(x)
+        where = np.asarray(where, dtype=bool)
+        xranges = []
+        i = 0
+        while i < len(x):
+            if where[i]:
+                j = i
+                while j < len(x) and where[j]:
+                    j += 1
+                xranges.append((x[i], x[j-1] - x[i]))
+                i = j
+            else:
+                i += 1
+        return cls(xranges, (ymin, ymax - ymin), **kwargs)

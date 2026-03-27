@@ -1723,3 +1723,55 @@ class NoNorm(Normalize):
         if isinstance(value, (list, tuple)):
             return [float(v) for v in value]
         return float(value)
+
+
+class FuncNorm(Normalize):
+    """Normalization defined by arbitrary forward/inverse functions.
+
+    Parameters
+    ----------
+    functions : 2-tuple of callables (forward, inverse)
+        forward(value) maps data to [0, 1]
+        inverse(value) maps [0, 1] back to data
+    vmin, vmax : float, optional
+    clip : bool, default False
+    """
+
+    def __init__(self, functions, vmin=None, vmax=None, clip=False):
+        super().__init__(vmin=vmin, vmax=vmax, clip=clip)
+        self._forward, self._inverse = functions
+
+    def __call__(self, value, clip=None):
+        import numpy as np
+        if clip is None:
+            clip = self.clip
+
+        scalar = not hasattr(value, '__iter__')
+        values = np.atleast_1d(np.asarray(value, dtype=float))
+
+        self.autoscale_None(values)
+        vmin, vmax = self.vmin, self.vmax
+
+        if vmin == vmax:
+            result = np.zeros_like(values)
+        else:
+            # Normalize to [vmin, vmax], apply forward function
+            t = (values - vmin) / (vmax - vmin)
+            if clip:
+                t = np.clip(t, 0, 1)
+            result = self._forward(t)
+
+        if scalar:
+            return float(result[0])
+        return np.ma.array(result)
+
+    def inverse(self, value):
+        import numpy as np
+        scalar = not hasattr(value, '__iter__')
+        values = np.atleast_1d(np.asarray(value, dtype=float))
+        t = self._inverse(values)
+        vmin, vmax = self.vmin, self.vmax
+        result = t * (vmax - vmin) + vmin
+        if scalar:
+            return float(result[0])
+        return result

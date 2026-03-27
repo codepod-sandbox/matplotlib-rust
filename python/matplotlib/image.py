@@ -9,7 +9,7 @@ class AxesImage(Artist):
     zorder = 0
 
     def __init__(self, ax, data=None, extent=None, cmap=None, norm=None,
-                 interpolation=None, **kwargs):
+                 interpolation=None, origin=None, **kwargs):
         super().__init__()
         self.axes = ax
         self._data = data
@@ -18,6 +18,7 @@ class AxesImage(Artist):
         self._norm = norm
         self._interpolation = interpolation
         self._clim = None
+        self.origin = origin if origin is not None else 'upper'
 
         if kwargs:
             self.set(**kwargs)

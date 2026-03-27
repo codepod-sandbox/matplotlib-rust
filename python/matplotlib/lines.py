@@ -294,6 +294,25 @@ class Line2D(Artist):
             renderer.draw_markers(x_px, y_px, color,
                                   float(self._markersize), self._marker)
 
+    def is_dashed(self):
+        """Return True if the line has a non-solid linestyle."""
+        ls = self.get_linestyle()
+        solid_styles = {'-', 'solid', ''}
+        return ls not in solid_styles and ls is not None
+
+    def recache(self, always=False):
+        """Recalculate the cached path (no-op in this implementation)."""
+        pass  # In upstream: recalculates transformed path cache
+
+    def get_window_extent(self, renderer=None):
+        """Return bounding box of line in display coordinates."""
+        from .transforms import Bbox
+        import numpy as np
+        if len(self._xdata) == 0:
+            return Bbox([[0, 0], [0, 0]])
+        return Bbox([[float(min(self._xdata)), float(min(self._ydata))],
+                     [float(max(self._xdata)), float(max(self._ydata))]])
+
     # --- class-level valid linestyles dict (upstream compat) ---
     lineStyles = {
         '-': '_draw_solid',

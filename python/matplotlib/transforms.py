@@ -623,6 +623,65 @@ def blended_transform_factory(x_transform, y_transform):
     return BlendedGenericTransform(x_transform, y_transform)
 
 
+def offset_copy(trans, fig=None, x=0.0, y=0.0, units='inches'):
+    """Return a new transform with an added offset.
+
+    Parameters
+    ----------
+    trans : Transform
+        Base transform.
+    fig : Figure, optional
+        Figure for converting units (required for 'inches', 'points').
+    x, y : float
+        Offset amounts.
+    units : {'inches', 'points', 'dots'}
+        Units for x and y offset.
+
+    Returns
+    -------
+    A new transform equivalent to trans + offset(x, y).
+    """
+    if units == 'inches':
+        dpi = fig.dpi if fig is not None else 72.0
+        x_pts = x * dpi
+        y_pts = y * dpi
+    elif units == 'points':
+        dpi = fig.dpi if fig is not None else 72.0
+        x_pts = x * dpi / 72.0
+        y_pts = y * dpi / 72.0
+    elif units in ('dots', 'pixels'):
+        x_pts = float(x)
+        y_pts = float(y)
+    else:
+        raise ValueError(f"units must be 'inches', 'points', or 'dots', not {units!r}")
+
+    class _OffsetTransform:
+        def __init__(self, base, dx, dy):
+            self._base = base
+            self._dx = dx
+            self._dy = dy
+
+        def transform(self, points):
+            import numpy as np
+            pts = np.asarray(points)
+            if hasattr(self._base, 'transform'):
+                pts = self._base.transform(pts)
+            pts = pts.copy()
+            pts[..., 0] += self._dx
+            pts[..., 1] += self._dy
+            return pts
+
+        def transform_point(self, point):
+            if hasattr(self._base, 'transform_point'):
+                point = self._base.transform_point(point)
+            return (point[0] + self._dx, point[1] + self._dy)
+
+        def transform_path(self, path):
+            return path
+
+    return _OffsetTransform(trans, x_pts, y_pts)
+
+
 def _mmul(a, b):
     """Multiply two 3x3 matrices."""
     result = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
