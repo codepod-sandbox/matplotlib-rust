@@ -11,5 +11,5 @@ path = "src/main.rs"
 rustpython = { workspace = true, features = [
   "freeze-stdlib", "importlib", "stdio", "encodings", "host_env",
 ] }
-numpy-rust-python = { path = "../../packages/numpy-rust/crates/numpy-rust-python" }
-pil-native = { package = "pil-rust-python", path = "../../packages/pillow-rust/crates/pil-rust-python" }
+numpy-rust-python = { path = "../../../numpy-rust/crates/numpy-rust-python" }
+pil-native = { package = "pil-rust-python", path = "../../../pillow-rust/crates/pil-rust-python" }
