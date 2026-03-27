@@ -22,10 +22,12 @@ def _validate_figsize(w, h):
 class Figure:
     """Top-level container for a matplotlib plot."""
 
-    def __init__(self, figsize=None, dpi=100):
+    def __init__(self, figsize=None, dpi=100, facecolor=None, edgecolor=None, **kwargs):
         self.figsize = figsize or (6.4, 4.8)
         _validate_figsize(self.figsize[0], self.figsize[1])
         self.dpi = dpi
+        self._facecolor = facecolor if facecolor is not None else 'white'
+        self._edgecolor = edgecolor if edgecolor is not None else 'white'
         self._axes = []
         self._suptitle = None
         self._supxlabel = None
@@ -66,9 +68,25 @@ class Figure:
             # 3-digit form: 211 -> (2, 1, 1)
             n = args[0]
             nrows, ncols, index = n // 100, (n % 100) // 10, n % 10
+            if nrows < 1 or ncols < 1:
+                raise ValueError(
+                    f"Number of rows and columns must be > 0, got {nrows} and {ncols}"
+                )
+            if index < 1 or index > nrows * ncols:
+                raise ValueError(
+                    f"Subplot index {index} is out of range 1..{nrows * ncols}"
+                )
             pos = (nrows, ncols, index)
         elif len(args) == 3:
             nrows, ncols, index = args
+            if nrows < 1 or ncols < 1:
+                raise ValueError(
+                    f"Number of rows and columns must be > 0, got {nrows} and {ncols}"
+                )
+            if index < 1 or index > nrows * ncols:
+                raise ValueError(
+                    f"Subplot index {index} is out of range 1..{nrows * ncols}"
+                )
             pos = (nrows, ncols, index)
         elif len(args) == 0:
             pos = (1, 1, 1)
@@ -131,6 +149,30 @@ class Figure:
     @property
     def axes(self):
         return list(self._axes)
+
+    # ------------------------------------------------------------------
+    # Figure appearance
+    # ------------------------------------------------------------------
+
+    def get_facecolor(self):
+        """Return the figure background color as an RGBA tuple."""
+        from matplotlib.colors import to_rgba
+        fc = getattr(self, '_facecolor', 'white')
+        return to_rgba(fc)
+
+    def set_facecolor(self, color):
+        """Set the figure background color."""
+        self._facecolor = color
+
+    def get_edgecolor(self):
+        """Return the figure edge color as an RGBA tuple."""
+        from matplotlib.colors import to_rgba
+        ec = getattr(self, '_edgecolor', 'white')
+        return to_rgba(ec)
+
+    def set_edgecolor(self, color):
+        """Set the figure edge color."""
+        self._edgecolor = color
 
     # ------------------------------------------------------------------
     # Suptitle
@@ -318,22 +360,27 @@ class Figure:
         -------
         ax or array of ax
         """
+        import numpy as np
         sharex = kwargs.pop('sharex', False)
         sharey = kwargs.pop('sharey', False)
+        squeeze = kwargs.pop('squeeze', True)
 
         if nrows == 1 and ncols == 1:
             ax = self.add_subplot(1, 1, 1)
-            return ax
+            if squeeze:
+                return ax
+            else:
+                return np.array([[ax]])
 
         all_axes = []
-        axes_list = []
+        axes_grid = []
         for r in range(nrows):
             row = []
             for c in range(ncols):
                 ax = self.add_subplot(nrows, ncols, r * ncols + c + 1)
                 row.append(ax)
                 all_axes.append(ax)
-            axes_list.append(row)
+            axes_grid.append(row)
 
         if sharex and len(all_axes) > 1:
             for ax in all_axes:
@@ -342,12 +389,20 @@ class Figure:
             for ax in all_axes:
                 ax._shared_y = all_axes
 
-        if nrows == 1:
-            axes_list = axes_list[0]
-        elif ncols == 1:
-            axes_list = [row[0] for row in axes_list]
+        axes_arr = np.array(axes_grid)  # shape (nrows, ncols)
 
-        return axes_list
+        if not squeeze:
+            return axes_arr
+
+        # squeeze: remove axes with length 1
+        if nrows == 1 and ncols == 1:
+            return axes_arr[0, 0]
+        elif nrows == 1:
+            return axes_arr[0, :]  # 1D array of ncols axes
+        elif ncols == 1:
+            return axes_arr[:, 0]  # 1D array of nrows axes
+        else:
+            return axes_arr  # 2D array
 
     def get_children(self):
         """Return list of children artists."""

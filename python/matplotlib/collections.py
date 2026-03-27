@@ -16,6 +16,7 @@ class Collection(Artist):
         self._linewidths = [1.0]
         self._linestyles = ['solid']
         self._offsets = []
+        self.norm = None
         if kwargs:
             self.set(**kwargs)
 
@@ -112,6 +113,46 @@ class Collection(Artist):
         self.set_facecolor(c)
         self.set_edgecolor(c)
 
+    def get_cmap(self):
+        """Return the colormap."""
+        return getattr(self, '_cmap', None)
+
+    def set_cmap(self, cmap):
+        """Set the colormap, resolving string names to colormap objects."""
+        if isinstance(cmap, str):
+            from matplotlib.cm import get_cmap as _get_cmap
+            cmap = _get_cmap(cmap)
+        self._cmap = cmap
+
+    def get_clim(self):
+        """Return (vmin, vmax) of the norm."""
+        norm = getattr(self, 'norm', None)
+        if norm is not None:
+            return norm.vmin, norm.vmax
+        return getattr(self, '_vmin', None), getattr(self, '_vmax', None)
+
+    def set_clim(self, vmin=None, vmax=None):
+        """Set the norm limits (vmin, vmax)."""
+        # Accept set_clim((vmin, vmax)) or set_clim(vmin, vmax)
+        if vmax is None and hasattr(vmin, '__len__'):
+            vmin, vmax = vmin
+        if not hasattr(self, 'norm') or self.norm is None:
+            from matplotlib.colors import Normalize
+            self.norm = Normalize(vmin=vmin, vmax=vmax)
+        else:
+            if vmin is not None:
+                self.norm.vmin = vmin
+            if vmax is not None:
+                self.norm.vmax = vmax
+
+    def get_norm(self):
+        """Return the normalization instance."""
+        return getattr(self, 'norm', None)
+
+    def set_norm(self, norm):
+        """Set the normalization instance."""
+        self.norm = norm
+
 
 class PathCollection(Collection):
     """A collection of paths with offsets, used by scatter()."""
@@ -135,6 +176,13 @@ class PathCollection(Collection):
 
     def set_sizes(self, sizes):
         self._sizes = list(sizes)
+
+    def get_offsets(self):
+        """Return offsets as a numpy array of shape (N, 2)."""
+        import numpy as np
+        if not self._offsets:
+            return np.zeros((0, 2))
+        return np.array(self._offsets)
 
     # --- draw (new renderer architecture) ---
     def draw(self, renderer, layout):
@@ -211,7 +259,9 @@ class LineCollection(Collection):
             self._edgecolors = list(c)
 
     def get_colors(self):
-        return self.get_color()
+        """Return line colors as RGBA tuples."""
+        colors = self._edgecolors if self._edgecolors else ['black']
+        return [to_rgba(c) for c in colors]
 
     def set_colors(self, c):
         self.set_color(c)
@@ -233,14 +283,64 @@ class PolyCollection(Collection):
     """A collection of polygons."""
 
     def __init__(self, verts=None, **kwargs):
+        # Extract facecolors/edgecolors before passing to super
+        facecolors = kwargs.pop('facecolors', None)
+        edgecolors = kwargs.pop('edgecolors', None)
         super().__init__(**kwargs)
         self._verts = [list(v) for v in verts] if verts else []
+        if facecolors is not None:
+            self.set_facecolor(facecolors)
+        if edgecolors is not None:
+            self.set_edgecolor(edgecolors)
 
     def get_verts(self):
         return [list(v) for v in self._verts]
 
     def set_verts(self, verts):
         self._verts = [list(v) for v in verts] if verts else []
+
+    def draw(self, renderer, layout):
+        """Draw each polygon in the collection."""
+        if not self.get_visible():
+            return
+        alpha = self.get_alpha() if self.get_alpha() is not None else 1.0
+        for i, verts in enumerate(self._verts):
+            if len(verts) < 3:
+                continue
+            # Get face color for this polygon
+            if self._facecolors:
+                fc_idx = i % len(self._facecolors)
+                fc = self._facecolors[fc_idx]
+                if isinstance(fc, str) and fc.lower() == 'none':
+                    fc_hex = 'none'
+                else:
+                    fc_hex = to_hex(fc)
+            else:
+                fc_hex = 'none'
+            if fc_hex == 'none':
+                continue
+            # Convert verts to pixel coordinates
+            pts = []
+            for pt in verts:
+                if hasattr(pt, '__len__') and len(pt) >= 2:
+                    pts.append((layout.sx(pt[0]), layout.sy(pt[1])))
+            if len(pts) >= 3:
+                renderer.draw_polygon(pts, fc_hex, alpha)
+
+    def get_facecolor(self):
+        """Return face colors as RGBA tuples."""
+        if not self._facecolors:
+            return []
+        result = []
+        for c in self._facecolors:
+            if isinstance(c, str) and c.lower() == 'none':
+                result.append((0.0, 0.0, 0.0, 0.0))
+            else:
+                result.append(to_rgba(c))
+        return result
+
+    def get_facecolors(self):
+        return self.get_facecolor()
 
 
 class EventCollection(Collection):
@@ -270,6 +370,14 @@ class EventCollection(Collection):
     def set_positions(self, positions):
         self._positions = list(positions) if positions is not None else []
 
+    @property
+    def orientation(self):
+        return self._orientation
+
+    @orientation.setter
+    def orientation(self, value):
+        self._orientation = value
+
     def get_orientation(self):
         return self._orientation
 
@@ -288,3 +396,74 @@ class EventCollection(Collection):
     def set_linelength(self, linelength):
         self._linelength = linelength
 
+
+class QuadMesh(Collection):
+    """A mesh of quads for pcolormesh.
+
+    Stores the data array and mesh parameters, with get/set methods
+    for colormap, norm, and data array.
+    """
+
+    def __init__(self, C, x0=0, x1=1, y0=0, y1=1,
+                 cmap=None, norm=None, vmin=None, vmax=None, **kwargs):
+        super().__init__(**kwargs)
+        self._C = C
+        self._x0 = x0
+        self._x1 = x1
+        self._y0 = y0
+        self._y1 = y1
+        self._cmap = cmap
+        self._norm = norm
+        self._vmin = vmin
+        self._vmax = vmax
+
+    def get_array(self):
+        """Return the data array."""
+        return self._C
+
+    def set_array(self, A):
+        """Set the data array."""
+        self._C = A
+
+    def get_cmap(self):
+        """Return the colormap."""
+        return self._cmap
+
+    def set_cmap(self, cmap):
+        """Set the colormap, resolving string names to colormap objects."""
+        if isinstance(cmap, str):
+            from matplotlib.cm import get_cmap as _get_cmap
+            cmap = _get_cmap(cmap)
+        self._cmap = cmap
+
+    def get_clim(self):
+        """Return (vmin, vmax)."""
+        norm = getattr(self, 'norm', None)
+        if norm is not None:
+            return norm.vmin, norm.vmax
+        return self._vmin, self._vmax
+
+    def set_clim(self, vmin=None, vmax=None):
+        """Set the colormap limits."""
+        if vmax is None and hasattr(vmin, '__len__'):
+            vmin, vmax = vmin
+        if not hasattr(self, 'norm') or self.norm is None:
+            from matplotlib.colors import Normalize
+            self.norm = Normalize(vmin=vmin, vmax=vmax)
+        else:
+            if vmin is not None:
+                self.norm.vmin = vmin
+            if vmax is not None:
+                self.norm.vmax = vmax
+
+    def get_norm(self):
+        """Return the normalization."""
+        return getattr(self, 'norm', self._norm)
+
+    def set_norm(self, norm):
+        """Set the normalization."""
+        self.norm = norm
+
+    def draw(self, renderer, layout):
+        """Draw this quad mesh (stub)."""
+        pass

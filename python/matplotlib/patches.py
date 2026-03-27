@@ -110,6 +110,13 @@ class Patch(Artist):
     def set_antialiased(self, aa):
         self._antialiased = aa
 
+    # --- hatch ---
+    def set_hatch(self, hatch):
+        self._hatch = hatch
+
+    def get_hatch(self):
+        return getattr(self, '_hatch', None)
+
     def _resolved_facecolor_hex(self):
         fc = self._facecolor
         if isinstance(fc, str) and fc.lower() == 'none':
@@ -164,6 +171,21 @@ class Rectangle(Patch):
         x0, y0 = self._xy
         x1, y1 = x0 + self._width, y0 + self._height
         return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+    def get_bbox(self):
+        from .transforms import Bbox
+        x, y = self._xy
+        return Bbox([[x, y], [x + self._width, y + self._height]])
+
+    def get_path(self):
+        """Return a path-like object representing the rectangle boundary."""
+        x0, y0 = self._xy
+        x1, y1 = x0 + self._width, y0 + self._height
+        return _PolygonPath([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], closed=True)
+
+    def get_patch_transform(self):
+        """Return identity transform."""
+        return _IdentityTransform()
 
     def draw(self, renderer, layout):
         if not self.get_visible():
@@ -236,6 +258,14 @@ class Polygon(Patch):
     def set_closed(self, closed):
         self._closed = closed
 
+    def get_path(self):
+        """Return a path-like object for this polygon."""
+        return _PolygonPath(self._xy, self._closed)
+
+    def get_patch_transform(self):
+        """Return identity transform (no-op for compatibility)."""
+        return _IdentityTransform()
+
     def draw(self, renderer, layout):
         if not self.get_visible():
             return
@@ -266,11 +296,27 @@ class Ellipse(Patch):
     def set_center(self, center):
         self._center = tuple(center)
 
+    @property
+    def center(self):
+        return self._center
+
+    @center.setter
+    def center(self, val):
+        self._center = tuple(val)
+
     def get_width(self):
         return self._width
 
     def set_width(self, width):
         self._width = width
+
+    @property
+    def width(self):
+        return self._width
+
+    @width.setter
+    def width(self, val):
+        self._width = val
 
     def get_height(self):
         return self._height
@@ -278,11 +324,27 @@ class Ellipse(Patch):
     def set_height(self, height):
         self._height = height
 
+    @property
+    def height(self):
+        return self._height
+
+    @height.setter
+    def height(self, val):
+        self._height = val
+
     def get_angle(self):
         return self._angle
 
     def set_angle(self, angle):
         self._angle = angle
+
+    @property
+    def angle(self):
+        return self._angle
+
+    @angle.setter
+    def angle(self, val):
+        self._angle = val
 
     def draw(self, renderer, layout):
         if not self.get_visible():
@@ -317,11 +379,27 @@ class Arc(Ellipse):
     def set_theta1(self, theta1):
         self._theta1 = theta1
 
+    @property
+    def theta1(self):
+        return self._theta1
+
+    @theta1.setter
+    def theta1(self, val):
+        self._theta1 = val
+
     def get_theta2(self):
         return self._theta2
 
     def set_theta2(self, theta2):
         self._theta2 = theta2
+
+    @property
+    def theta2(self):
+        return self._theta2
+
+    @theta2.setter
+    def theta2(self, val):
+        self._theta2 = val
 
     def draw(self, renderer, layout):
         if not self.get_visible():
@@ -629,6 +707,94 @@ class PathPatch(Patch):
             renderer.draw_polygon(current, fc_draw, alpha)
 
 
+class FancyArrow(Patch):
+    """A fancy arrow patch used by ax.arrow()."""
+
+    _valid_shapes = ('full', 'left', 'right')
+
+    def __init__(self, x, y, dx, dy, width=0.001, length_includes_head=False,
+                 head_width=None, head_length=None, shape='full', overhang=0,
+                 head_starts_at_zero=False, **kwargs):
+        if shape not in self._valid_shapes:
+            raise ValueError(
+                f"shape must be one of {self._valid_shapes!r}, got {shape!r}")
+        self._x = x
+        self._y = y
+        self._dx = dx
+        self._dy = dy
+        self._arrow_width = width
+        self._length_includes_head = length_includes_head
+        self._head_width = head_width if head_width is not None else 3 * width
+        self._head_length = head_length if head_length is not None else 1.5 * self._head_width
+        self._shape = shape
+        self._overhang = overhang
+        self._head_starts_at_zero = head_starts_at_zero
+        super().__init__(**kwargs)
+        # Build the polygon vertices representing the arrow
+        self._verts = self._compute_verts()
+
+    def _compute_verts(self):
+        """Compute arrow polygon vertices in data coordinates."""
+        import math
+        length = math.hypot(self._dx, self._dy)
+        if length < 1e-10:
+            return [(self._x, self._y)]
+        ux, uy = self._dx / length, self._dy / length
+        px, py = -uy, ux
+        hw = self._head_width / 2
+        hl = min(self._head_length, length)
+        sw = self._arrow_width / 2
+        x0, y0 = self._x, self._y
+        shaft_end_x = x0 + ux * (length - hl)
+        shaft_end_y = y0 + uy * (length - hl)
+        tip_x, tip_y = x0 + ux * length, y0 + uy * length
+        return [
+            (x0 + px * sw, y0 + py * sw),
+            (shaft_end_x + px * sw, shaft_end_y + py * sw),
+            (shaft_end_x + px * hw, shaft_end_y + py * hw),
+            (tip_x, tip_y),
+            (shaft_end_x - px * hw, shaft_end_y - py * hw),
+            (shaft_end_x - px * sw, shaft_end_y - py * sw),
+            (x0 - px * sw, y0 - py * sw),
+        ]
+
+    def get_xy(self):
+        """Return the arrow polygon vertices as a list of (x, y) tuples."""
+        return list(self._verts)
+
+    def draw(self, renderer, layout):
+        if not self.get_visible():
+            return
+        import math
+        x0 = layout.sx(self._x)
+        y0 = layout.sy(self._y)
+        x1 = layout.sx(self._x + self._dx)
+        y1 = layout.sy(self._y + self._dy)
+        length = math.hypot(x1 - x0, y1 - y0)
+        if length < 1e-6:
+            return
+        ux = (x1 - x0) / length
+        uy = (y1 - y0) / length
+        px = -uy
+        py = ux
+        shaft_half_w = self._arrow_width / 2 * length * 0.15
+        head_half_w = shaft_half_w * 3.0
+        head_len = min(length * 0.35, head_half_w * 2.5)
+        shaft_end = length - head_len
+        pts = [
+            (x0 + px * shaft_half_w,                   y0 + py * shaft_half_w),
+            (x0 + ux * shaft_end + px * shaft_half_w,  y0 + uy * shaft_end + py * shaft_half_w),
+            (x0 + ux * shaft_end + px * head_half_w,   y0 + uy * shaft_end + py * head_half_w),
+            (x1,                                        y1),
+            (x0 + ux * shaft_end - px * head_half_w,   y0 + uy * shaft_end - py * head_half_w),
+            (x0 + ux * shaft_end - px * shaft_half_w,  y0 + uy * shaft_end - py * shaft_half_w),
+            (x0 - px * shaft_half_w,                   y0 - py * shaft_half_w),
+        ]
+        fc = self._resolved_facecolor_hex()
+        alpha = self.get_alpha() if self.get_alpha() is not None else 1.0
+        renderer.draw_polygon(pts, fc if fc != 'none' else '#000000', alpha)
+
+
 class ConnectionPatch(FancyArrowPatch):
     """A patch connecting two points, possibly in different Axes."""
 
@@ -672,11 +838,27 @@ class Wedge(Patch):
     def set_theta1(self, theta1):
         self._theta1 = theta1
 
+    @property
+    def theta1(self):
+        return self._theta1
+
+    @theta1.setter
+    def theta1(self, val):
+        self._theta1 = val
+
     def get_theta2(self):
         return self._theta2
 
     def set_theta2(self, theta2):
         self._theta2 = theta2
+
+    @property
+    def theta2(self):
+        return self._theta2
+
+    @theta2.setter
+    def theta2(self, val):
+        self._theta2 = val
 
     def set_width(self, width):
         """Set the angular width (theta2 - theta1)."""
@@ -698,3 +880,40 @@ class Wedge(Patch):
         renderer.draw_wedge(cx_px, cy_px, r_px,
                             self._theta1, self._theta2,
                             self._resolved_facecolor_hex())
+
+
+class _PolygonPath:
+    """Lightweight path-like object for Polygon.get_path()."""
+
+    def __init__(self, xy, closed=True):
+        self.vertices = list(xy)
+        self.closed = closed
+
+    def contains_point(self, point, radius=0.0):
+        """Ray casting algorithm to test if *point* is inside the polygon."""
+        x, y = point
+        verts = self.vertices
+        n = len(verts)
+        inside = False
+        j = n - 1
+        for i in range(n):
+            xi, yi = verts[i]
+            xj, yj = verts[j]
+            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi + 1e-15) + xi):
+                inside = not inside
+            j = i
+        return inside
+
+
+class _IdentityTransform:
+    """Minimal identity transform for compatibility."""
+
+    def transform(self, points):
+        return points
+
+    def transform_point(self, point):
+        return point
+
+    def transform_path(self, path):
+        """Return path unchanged (identity transform)."""
+        return path

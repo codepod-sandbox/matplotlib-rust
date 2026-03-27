@@ -215,8 +215,47 @@ class Line2D(Artist):
 
     # --- xydata ---
     def get_xydata(self):
-        """Return data as list of (x, y) tuples."""
-        return list(zip(self._xdata, self._ydata))
+        """Return data as (N, 2) numpy array."""
+        import numpy as np
+        return np.column_stack([self._xdata, self._ydata])
+
+    # --- dashes ---
+    def set_dashes(self, seq):
+        """Set the dash sequence. seq is (on, off, ...) or [(offset, seq)]."""
+        # Store the dash pattern
+        if seq and hasattr(seq[0], '__iter__'):
+            self._dashes = seq  # (offset, (on, off, ...)) form
+        else:
+            self._dashes = (0, tuple(seq)) if seq else (0, None)
+
+    def get_dashes(self):
+        """Return the dash sequence."""
+        return getattr(self, '_dashes', (0, None))
+
+    # --- axline anchor/slope ---
+    def set_xy1(self, xy1):
+        """Set the first anchor point for axline."""
+        self._axline_xy1 = xy1
+
+    def get_xy1(self):
+        """Get the first anchor point for axline."""
+        return getattr(self, '_axline_xy1', None)
+
+    def set_xy2(self, xy2):
+        """Set the second anchor point for axline."""
+        self._axline_xy2 = xy2
+
+    def get_xy2(self):
+        """Get the second anchor point for axline."""
+        return getattr(self, '_axline_xy2', None)
+
+    def set_slope(self, slope):
+        """Set the slope for axline."""
+        self._axline_slope = slope
+
+    def get_slope(self):
+        """Get the slope for axline."""
+        return getattr(self, '_axline_slope', None)
 
     # --- drawstyle ---
     _valid_drawstyles = {'default', 'steps', 'steps-pre', 'steps-mid',

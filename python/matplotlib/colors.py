@@ -946,13 +946,24 @@ class Colormap:
         scalar_input = not hasattr(X, '__len__') and not hasattr(X, 'shape')
         if scalar_input:
             X = np.array([float(X)], dtype=float)
+            masked_mask = None
         else:
+            # Detect masked arrays and extract the mask before converting
+            if hasattr(X, 'mask'):
+                masked_mask = np.asarray(X.mask).flatten() if X.mask is not np.ma.nomask else None
+            else:
+                masked_mask = None
             X = np.asarray(X, dtype=float)
 
         orig_shape = X.shape
         X = X.flatten()
 
         bad_mask = np.isnan(X)
+        # Also mark masked array entries as bad
+        if masked_mask is not None:
+            flat_masked = np.asarray(masked_mask, dtype=bool).flatten()
+            if len(flat_masked) == len(bad_mask):
+                bad_mask = bad_mask | flat_masked
         under_mask = X < 0.0
         over_mask = X > 1.0
 
@@ -1526,28 +1537,26 @@ class BoundaryNorm(Normalize):
         # Find which interval value falls in
         if value < self.boundaries[0]:
             if clip:
-                return 0.0
+                return 0
             if self.extend in ('min', 'both'):
-                return -0.5 / self.Ncmap
-            return -1.0
+                return -1
+            return -1
 
-        if value > self.boundaries[-1]:
+        if value >= self.boundaries[-1]:
             if clip:
-                return float(self.Ncmap - 1) / self.Ncmap
+                return self.Ncmap - 1
             if self.extend in ('max', 'both'):
-                return (self.Ncmap + 0.5) / self.Ncmap
-            return 2.0
+                return self.Ncmap
+            return self.Ncmap
 
-        # Binary search for interval
+        # Binary search for interval — returns integer bin index
         for i in range(len(self.boundaries) - 1):
             if self.boundaries[i] <= value < self.boundaries[i + 1]:
-                # Map interval i to [0, 1] range
+                # Scale bin index to [0, ncolors-1]
                 n_intervals = len(self.boundaries) - 1
-                return (i + 0.5) / n_intervals
-            elif value == self.boundaries[-1]:
-                return (len(self.boundaries) - 2 + 0.5) / (len(self.boundaries) - 1)
+                return int(i * self.Ncmap // n_intervals)
 
-        return 0.0
+        return 0
 
     def inverse(self, value):
         """BoundaryNorm is not invertible."""

@@ -605,6 +605,10 @@ class Axes:
                 self._prop_cycle_idx = 0
                 return
 
+    def get_figure(self):
+        """Return the figure this axes belongs to."""
+        return self.figure
+
     # ------------------------------------------------------------------
     # Plot types
     # ------------------------------------------------------------------
@@ -769,8 +773,27 @@ class Axes:
             pc._cmap = mappable._cmap
             pc._A = mappable._A
             pc.get_array = lambda: pc._A
-            pc.get_clim = lambda: (pc._norm.vmin, pc._norm.vmax)
-            pc.set_clim = lambda vmin=None, vmax=None: None
+            pc.get_clim = lambda: (pc.norm.vmin if pc.norm is not None else (None, None))
+            # Use proper set_clim that updates norm
+            from matplotlib.colors import Normalize
+
+            def _pc_set_clim(vmin=None, vmax=None, _pc=pc):
+                if vmax is None and hasattr(vmin, '__len__'):
+                    vmin, vmax = vmin
+                if _pc.norm is None:
+                    _pc.norm = Normalize(vmin=vmin, vmax=vmax)
+                else:
+                    if vmin is not None:
+                        _pc.norm.vmin = vmin
+                    if vmax is not None:
+                        _pc.norm.vmax = vmax
+
+            pc.set_clim = _pc_set_clim
+            # Initialize norm if not already set
+            if pc.norm is None and pc._norm is not None:
+                pc.norm = pc._norm
+            elif pc.norm is None:
+                pc.norm = Normalize()
 
         # Store in typed list
         self.collections.append(pc)
@@ -1115,6 +1138,7 @@ class Axes:
 
     def fill_between(self, x, y1, y2=0, **kwargs):
         """Fill between two curves."""
+        from .collections import PolyCollection
         # Validate 2D inputs
         _validate_1d(x, 'x')
         _validate_1d(y1, 'y1')
@@ -1137,15 +1161,16 @@ class Axes:
         for i in range(len(x_list) - 1, -1, -1):
             verts.append((x_list[i], y2_list[i]))
 
-        poly = Polygon(verts, facecolor=color, edgecolor='none')
-        poly.set_alpha(alpha)
+        import numpy as np
+        poly_verts = [np.array(verts)]
+        poly_coll = PolyCollection(poly_verts, facecolors=[color], edgecolors=['none'])
+        poly_coll.set_alpha(alpha)
         if label:
-            poly.set_label(label)
-        poly.axes = self
-        poly.figure = self.figure
-        self.patches.append(poly)
-
-        return poly
+            poly_coll.set_label(label)
+        poly_coll.axes = self
+        poly_coll.figure = self.figure
+        self.collections.append(poly_coll)
+        return poly_coll
 
     def fill_betweenx(self, y, x1, x2=0, **kwargs):
         """Fill between two curves in the x-direction."""
@@ -1226,6 +1251,74 @@ class Axes:
 
         return line
 
+    def axline(self, xy1, xy2=None, *, slope=None, **kwargs):
+        """Add an infinitely long line defined by two points or slope.
+
+        Parameters
+        ----------
+        xy1 : (float, float) - a point on the line
+        xy2 : (float, float), optional - second point on the line
+        slope : float, optional - slope of the line
+        """
+        if xy2 is None and slope is None:
+            raise TypeError("axline() requires xy2 or slope")
+        if xy2 is not None and slope is not None:
+            raise TypeError("axline() cannot specify both xy2 and slope")
+
+        x1, y1 = xy1
+
+        if slope is not None:
+            x0_draw = x1 - 1e6
+            x1_draw = x1 + 1e6
+            y0_draw = y1 + slope * (x0_draw - x1)
+            y1_draw = y1 + slope * (x1_draw - x1)
+        else:
+            x2, y2 = xy2
+            if x2 == x1:
+                x0_draw, x1_draw = x1, x1
+                y0_draw, y1_draw = -1e6, 1e6
+            else:
+                m = (y2 - y1) / (x2 - x1)
+                x0_draw = x1 - 1e6
+                x1_draw = x1 + 1e6
+                y0_draw = y1 + m * (x0_draw - x1)
+                y1_draw = y1 + m * (x1_draw - x1)
+            slope = (y2 - y1) / (x2 - x1) if x2 != x1 else None
+
+        color = kwargs.get('color', self._next_color())
+        linewidth = kwargs.get('linewidth', kwargs.get('lw', 1.5))
+        linestyle = kwargs.get('linestyle', kwargs.get('ls', '-'))
+        label = kwargs.get('label', '_nolegend_')
+
+        line = Line2D([x0_draw, x1_draw], [y0_draw, y1_draw],
+                      color=color, linewidth=linewidth, linestyle=linestyle)
+        line.set_label(label)
+        line._axline_xy1 = xy1
+        line._axline_xy2 = xy2
+        line._axline_slope = slope
+        line.axes = self
+        line.figure = self.figure
+        self.lines.append(line)
+        return line
+
+    def arrow(self, x, y, dx, dy, **kwargs):
+        """Add an arrow to the axes."""
+        from .patches import FancyArrow
+        width = kwargs.pop('width', 0.001)
+        length_includes_head = kwargs.pop('length_includes_head', False)
+        head_width = kwargs.pop('head_width', 3 * width)
+        head_length = kwargs.pop('head_length', 1.5 * head_width)
+        color = kwargs.get('color', kwargs.get('fc', self._next_color()))
+
+        arrow_patch = FancyArrow(x, y, dx, dy, width=width,
+                                 head_width=head_width, head_length=head_length,
+                                 length_includes_head=length_includes_head,
+                                 **kwargs)
+        arrow_patch.axes = self
+        arrow_patch.figure = self.figure
+        self.patches.append(arrow_patch)
+        return arrow_patch
+
     def hlines(self, y, xmin, xmax, **kwargs):
         """Plot horizontal lines at each *y* from *xmin* to *xmax*."""
         color = kwargs.get('colors', kwargs.get('color', 'black'))
@@ -1301,16 +1394,19 @@ class Axes:
             return self.plot(x_list, y_list, **kwargs)
 
         if where == 'pre':
+            drawstyle = 'steps-pre'
             xs, ys = [x_list[0]], [y_list[0]]
             for i in range(1, n):
                 xs.extend([x_list[i], x_list[i]])
                 ys.extend([y_list[i - 1], y_list[i]])
         elif where == 'post':
+            drawstyle = 'steps-post'
             xs, ys = [x_list[0]], [y_list[0]]
             for i in range(1, n):
                 xs.extend([x_list[i - 1], x_list[i]])
                 ys.extend([y_list[i], y_list[i]])
         elif where == 'mid':
+            drawstyle = 'steps-mid'
             xs, ys = [x_list[0]], [y_list[0]]
             for i in range(1, n):
                 mid = (x_list[i - 1] + x_list[i]) / 2
@@ -1320,7 +1416,10 @@ class Axes:
             raise ValueError(
                 f"'where' must be 'pre', 'post', or 'mid', not {where!r}")
 
-        return self.plot(xs, ys, **kwargs)
+        lines = self.plot(xs, ys, **kwargs)
+        for line in lines:
+            line.set_drawstyle(drawstyle)
+        return lines
 
     def stairs(self, values, edges=None, **kwargs):
         """Staircase plot for pre-binned data."""
@@ -3180,7 +3279,7 @@ class Axes:
     # ------------------------------------------------------------------
 
     def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
-        """Add a horizontal span (rectangle) across the axes.
+        """Add a horizontal span across the axes.
 
         Parameters
         ----------
@@ -3189,7 +3288,7 @@ class Axes:
         xmin, xmax : float, default 0..1
             X-coordinates of the span in axes fraction (0..1).
         **kwargs
-            Additional kwargs passed to Rectangle (facecolor, alpha, etc.).
+            Additional kwargs passed to Polygon (facecolor, alpha, etc.).
         """
         facecolor = kwargs.pop('facecolor', kwargs.pop('fc', None))
         if facecolor is None:
@@ -3198,20 +3297,19 @@ class Axes:
         alpha = kwargs.pop('alpha', 0.5)
         label = kwargs.pop('label', '_nolegend_')
 
-        rect = Rectangle(
-            (xmin, ymin), xmax - xmin, ymax - ymin,
-            facecolor=facecolor, edgecolor=edgecolor,
-        )
-        rect.set_alpha(alpha)
-        rect.set_label(label)
-        rect._spanning = 'hspan'
-        rect.axes = self
-        rect.figure = self.figure
-        self.patches.append(rect)
-        return rect
+        # Upstream matplotlib returns a Polygon
+        verts = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
+        poly = Polygon(verts, facecolor=facecolor, edgecolor=edgecolor)
+        poly.set_alpha(alpha)
+        poly.set_label(label)
+        poly._spanning = 'hspan'
+        poly.axes = self
+        poly.figure = self.figure
+        self.patches.append(poly)
+        return poly
 
     def axvspan(self, xmin, xmax, ymin=0, ymax=1, **kwargs):
-        """Add a vertical span (rectangle) across the axes.
+        """Add a vertical span across the axes.
 
         Parameters
         ----------
@@ -3220,7 +3318,7 @@ class Axes:
         ymin, ymax : float, default 0..1
             Y-coordinates of the span in axes fraction (0..1).
         **kwargs
-            Additional kwargs passed to Rectangle (facecolor, alpha, etc.).
+            Additional kwargs passed to Polygon (facecolor, alpha, etc.).
         """
         facecolor = kwargs.pop('facecolor', kwargs.pop('fc', None))
         if facecolor is None:
@@ -3229,17 +3327,16 @@ class Axes:
         alpha = kwargs.pop('alpha', 0.5)
         label = kwargs.pop('label', '_nolegend_')
 
-        rect = Rectangle(
-            (xmin, ymin), xmax - xmin, ymax - ymin,
-            facecolor=facecolor, edgecolor=edgecolor,
-        )
-        rect.set_alpha(alpha)
-        rect.set_label(label)
-        rect._spanning = 'vspan'
-        rect.axes = self
-        rect.figure = self.figure
-        self.patches.append(rect)
-        return rect
+        # Upstream matplotlib returns a Polygon
+        verts = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
+        poly = Polygon(verts, facecolor=facecolor, edgecolor=edgecolor)
+        poly.set_alpha(alpha)
+        poly.set_label(label)
+        poly._spanning = 'vspan'
+        poly.axes = self
+        poly.figure = self.figure
+        self.patches.append(poly)
+        return poly
 
     # ------------------------------------------------------------------
     # bar_label
@@ -3522,7 +3619,8 @@ class Axes:
     # ------------------------------------------------------------------
 
     def pcolormesh(self, *args, **kwargs):
-        """Simplified pcolormesh: create a Rectangle covering the data range."""
+        """Simplified pcolormesh: create a QuadMesh covering the data range."""
+        from .collections import QuadMesh
         if len(args) == 1:
             C = args[0]
             if hasattr(C, 'shape') and hasattr(C, 'ndim') and C.ndim >= 2:
@@ -3537,8 +3635,10 @@ class Axes:
                 ncols = len(data[0]) if nrows > 0 and hasattr(data[0], '__len__') else 1
             x0, x1 = 0, ncols
             y0, y1 = 0, nrows
+            X_arg, Y_arg = None, None
         elif len(args) == 3:
             X, Y, C = args
+            X_arg, Y_arg = X, Y
             x_flat = list(X.flat) if hasattr(X, 'flat') else (list(X) if not hasattr(X[0], '__iter__') else [v for row in X for v in row])
             y_flat = list(Y.flat) if hasattr(Y, 'flat') else (list(Y) if not hasattr(Y[0], '__iter__') else [v for row in Y for v in row])
             x0, x1 = min(x_flat), max(x_flat)
@@ -3552,15 +3652,16 @@ class Axes:
             raise TypeError(f"pcolormesh takes 1 or 3 positional args, got {len(args)}")
 
         cmap = kwargs.get('cmap')
-        color = kwargs.get('color') or self._next_color()
-        color = to_hex(color)
+        norm = kwargs.get('norm')
+        vmin = kwargs.get('vmin')
+        vmax = kwargs.get('vmax')
 
-        rect = Rectangle((x0, y0), x1 - x0, y1 - y0,
-                          facecolor=color, edgecolor='none')
-        rect.axes = self
-        rect.figure = self.figure
-        self.patches.append(rect)
-        return rect
+        mesh = QuadMesh(C, x0=x0, x1=x1, y0=y0, y1=y1,
+                        cmap=cmap, norm=norm, vmin=vmin, vmax=vmax)
+        mesh.axes = self
+        mesh.figure = self.figure
+        self.collections.append(mesh)
+        return mesh
 
     # ------------------------------------------------------------------
     # table

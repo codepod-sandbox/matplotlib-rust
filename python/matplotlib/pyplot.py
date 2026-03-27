@@ -91,7 +91,7 @@ def figure(num=None, figsize=None, dpi=100, clear=False, **kwargs):
         return fig
 
     # Create a new figure
-    fig = Figure(figsize=figsize, dpi=dpi)
+    fig = Figure(figsize=figsize, dpi=dpi, **kwargs)
     fig.number = num
     # If the original num argument was a string label, set it
     # (we captured it above before overwriting num)
@@ -298,20 +298,27 @@ def subplots(nrows=1, ncols=1, figsize=None, dpi=100, **kwargs):
         _next_num = num + 1
     _current_fig = fig
 
+    squeeze = kwargs.pop('squeeze', True)
+
     if nrows == 1 and ncols == 1:
         ax = fig.add_subplot(1, 1, 1)
         _current_ax = ax
-        return fig, ax
+        if squeeze:
+            return fig, ax
+        else:
+            import numpy as np
+            return fig, np.array([[ax]])
 
+    import numpy as np
     all_axes = []
-    axes_list = []
+    axes_grid = []
     for r in range(nrows):
         row = []
         for c in range(ncols):
             ax = fig.add_subplot(nrows, ncols, r * ncols + c + 1)
             row.append(ax)
             all_axes.append(ax)
-        axes_list.append(row)
+        axes_grid.append(row)
 
     # Link shared axes
     if sharex and len(all_axes) > 1:
@@ -321,14 +328,22 @@ def subplots(nrows=1, ncols=1, figsize=None, dpi=100, **kwargs):
         for ax in all_axes:
             ax._shared_y = all_axes
 
-    _current_ax = axes_list[0][0] if axes_list else None
+    _current_ax = axes_grid[0][0] if axes_grid else None
 
-    if nrows == 1:
-        axes_list = axes_list[0]
+    axes_arr = np.array(axes_grid)  # shape (nrows, ncols)
+
+    if not squeeze:
+        return fig, axes_arr
+
+    # squeeze: remove axes with length 1
+    if nrows == 1 and ncols == 1:
+        return fig, axes_arr[0, 0]
+    elif nrows == 1:
+        return fig, axes_arr[0, :]
     elif ncols == 1:
-        axes_list = [row[0] for row in axes_list]
-
-    return fig, axes_list
+        return fig, axes_arr[:, 0]
+    else:
+        return fig, axes_arr
 
 
 def cla():
