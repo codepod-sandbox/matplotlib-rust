@@ -270,3 +270,123 @@ def test_func_scale_log():
 import math
 import pytest
 import numpy as np
+
+
+class TestLogScaleRoundTrip:
+    """LogScale forward/inverse round-trips for various bases."""
+
+    @pytest.mark.parametrize('base', [2.0, 10.0, math.e])
+    def test_round_trip_positive(self, base):
+        from matplotlib.scale import LogScale
+        s = LogScale(base=base)
+        vals = np.array([1.0, 2.0, 5.0, 100.0])
+        np.testing.assert_allclose(s.inverse(s.forward(vals)), vals, rtol=1e-10)
+
+    def test_single_value(self):
+        from matplotlib.scale import LogScale
+        s = LogScale(base=10.0)
+        result = s.forward(np.array([10.0]))
+        assert abs(float(result[0]) - 1.0) < 1e-10
+
+    def test_large_values(self):
+        from matplotlib.scale import LogScale
+        s = LogScale(base=10.0)
+        result = s.forward(np.array([1e6]))
+        assert abs(float(result[0]) - 6.0) < 1e-8
+
+    def test_inverse_round_trip_base2(self):
+        from matplotlib.scale import LogScale
+        s = LogScale(base=2.0)
+        vals = np.array([0.5, 1.0, 2.0, 3.0])
+        np.testing.assert_allclose(s.forward(s.inverse(vals)), vals, rtol=1e-10)
+
+
+class TestSymlogScaleVariations:
+    """SymmetricalLogScale with different parameters."""
+
+    def test_linthresh_small(self):
+        from matplotlib.scale import SymmetricalLogScale
+        s = SymmetricalLogScale(base=10, linthresh=0.1)
+        vals = np.array([-10.0, 0.0, 10.0])
+        out = s.forward(vals)
+        assert out[0] < out[1]  # monotone in symlog order
+        assert abs(float(out[1])) < 1e-10  # zero maps to zero
+
+    def test_linthresh_large(self):
+        from matplotlib.scale import SymmetricalLogScale
+        s = SymmetricalLogScale(base=10, linthresh=10.0)
+        # Values within linear range should map approximately linearly
+        vals = np.array([1.0, 2.0, 3.0])
+        out = s.forward(vals)
+        assert len(out) == 3
+
+    def test_antisymmetry(self):
+        from matplotlib.scale import SymmetricalLogScale
+        s = SymmetricalLogScale(base=10, linthresh=1.0)
+        fwd = s.forward(np.array([5.0, -5.0]))
+        assert abs(float(fwd[0]) + float(fwd[1])) < 1e-8
+
+    def test_inverse_of_forward_large_range(self):
+        from matplotlib.scale import SymmetricalLogScale
+        s = SymmetricalLogScale(base=10, linthresh=1.0)
+        vals = np.array([-50.0, -1.0, 1.0, 50.0])
+        np.testing.assert_allclose(s.inverse(s.forward(vals)), vals, atol=1e-7)
+
+
+class TestSetYScale:
+    """ax.set_yscale integration tests."""
+
+    def test_set_yscale_log(self):
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import LogLocator
+        fig, ax = plt.subplots()
+        ax.set_yscale('log')
+        assert ax.yaxis.get_scale() == 'log'
+        assert isinstance(ax.yaxis.get_major_locator(), LogLocator)
+        plt.close('all')
+
+    def test_set_yscale_symlog(self):
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import SymmetricalLogLocator
+        fig, ax = plt.subplots()
+        ax.set_yscale('symlog')
+        assert ax.yaxis.get_scale() == 'symlog'
+        assert isinstance(ax.yaxis.get_major_locator(), SymmetricalLogLocator)
+        plt.close('all')
+
+    def test_set_yscale_linear_default(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        assert ax.yaxis.get_scale() == 'linear'
+        plt.close('all')
+
+    def test_cla_resets_yscale(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_yscale('log')
+        ax.cla()
+        assert ax.yaxis.get_scale() == 'linear'
+        plt.close('all')
+
+
+class TestFuncScaleVariations:
+    """FuncScale with various callables."""
+
+    def test_square_sqrt(self):
+        from matplotlib.scale import FuncScale
+        s = FuncScale(forward=lambda x: x**2, inverse=lambda x: x**0.5)
+        vals = np.array([1.0, 2.0, 3.0])
+        fwd = s.forward(vals)
+        np.testing.assert_allclose(fwd, [1.0, 4.0, 9.0], rtol=1e-10)
+
+    def test_constant_scale_factor(self):
+        from matplotlib.scale import FuncScale
+        s = FuncScale(forward=lambda x: x * 2, inverse=lambda x: x / 2)
+        vals = np.array([1.0, 5.0, 10.0])
+        np.testing.assert_allclose(s.inverse(s.forward(vals)), vals, rtol=1e-10)
+
+    def test_numpy_log_exp(self):
+        from matplotlib.scale import FuncScale
+        s = FuncScale(forward=np.log, inverse=np.exp)
+        vals = np.array([0.5, 1.0, 2.0, math.e])
+        np.testing.assert_allclose(s.inverse(s.forward(vals)), vals, rtol=1e-10)

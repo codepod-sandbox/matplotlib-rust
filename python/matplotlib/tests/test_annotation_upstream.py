@@ -315,3 +315,108 @@ class TestAnnotationAxesInteraction:
 # ===================================================================
 # Additional parametric tests
 # ===================================================================
+
+import matplotlib.pyplot as plt
+from matplotlib.text import Annotation
+import pytest
+
+
+class TestAnnotationAppearance:
+    """Tests for annotation visual properties."""
+
+    def test_fontfamily_default(self):
+        ann = Annotation('test', xy=(0, 0))
+        # get_fontfamily may return None in our implementation (no font system)
+        _ = ann.get_fontfamily()  # should not raise
+
+    def test_fontsize_settable(self):
+        ann = Annotation('test', xy=(0, 0))
+        for size in [8, 10, 12, 14, 16]:
+            ann.set_fontsize(size)
+            assert ann.get_fontsize() == size
+
+    def test_color_settable(self):
+        ann = Annotation('test', xy=(0, 0))
+        for color in ['red', 'blue', 'green', 'black', 'white']:
+            ann.set_color(color)
+            assert ann.get_color() == color
+
+    def test_alpha_range(self):
+        ann = Annotation('test', xy=(0, 0))
+        for alpha in [0.0, 0.25, 0.5, 0.75, 1.0]:
+            ann.set_alpha(alpha)
+            assert abs(ann.get_alpha() - alpha) < 1e-10
+
+    def test_visible_toggle(self):
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_visible(True)
+        assert ann.get_visible() is True
+        ann.set_visible(False)
+        assert ann.get_visible() is False
+
+    def test_zorder(self):
+        ann = Annotation('test', xy=(0, 0))
+        for z in [1, 2, 5, 10]:
+            ann.set_zorder(z)
+            assert ann.get_zorder() == z
+
+    def test_label_get_set(self):
+        ann = Annotation('test', xy=(0, 0))
+        ann.set_label('my_label')
+        assert ann.get_label() == 'my_label'
+
+    def test_text_update(self):
+        ann = Annotation('original', xy=(0, 0))
+        assert ann.get_text() == 'original'
+        ann.set_text('updated')
+        assert ann.get_text() == 'updated'
+
+
+class TestAnnotationInAxes:
+    """Tests for annotations inside a figure/axes context."""
+
+    def test_svg_has_annotation_text(self):
+        fig, ax = plt.subplots()
+        ax.annotate('SVG_TEXT_XYZ', xy=(0.5, 0.5))
+        svg = fig.to_svg()
+        assert 'SVG_TEXT_XYZ' in svg
+        plt.close('all')
+
+    def test_multiple_annotations_all_in_texts(self):
+        fig, ax = plt.subplots()
+        texts = []
+        for i in range(5):
+            ann = ax.annotate(f'label{i}', xy=(i * 0.1, 0.5))
+            texts.append(ann)
+        for t in texts:
+            assert t in ax.texts
+        plt.close('all')
+
+    def test_annotation_survives_plot(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        ann = ax.annotate('peak', xy=(0.5, 0.5))
+        assert ann in ax.texts
+        plt.close('all')
+
+    @pytest.mark.parametrize('style', ['->', '<-', '-'])
+    def test_arrowstyle_no_raise_in_svg(self, style):
+        fig, ax = plt.subplots()
+        ax.annotate('pt', xy=(0.5, 0.5), xytext=(0.2, 0.8),
+                    arrowprops=dict(arrowstyle=style))
+        svg = fig.to_svg()
+        assert len(svg) > 0
+        plt.close('all')
+
+    def test_annotation_at_origin(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('origin', xy=(0, 0))
+        assert ann.xy == (0, 0)
+        plt.close('all')
+
+    def test_annotation_ha_va_in_axes(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('test', xy=(0.5, 0.5), ha='right', va='top')
+        assert ann.get_ha() == 'right'
+        assert ann.get_va() == 'top'
+        plt.close('all')

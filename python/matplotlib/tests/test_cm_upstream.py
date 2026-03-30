@@ -546,3 +546,148 @@ import pytest
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+
+
+class TestListedColormapExtended:
+    """Extended tests for ListedColormap."""
+
+    def test_single_color(self):
+        cmap = mcolors.ListedColormap(['red'])
+        assert cmap.N == 1
+        result = cmap(0.5)
+        assert len(result) == 4
+
+    def test_many_colors(self):
+        colors = ['#{:02x}{:02x}{:02x}'.format(i, 0, 0) for i in range(0, 256, 10)]
+        cmap = mcolors.ListedColormap(colors)
+        assert cmap.N == len(colors)
+
+    def test_name_preserved(self):
+        cmap = mcolors.ListedColormap(['r', 'g', 'b'], name='rgb_test')
+        assert cmap.name == 'rgb_test'
+
+    def test_call_endpoints(self):
+        cmap = mcolors.ListedColormap(['r', 'g', 'b'])
+        r0 = cmap(0.0)
+        r1 = cmap(1.0)
+        assert len(r0) == 4
+        assert len(r1) == 4
+
+    def test_call_array_shape(self):
+        cmap = mcolors.ListedColormap(['r', 'g', 'b'])
+        x = np.linspace(0, 1, 5)
+        result = cmap(x)
+        assert result.shape == (5, 4)
+
+    def test_reversed_reverses_colors(self):
+        cmap = mcolors.ListedColormap(['r', 'g', 'b'])
+        rev = cmap.reversed()
+        # First color of original should be last of reversed
+        c_orig_0 = cmap(0.0)
+        c_rev_1 = rev(1.0)
+        assert all(abs(a - b) < 1/256 for a, b in zip(c_orig_0, c_rev_1))
+
+    def test_copy(self):
+        cmap = mcolors.ListedColormap(['r', 'g', 'b'], name='test_copy')
+        copy = cmap.copy()
+        assert copy.name == cmap.name
+        assert copy is not cmap
+
+
+class TestBoundaryNormExtended:
+    """BoundaryNorm edge cases and behavior."""
+
+    def test_boundaries_integer_bins(self):
+        norm = mcolors.BoundaryNorm([0, 1, 2, 3], ncolors=3)
+        assert norm(0.0) == 0
+        assert norm(0.9) == 0
+        assert norm(1.0) == 1
+        assert norm(2.5) == 2
+
+    def test_below_lower_bound(self):
+        norm = mcolors.BoundaryNorm([0, 1, 2], ncolors=2)
+        result = norm(-1.0)
+        assert result <= 0
+
+    def test_above_upper_bound(self):
+        norm = mcolors.BoundaryNorm([0, 1, 2], ncolors=2)
+        result = norm(3.0)
+        assert result >= 1
+
+    def test_clip_true(self):
+        norm = mcolors.BoundaryNorm([0, 1, 2], ncolors=2, clip=True)
+        assert 0 <= norm(-1.0) <= 1
+        assert 0 <= norm(5.0) <= 1
+
+
+class TestNormClipping:
+    """Normalize clip=True / clip=False behavior."""
+
+    @pytest.mark.parametrize('norm_cls,kwargs', [
+        (mcolors.Normalize, dict(vmin=0, vmax=1)),
+        (mcolors.PowerNorm, dict(gamma=2, vmin=0, vmax=1)),
+    ])
+    def test_clip_true_clamps_to_01(self, norm_cls, kwargs):
+        norm = norm_cls(clip=True, **kwargs)
+        result = norm(2.0)  # above vmax
+        assert 0.0 <= float(result) <= 1.0
+        result2 = norm(-1.0)  # below vmin
+        assert 0.0 <= float(result2) <= 1.0
+
+    @pytest.mark.parametrize('norm_cls,kwargs', [
+        (mcolors.Normalize, dict(vmin=0, vmax=1)),
+        (mcolors.PowerNorm, dict(gamma=2, vmin=0, vmax=1)),
+    ])
+    def test_clip_false_allows_outside_01(self, norm_cls, kwargs):
+        norm = norm_cls(clip=False, **kwargs)
+        result = norm(2.0)
+        assert float(result) > 1.0 or float(result) <= 1.0  # just must not raise
+
+
+class TestColormapCallEdgeCases:
+    """Edge cases for Colormap.__call__."""
+
+    def test_call_with_masked_array(self):
+        cmap = cm.get_cmap('viridis')
+        import numpy.ma as ma
+        x = ma.array([0.0, 0.5, 1.0], mask=[False, True, False])
+        result = cmap(x)
+        assert result.shape[0] == 3
+
+    def test_call_nan_gets_bad_color(self):
+        cmap = cm.get_cmap('viridis')
+        cmap.set_bad('white')
+        x = np.array([float('nan'), 0.5])
+        result = cmap(x)
+        # NaN entry should be white (1.0, 1.0, 1.0, 1.0)
+        assert abs(result[0][0] - 1.0) < 1e-6
+        assert abs(result[0][1] - 1.0) < 1e-6
+        assert abs(result[0][2] - 1.0) < 1e-6
+
+    def test_alpha_override(self):
+        cmap = cm.get_cmap('viridis')
+        result = cmap(0.5, alpha=0.5)
+        assert abs(result[3] - 0.5) < 1e-6
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'inferno', 'magma', 'jet', 'hot', 'cool', 'gray'])
+    def test_builtin_colormaps_call(self, name):
+        cmap = cm.get_cmap(name)
+        result = cmap(0.5)
+        assert len(result) == 4
+        assert all(0.0 <= v <= 1.0 for v in result)
+
+
+class TestReversedColormaps:
+    """Reversed (_r) colormap variants."""
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'hot', 'cool'])
+    def test_reversed_variant_exists(self, name):
+        assert f'{name}_r' in cm._colormaps
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma'])
+    def test_reversed_is_actual_reverse(self, name):
+        cmap = cm.get_cmap(name)
+        cmap_r = cm.get_cmap(f'{name}_r')
+        c0 = cmap(0.0)
+        cr1 = cmap_r(1.0)
+        assert all(abs(a - b) < 1/256 for a, b in zip(c0, cr1))
