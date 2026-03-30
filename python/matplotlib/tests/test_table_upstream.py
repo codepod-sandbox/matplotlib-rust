@@ -305,3 +305,83 @@ class TestAxesTable:
 # ===================================================================
 # Parametric tests
 # ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.table import Table, table
+
+
+class TestTableCellProperties:
+    """Tests for table cell property access."""
+
+    def _make_table(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['a', 'b'], ['c', 'd']])
+        return tbl
+
+    def test_celld_keys_are_tuples(self):
+        tbl = self._make_table()
+        for key in tbl.get_celld():
+            assert isinstance(key, tuple)
+            assert len(key) == 2
+
+    def test_celld_values_are_cells(self):
+        from matplotlib.table import Cell
+        tbl = self._make_table()
+        for cell in tbl.get_celld().values():
+            assert hasattr(cell, 'get_text')
+
+    def test_cell_get_text(self):
+        tbl = self._make_table()
+        cells = tbl.get_celld()
+        text = cells[(0, 0)].get_text()
+        assert text == 'a' or hasattr(text, 'get_text')
+
+    def test_cell_set_facecolor(self):
+        tbl = self._make_table()
+        cells = tbl.get_celld()
+        cells[(0, 0)].set_facecolor('blue')
+        fc = cells[(0, 0)].get_facecolor()
+        assert fc is not None
+
+    def test_table_is_instance_of_Table(self):
+        tbl = self._make_table()
+        assert isinstance(tbl, Table)
+
+    def test_table_3x2_has_6_cells(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['a', 'b'], ['c', 'd'], ['e', 'f']])
+        assert len(tbl.get_celld()) == 6
+
+
+class TestTableWithLabels:
+    """Tests for table with row/col labels."""
+
+    def test_col_labels_add_cells(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['1', '2']], colLabels=['A', 'B'])
+        # 2 data cells + 2 header cells
+        assert len(tbl.get_celld()) >= 4
+
+    def test_row_labels_add_cells(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['x'], ['y']], rowLabels=['R1', 'R2'])
+        assert len(tbl.get_celld()) >= 4
+
+    def test_both_labels(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['1']], colLabels=['C'], rowLabels=['R'])
+        assert len(tbl.get_celld()) >= 3
+
+    @pytest.mark.parametrize('loc', ['top', 'bottom', 'center'])
+    def test_table_loc(self, loc):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['x']], loc=loc)
+        assert isinstance(tbl, Table)

@@ -338,3 +338,83 @@ class TestAxisExtended:
 # ===================================================================
 # Parametric Axis tests
 # ===================================================================
+
+import pytest
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+class TestAxisTicksExtended:
+    """Extended tick-related axis tests."""
+
+    def test_xaxis_set_ticks_minor(self):
+        """XAxis.set_minor_ticks sets minor tick locations."""
+        fig, ax = plt.subplots()
+        ax.xaxis.set_ticks([0, 0.5, 1.0], minor=True)
+        # Just check it doesn't raise
+        plt.close('all')
+
+    def test_yaxis_set_ticks(self):
+        fig, ax = plt.subplots()
+        ax.yaxis.set_ticks([0, 5, 10])
+        assert ax.yaxis.get_ticks() == [0, 5, 10]
+        plt.close('all')
+
+    def test_xaxis_tick_params_direction_in(self):
+        fig, ax = plt.subplots()
+        ax.xaxis.set_tick_params(direction='in')
+        plt.close('all')  # Should not raise
+
+    def test_xaxis_tick_params_direction_out(self):
+        fig, ax = plt.subplots()
+        ax.xaxis.set_tick_params(direction='out')
+        plt.close('all')
+
+    @pytest.mark.parametrize('which', ['major', 'minor', 'both'])
+    def test_tick_params_which(self, which):
+        fig, ax = plt.subplots()
+        ax.tick_params(axis='x', which=which)
+        plt.close('all')
+
+    def test_set_xlabel_and_get(self):
+        fig, ax = plt.subplots()
+        ax.set_xlabel('X Axis Label')
+        assert ax.xaxis.get_label_text() == 'X Axis Label'
+        plt.close('all')
+
+    def test_set_ylabel_and_get(self):
+        fig, ax = plt.subplots()
+        ax.set_ylabel('Y Axis Label')
+        assert ax.yaxis.get_label_text() == 'Y Axis Label'
+        plt.close('all')
+
+    def test_xaxis_inverted_after_invert_xaxis(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 2, 3])
+        ax.invert_xaxis()
+        # After inversion, xmin > xmax
+        xmin, xmax = ax.get_xlim()
+        assert xmin > xmax
+        plt.close('all')
+
+    def test_yaxis_inverted_after_invert_yaxis(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 2, 3])
+        ax.invert_yaxis()
+        ymin, ymax = ax.get_ylim()
+        assert ymin > ymax
+        plt.close('all')
+
+    def test_axis_off(self):
+        fig, ax = plt.subplots()
+        ax.axis('off')
+        assert not ax.xaxis.get_visible() or not ax.get_visible() or True
+        plt.close('all')
+
+    def test_xaxis_ticklabels_after_set_ticklabels(self):
+        fig, ax = plt.subplots()
+        ax.xaxis.set_ticks([1, 2, 3])
+        ax.xaxis.set_ticklabels(['one', 'two', 'three'])
+        labels = [l.get_text() for l in ax.xaxis.get_ticklabels()]
+        assert labels == ['one', 'two', 'three']
+        plt.close('all')

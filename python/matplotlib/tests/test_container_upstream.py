@@ -299,3 +299,64 @@ import pytest
 import matplotlib.pyplot as plt
 from matplotlib.container import BarContainer, ErrorbarContainer, StemContainer
 from matplotlib.lines import Line2D
+
+
+class TestBarContainerExtended:
+    """Additional BarContainer tests."""
+
+    def test_bar_returns_bar_container(self):
+        from matplotlib.container import BarContainer
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2, 3], [4, 5, 6])
+        assert isinstance(bc, BarContainer)
+        plt.close('all')
+
+    def test_bar_container_len(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2, 3], [4, 5, 6])
+        assert len(bc) == 3
+        plt.close('all')
+
+    def test_bar_container_patches(self):
+        from matplotlib.patches import Rectangle
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2], [3, 4])
+        for patch in bc.patches:
+            assert isinstance(patch, Rectangle)
+        plt.close('all')
+
+    def test_bar_get_label(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2], [3, 4], label='bars')
+        assert bc.get_label() == 'bars'
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_bar_n_patches(self, n):
+        fig, ax = plt.subplots()
+        bc = ax.bar(range(n), range(n))
+        assert len(bc.patches) == n
+        plt.close('all')
+
+
+class TestErrorbarContainerExtended:
+    """Additional ErrorbarContainer tests."""
+
+    def test_errorbar_returns_container(self):
+        from matplotlib.container import ErrorbarContainer
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2, 3], [1, 2, 3], yerr=[0.1, 0.2, 0.1])
+        assert isinstance(ec, ErrorbarContainer)
+        plt.close('all')
+
+    def test_errorbar_label(self):
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1], [1], yerr=[0.1], label='my_err')
+        assert ec.get_label() == 'my_err'
+        plt.close('all')
+
+    def test_errorbar_lines(self):
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2], [3, 4], yerr=[0.1, 0.1])
+        assert ec.lines is not None
+        plt.close('all')

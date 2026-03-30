@@ -302,3 +302,88 @@ import pytest
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.image import AxesImage
+
+
+class TestAxesImageExtended:
+    """Extended tests for AxesImage and imshow."""
+
+    def test_imshow_returns_axesimage(self):
+        fig, ax = plt.subplots()
+        im = ax.imshow([[1, 2], [3, 4]])
+        assert isinstance(im, AxesImage)
+        plt.close('all')
+
+    def test_imshow_shape_2d(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.zeros((5, 5))
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_shape_3d_rgb(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.zeros((5, 5, 3))
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_cmap(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.linspace(0, 1, 25).reshape(5, 5)
+        im = ax.imshow(data, cmap='hot')
+        assert im is not None
+        plt.close('all')
+
+    def test_set_data_changes_array(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4))
+        im = ax.imshow(data)
+        new_data = np.ones((4, 4))
+        im.set_data(new_data)
+        plt.close('all')
+
+    def test_get_set_cmap(self):
+        import numpy as np
+        from matplotlib import cm
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)))
+        im.set_cmap('gray')
+        assert im.get_cmap() is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('origin', ['upper', 'lower'])
+    def test_imshow_origin(self, origin):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)), origin=origin)
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_clim(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)))
+        im.set_clim(0, 10)
+        assert im.get_clim() == (0, 10)
+        plt.close('all')
+
+    def test_multiple_imshow(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im1 = ax.imshow(np.zeros((4, 4)))
+        im2 = ax.imshow(np.ones((4, 4)) * 0.5)
+        assert im1 in ax.images
+        assert im2 in ax.images
+        plt.close('all')
+
+    def test_axesimage_set_alpha(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)))
+        im.set_alpha(0.3)
+        assert abs(im.get_alpha() - 0.3) < 1e-10
+        plt.close('all')
