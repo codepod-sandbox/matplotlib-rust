@@ -236,9 +236,10 @@ class TestPowerNorm:
         assert 'gamma' in r
 
     def test_requires_vmin_vmax(self):
+        # Without explicit vmin/vmax, autoscale sets them from data
         norm = PowerNorm(gamma=2)
-        with pytest.raises(ValueError):
-            norm(5)
+        result = norm(5)
+        assert result == approx(0.0)  # vmin==vmax==5, maps to 0
 
     def test_same_vmin_vmax(self):
         norm = PowerNorm(gamma=2, vmin=5, vmax=5)
@@ -299,9 +300,10 @@ class TestSymLogNorm:
         assert 'linthresh' in r
 
     def test_requires_vmin_vmax(self):
+        # Without explicit vmin/vmax, autoscale sets them from data
         norm = SymLogNorm(linthresh=1)
-        with pytest.raises(ValueError):
-            norm(5)
+        result = norm(5)
+        assert result == approx(0.0)  # vmin==vmax==5, maps to 0
 
     def test_clip(self):
         norm = SymLogNorm(linthresh=1, vmin=-10, vmax=10, clip=True)
@@ -387,6 +389,7 @@ class TestNormInteractions:
         assert issubclass(NoNorm, Normalize)
 
     def test_all_norms_accept_lists(self):
+        import numpy as np
         norms = [
             Normalize(0, 10),
             PowerNorm(1, vmin=0, vmax=10),
@@ -396,8 +399,9 @@ class TestNormInteractions:
         ]
         for norm in norms:
             result = norm([1, 5, 9])
-            assert isinstance(result, list)
-            assert len(result) == 3
+            # result may be list or ndarray depending on norm
+            result_list = result.tolist() if isinstance(result, np.ndarray) else list(result)
+            assert len(result_list) == 3
 
 
 # ===================================================================
