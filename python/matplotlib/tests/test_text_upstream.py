@@ -696,3 +696,96 @@ class TestAnnotationExtendedProperties:
 # ===================================================================
 # Extended parametric tests for text (upstream-style)
 # ===================================================================
+
+
+class TestTextProperties:
+    """Tests for Text property get/set."""
+
+    def test_text_fontsize(self):
+        from matplotlib.text import Text
+        t = Text(0, 0, 'hello')
+        t.set_fontsize(16)
+        assert t.get_fontsize() == 16
+
+    def test_text_color(self):
+        from matplotlib.text import Text
+        t = Text(0, 0, 'hello')
+        t.set_color('blue')
+        assert t.get_color() == 'blue'
+
+    def test_text_alpha(self):
+        from matplotlib.text import Text
+        t = Text(0, 0, 'hello')
+        t.set_alpha(0.7)
+        assert abs(t.get_alpha() - 0.7) < 1e-10
+
+    def test_text_visible(self):
+        from matplotlib.text import Text
+        t = Text(0, 0, 'hello')
+        t.set_visible(False)
+        assert not t.get_visible()
+
+    def test_text_ha_va(self):
+        from matplotlib.text import Text
+        t = Text(0, 0, 'hello')
+        t.set_ha('right')
+        t.set_va('top')
+        assert t.get_ha() == 'right'
+        assert t.get_va() == 'top'
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_text_ha_parametric(self, ha):
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_ha(ha)
+        assert t.get_ha() == ha
+
+    @pytest.mark.parametrize('va', ['top', 'center', 'bottom', 'baseline'])
+    def test_text_va_parametric(self, va):
+        from matplotlib.text import Text
+        t = Text(0, 0, 'test')
+        t.set_va(va)
+        assert t.get_va() == va
+
+
+class TestTextInAxes:
+    """Tests for text within an axes context."""
+
+    def test_ax_text_in_texts(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'hello')
+        assert t in ax.texts
+        plt.close('all')
+
+    def test_ax_text_content_in_svg(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, 'UNIQUE_SVG_TEXT_ABC')
+        svg = fig.to_svg()
+        assert 'UNIQUE_SVG_TEXT_ABC' in svg
+        plt.close('all')
+
+    def test_ax_title_in_svg(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.set_title('MY_TITLE_XYZ')
+        svg = fig.to_svg()
+        assert 'MY_TITLE_XYZ' in svg
+        plt.close('all')
+
+    def test_multiple_texts_in_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for i in range(5):
+            ax.text(i * 0.2, 0.5, f'text{i}')
+        assert len(ax.texts) == 5
+        plt.close('all')
+
+    @pytest.mark.parametrize('fontsize', [8, 10, 12, 14])
+    def test_text_fontsize_in_axes(self, fontsize):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'test', fontsize=fontsize)
+        assert t.get_fontsize() == fontsize
+        plt.close('all')

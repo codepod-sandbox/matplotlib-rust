@@ -612,3 +612,78 @@ class TestLegendExtendedProperties:
 
 import pytest
 import matplotlib.pyplot as plt
+
+
+class TestLegendHandlesLabels:
+    """Tests for legend handles and labels."""
+
+    def test_single_line_legend(self):
+        fig, ax = plt.subplots()
+        line, = ax.plot([1, 2], [3, 4], label='line1')
+        leg = ax.legend()
+        labels = [t.get_text() for t in leg.get_texts()]
+        assert 'line1' in labels
+        plt.close('all')
+
+    def test_multiple_line_legend(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='a')
+        ax.plot([1, 2], [5, 6], label='b')
+        ax.plot([1, 2], [7, 8], label='c')
+        leg = ax.legend()
+        labels = [t.get_text() for t in leg.get_texts()]
+        assert 'a' in labels and 'b' in labels and 'c' in labels
+        plt.close('all')
+
+    def test_legend_title(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='x')
+        leg = ax.legend(title='My Title')
+        assert leg.get_title().get_text() == 'My Title'
+        plt.close('all')
+
+    def test_legend_loc_best(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='x')
+        leg = ax.legend(loc='best')
+        assert leg is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('loc', ['upper left', 'upper right', 'lower left', 'lower right'])
+    def test_legend_loc_corners(self, loc):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='x')
+        leg = ax.legend(loc=loc)
+        assert leg is not None
+        plt.close('all')
+
+    def test_legend_visible(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='x')
+        leg = ax.legend()
+        leg.set_visible(False)
+        assert not leg.get_visible()
+        plt.close('all')
+
+    def test_legend_has_texts(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='x')
+        leg = ax.legend()
+        assert len(leg.get_texts()) >= 1
+        plt.close('all')
+
+    def test_legend_in_svg(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4], label='LEGEND_LABEL_123')
+        ax.legend()
+        svg = fig.to_svg()
+        assert 'LEGEND_LABEL_123' in svg
+        plt.close('all')
+
+    def test_no_legend_when_no_labels(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2], [3, 4])  # no label
+        leg = ax.legend()
+        # legend with no labeled artists is still a Legend object
+        assert leg is not None
+        plt.close('all')

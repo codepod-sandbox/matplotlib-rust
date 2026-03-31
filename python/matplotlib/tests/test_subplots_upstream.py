@@ -472,3 +472,72 @@ class TestGridSpecSubplotParams:
 import pytest
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
+
+
+class TestSubplotsLayout:
+    """Tests for subplot layout and axes organization."""
+
+    def test_subplots_2x2(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 2)
+        assert axes.shape == (2, 2)
+        plt.close('all')
+
+    def test_subplots_1x3(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, 3)
+        assert len(axes) == 3
+        plt.close('all')
+
+    def test_subplots_3x1(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(3, 1)
+        assert len(axes) == 3
+        plt.close('all')
+
+    def test_subplots_1x1_is_axes(self):
+        import matplotlib.pyplot as plt
+        from matplotlib.axes import Axes
+        fig, ax = plt.subplots(1, 1)
+        assert isinstance(ax, Axes)
+        plt.close('all')
+
+    def test_subplots_figsize(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(8, 6))
+        assert abs(fig.get_figwidth() - 8) < 0.1
+        assert abs(fig.get_figheight() - 6) < 0.1
+        plt.close('all')
+
+    def test_subplots_sharex(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 1, sharex=True)
+        assert len(axes) == 2
+        plt.close('all')
+
+    def test_subplots_sharey(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, 2, sharey=True)
+        assert len(axes) == 2
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols,expected', [
+        (2, 3, 6), (3, 2, 6), (1, 4, 4), (4, 1, 4),
+    ])
+    def test_subplots_count(self, nrows, ncols, expected):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(nrows, ncols)
+        flat = axes.flatten() if hasattr(axes, 'flatten') else list(axes)
+        assert len(flat) == expected
+        plt.close('all')
+
+    def test_add_subplot_to_existing_figure(self):
+        import matplotlib.pyplot as plt
+        from matplotlib.axes import Axes
+        fig = plt.figure()
+        ax1 = fig.add_subplot(1, 2, 1)
+        ax2 = fig.add_subplot(1, 2, 2)
+        assert isinstance(ax1, Axes)
+        assert isinstance(ax2, Axes)
+        assert ax1 is not ax2
+        plt.close('all')
