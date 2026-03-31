@@ -589,3 +589,108 @@ class TestAxesImshow:
 # ===================================================================
 
 import pytest as _pytest
+
+
+class TestAxesAdvanced:
+    """Advanced axes tests."""
+
+    def test_twinx_creates_second_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax2 = ax.twinx()
+        assert ax2 is not None
+        assert ax2 is not ax
+        plt.close('all')
+
+    def test_twiny_creates_second_axes(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax2 = ax.twiny()
+        assert ax2 is not None
+        assert ax2 is not ax
+        plt.close('all')
+
+    def test_twinx_shares_x(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax2 = ax.twinx()
+        ax.set_xlim(0, 10)
+        # twinx shares x axis
+        xl = ax.get_xlim()
+        assert xl[0] == 0
+        assert xl[1] == 10
+        plt.close('all')
+
+    def test_fill_between_basic(self):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        x = [0, 1, 2, 3]
+        ax.fill_between(x, [0, 0, 0, 0], [1, 2, 1, 0])
+        assert len(ax.collections) >= 1 or len(ax.patches) >= 1
+        plt.close('all')
+
+    def test_contour_basic(self):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        x = np.linspace(-2, 2, 10)
+        y = np.linspace(-2, 2, 10)
+        X, Y = np.meshgrid(x, y)
+        Z = X**2 + Y**2
+        cs = ax.contour(X, Y, Z)
+        assert cs is not None
+        plt.close('all')
+
+    def test_contourf_basic(self):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        x = np.linspace(-2, 2, 10)
+        y = np.linspace(-2, 2, 10)
+        X, Y = np.meshgrid(x, y)
+        Z = X**2 + Y**2
+        cs = ax.contourf(X, Y, Z)
+        assert cs is not None
+        plt.close('all')
+
+    def test_pcolormesh_basic(self):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.rand(5, 5)
+        mesh = ax.pcolormesh(data)
+        assert mesh is not None
+        plt.close('all')
+
+    @_pytest.mark.parametrize('n', [10, 50, 100])
+    def test_hist_bins_n(self, n):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.random.randn(100)
+        counts, bins, patches = ax.hist(data, bins=n)
+        assert len(counts) == n
+        plt.close('all')
+
+    def test_semilogx(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.semilogx([1, 10, 100], [1, 2, 3])
+        assert ax.xaxis.get_scale() == 'log'
+        plt.close('all')
+
+    def test_semilogy(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.semilogy([1, 2, 3], [1, 10, 100])
+        assert ax.yaxis.get_scale() == 'log'
+        plt.close('all')
+
+    def test_loglog(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.loglog([1, 10, 100], [1, 10, 100])
+        assert ax.xaxis.get_scale() == 'log'
+        assert ax.yaxis.get_scale() == 'log'
+        plt.close('all')

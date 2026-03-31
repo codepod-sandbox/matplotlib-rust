@@ -1581,3 +1581,120 @@ class TestFuncFormatterExtended:
         fmt = FuncFormatter(lambda x, pos: str(x))
         fmt.set_offset_string('+100')
         assert fmt.get_offset() == '+100'
+
+
+# ===================================================================
+# Additional ticker tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import (
+    MaxNLocator, AutoLocator, LogLocator, FixedLocator,
+    MultipleLocator, LinearLocator,
+    ScalarFormatter, LogFormatter, FixedFormatter, NullFormatter,
+    PercentFormatter,
+)
+
+
+class TestLocatorEdgeCases:
+    """Edge cases for various locators."""
+
+    def test_max_nlocator_nbins(self):
+        loc = MaxNLocator(nbins=5)
+        locs = loc.tick_values(0, 10)
+        assert len(locs) <= 6  # max nbins+1 ticks
+
+    def test_max_nlocator_integer(self):
+        loc = MaxNLocator(integer=True)
+        locs = loc.tick_values(0.3, 4.7)
+        # All ticks should be integers
+        for t in locs:
+            assert t == int(t)
+
+    def test_fixed_locator_values(self):
+        loc = FixedLocator([0, 25, 50, 75, 100])
+        locs = loc.tick_values(0, 100)
+        assert list(locs) == [0, 25, 50, 75, 100]
+
+    def test_multiple_locator_base(self):
+        loc = MultipleLocator(base=5)
+        locs = loc.tick_values(0, 25)
+        # All should be multiples of 5
+        for t in locs:
+            assert abs(t % 5) < 1e-10 or abs(t % 5 - 5) < 1e-10
+
+    def test_linear_locator_numticks(self):
+        loc = LinearLocator(numticks=6)
+        locs = loc.tick_values(0, 100)
+        assert len(locs) == 6
+
+    def test_log_locator_subs(self):
+        loc = LogLocator(base=10, subs=[1.0, 2.0, 5.0])
+        locs = loc.tick_values(1, 100)
+        assert len(locs) > 0
+
+    def test_auto_locator_symmetric(self):
+        loc = AutoLocator()
+        locs = loc.tick_values(-5, 5)
+        # Should include 0
+        assert 0.0 in locs or any(abs(t) < 1e-10 for t in locs)
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 100), (-10, 10), (1e-3, 1e3)])
+    def test_auto_locator_returns_ticks(self, vmin, vmax):
+        loc = AutoLocator()
+        locs = loc.tick_values(vmin, vmax)
+        assert len(locs) > 0
+
+
+class TestFormatterEdgeCases:
+    """Edge cases for various formatters."""
+
+    def test_scalar_formatter_zero(self):
+        fmt = ScalarFormatter()
+        result = fmt(0, 0)
+        assert '0' in result
+
+    def test_scalar_formatter_integer(self):
+        fmt = ScalarFormatter()
+        result = fmt(42, 0)
+        assert '42' in result
+
+    def test_scalar_formatter_negative(self):
+        fmt = ScalarFormatter()
+        result = fmt(-5, 0)
+        assert '-' in result
+
+    def test_null_formatter(self):
+        fmt = NullFormatter()
+        assert fmt(5, 0) == ''
+        assert fmt(0, 0) == ''
+
+    def test_fixed_formatter_values(self):
+        # FixedFormatter uses pos (not x) as the index into the sequence
+        fmt = FixedFormatter(['zero', 'one', 'two'])
+        assert fmt(0, 0) == 'zero'   # pos=0 -> seq[0]
+        assert fmt(99, 1) == 'one'   # pos=1 -> seq[1]
+        assert fmt(99, 2) == 'two'   # pos=2 -> seq[2]
+
+    def test_percent_formatter_50(self):
+        fmt = PercentFormatter(xmax=1.0)
+        result = fmt(0.5, 0)
+        assert '50' in result
+
+    def test_percent_formatter_100(self):
+        fmt = PercentFormatter(xmax=1.0)
+        result = fmt(1.0, 0)
+        assert '100' in result
+
+    def test_percent_formatter_0(self):
+        fmt = PercentFormatter(xmax=1.0)
+        result = fmt(0.0, 0)
+        assert '0' in result
+
+    @pytest.mark.parametrize('x', [0.1, 1.0, 10.0, 100.0, 1000.0])
+    def test_log_formatter_powers(self, x):
+        fmt = LogFormatter(base=10)
+        result = fmt(x, 0)
+        assert result is not None and isinstance(result, str)
