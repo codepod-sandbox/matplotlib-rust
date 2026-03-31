@@ -1452,3 +1452,114 @@ def test_LogNorm_inverse_upstream():
     assert_array_almost_equal([0.5, 0.4], norm.inverse([0.349485, 0.30103]))
     assert_array_almost_equal(norm(0.4), [0.30103])
     assert_array_almost_equal([0.4], norm.inverse([0.30103]))
+
+
+# ===================================================================
+# Additional color tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.colors as mcolors
+
+
+class TestColorConversions:
+    """Tests for color conversion utilities."""
+
+    @pytest.mark.parametrize('name,expected_hex', [
+        ('red', '#ff0000'),
+        ('green', '#008000'),
+        ('blue', '#0000ff'),
+        ('white', '#ffffff'),
+        ('black', '#000000'),
+    ])
+    def test_to_hex_named_colors(self, name, expected_hex):
+        assert mcolors.to_hex(name) == expected_hex
+
+    @pytest.mark.parametrize('rgba,expected_hex', [
+        ((1.0, 0.0, 0.0, 1.0), '#ff0000'),
+        ((0.0, 0.0, 1.0, 1.0), '#0000ff'),
+        ((0.0, 0.0, 0.0, 1.0), '#000000'),
+    ])
+    def test_to_hex_from_rgba(self, rgba, expected_hex):
+        assert mcolors.to_hex(rgba) == expected_hex
+
+    def test_to_rgba_red(self):
+        r, g, b, a = mcolors.to_rgba('red')
+        assert abs(r - 1.0) < 1e-6
+        assert abs(g - 0.0) < 1e-6
+        assert abs(b - 0.0) < 1e-6
+        assert abs(a - 1.0) < 1e-6
+
+    def test_to_rgba_with_alpha(self):
+        r, g, b, a = mcolors.to_rgba('red', alpha=0.5)
+        assert abs(a - 0.5) < 1e-6
+
+    def test_to_rgba_hex(self):
+        r, g, b, a = mcolors.to_rgba('#ff8000')
+        assert abs(r - 1.0) < 1e-6
+        assert abs(g - 128/255) < 2/255
+        assert abs(b - 0.0) < 1e-6
+
+    @pytest.mark.parametrize('color', ['red', 'blue', '#ff0000', (1, 0, 0), (1, 0, 0, 1)])
+    def test_to_rgba_various_inputs(self, color):
+        result = mcolors.to_rgba(color)
+        assert len(result) == 4
+        assert all(0.0 <= v <= 1.0 for v in result)
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', 'white', 'black'])
+    def test_is_color_like_named(self, color):
+        assert mcolors.is_color_like(color)
+
+    @pytest.mark.parametrize('color', ['#ff0000', '#00ff00', '#0000ff'])
+    def test_is_color_like_hex(self, color):
+        assert mcolors.is_color_like(color)
+
+    def test_is_color_like_invalid(self):
+        assert not mcolors.is_color_like('not_a_color')
+        assert not mcolors.is_color_like(42)
+
+    def test_to_rgb_drops_alpha(self):
+        r, g, b = mcolors.to_rgb('red')
+        assert len((r, g, b)) == 3
+        assert abs(r - 1.0) < 1e-6
+
+
+class TestNormalizeExtended:
+    """Extended Normalize behavior tests."""
+
+    def test_normalize_array_output(self):
+        norm = mcolors.Normalize(vmin=0, vmax=10)
+        result = norm(np.array([0.0, 5.0, 10.0]))
+        np.testing.assert_allclose(
+            result.tolist() if hasattr(result, 'tolist') else list(result),
+            [0.0, 0.5, 1.0], atol=1e-6
+        )
+
+    def test_normalize_clip_true(self):
+        norm = mcolors.Normalize(vmin=0, vmax=1, clip=True)
+        assert float(norm(2.0)) == 1.0
+        assert float(norm(-1.0)) == 0.0
+
+    def test_normalize_clip_false(self):
+        norm = mcolors.Normalize(vmin=0, vmax=1, clip=False)
+        assert float(norm(2.0)) > 1.0
+        assert float(norm(-1.0)) < 0.0
+
+    def test_normalize_vmin_vmax_equal(self):
+        norm = mcolors.Normalize(vmin=5, vmax=5)
+        assert float(norm(5)) == 0.0
+
+    def test_normalize_inverse_scalar(self):
+        norm = mcolors.Normalize(vmin=0, vmax=10)
+        assert abs(float(norm.inverse(0.5)) - 5.0) < 1e-6
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (-1, 1), (0, 100), (-50, 50)])
+    def test_normalize_roundtrip(self, vmin, vmax):
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        values = np.linspace(vmin, vmax, 5)
+        normalized = norm(values)
+        np.testing.assert_allclose(
+            norm.inverse(normalized.tolist() if hasattr(normalized, 'tolist') else list(normalized)),
+            values, atol=1e-6
+        )

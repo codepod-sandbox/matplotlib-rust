@@ -1119,3 +1119,99 @@ def test_affine_inverted_invalidated():
     t.translate(1.0, 1.0).get_matrix()
     result = t.transform(t.inverted().transform(point))
     assert_almost_equal(point, result)
+
+
+# ===================================================================
+# Additional transform tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+from matplotlib.transforms import Affine2D, BboxTransform, Bbox
+
+
+class TestAffine2DOperations:
+    """Tests for Affine2D transform composition."""
+
+    def test_identity_transform(self):
+        t = Affine2D()
+        pt = [3.0, 4.0]
+        result = t.transform(pt)
+        np.testing.assert_allclose(result, pt, atol=1e-10)
+
+    def test_translate(self):
+        t = Affine2D().translate(5, 3)
+        result = t.transform([1.0, 2.0])
+        np.testing.assert_allclose(result, [6.0, 5.0], atol=1e-10)
+
+    def test_scale(self):
+        t = Affine2D().scale(2.0, 3.0)
+        result = t.transform([1.0, 1.0])
+        np.testing.assert_allclose(result, [2.0, 3.0], atol=1e-10)
+
+    def test_rotate_90(self):
+        t = Affine2D().rotate_deg(90)
+        result = t.transform([1.0, 0.0])
+        np.testing.assert_allclose(result, [0.0, 1.0], atol=1e-8)
+
+    def test_rotate_180(self):
+        t = Affine2D().rotate_deg(180)
+        result = t.transform([1.0, 0.0])
+        np.testing.assert_allclose(result, [-1.0, 0.0], atol=1e-8)
+
+    def test_translate_then_scale(self):
+        t = Affine2D().translate(1.0, 0.0).scale(2.0, 2.0)
+        result = t.transform([0.0, 0.0])
+        np.testing.assert_allclose(result, [2.0, 0.0], atol=1e-10)
+
+    def test_inverse_translate(self):
+        t = Affine2D().translate(5, 3)
+        inv = t.inverted()
+        pt = [6.0, 5.0]
+        result = inv.transform(pt)
+        np.testing.assert_allclose(result, [1.0, 2.0], atol=1e-10)
+
+    def test_inverse_scale(self):
+        t = Affine2D().scale(2.0, 4.0)
+        inv = t.inverted()
+        result = inv.transform([4.0, 8.0])
+        np.testing.assert_allclose(result, [2.0, 2.0], atol=1e-10)
+
+    @pytest.mark.parametrize('angle', [0, 45, 90, 135, 180, 270])
+    def test_rotate_round_trip(self, angle):
+        t = Affine2D().rotate_deg(angle)
+        pt = [2.0, 3.0]
+        result = t.inverted().transform(t.transform(pt))
+        np.testing.assert_allclose(result, pt, atol=1e-8)
+
+    def test_array_transform(self):
+        t = Affine2D().translate(1, 2)
+        pts = np.array([[0, 0], [1, 1], [2, 2]], dtype=float)
+        result = t.transform(pts)
+        expected = np.array([[1, 2], [2, 3], [3, 4]], dtype=float)
+        np.testing.assert_allclose(result, expected, atol=1e-10)
+
+
+class TestBboxTransformOps:
+    """Tests for BboxTransform."""
+
+    def test_bbox_transform_basic(self):
+        src = Bbox([[0, 0], [1, 1]])
+        dst = Bbox([[0, 0], [100, 100]])
+        t = BboxTransform(src, dst)
+        result = t.transform([0.5, 0.5])
+        np.testing.assert_allclose(result, [50.0, 50.0], atol=1e-8)
+
+    def test_bbox_transform_origin(self):
+        src = Bbox([[0, 0], [1, 1]])
+        dst = Bbox([[10, 20], [110, 120]])
+        t = BboxTransform(src, dst)
+        result = t.transform([0.0, 0.0])
+        np.testing.assert_allclose(result, [10.0, 20.0], atol=1e-8)
+
+    def test_bbox_transform_far_corner(self):
+        src = Bbox([[0, 0], [1, 1]])
+        dst = Bbox([[0, 0], [200, 100]])
+        t = BboxTransform(src, dst)
+        result = t.transform([1.0, 1.0])
+        np.testing.assert_allclose(result, [200.0, 100.0], atol=1e-8)

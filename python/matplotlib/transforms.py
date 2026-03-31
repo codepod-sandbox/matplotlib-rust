@@ -373,6 +373,26 @@ class Affine2DBase(Transform):
         """Return the 3x3 affine matrix."""
         raise NotImplementedError
 
+    def transform(self, values):
+        """Apply this affine transform to values using get_matrix()."""
+        import numpy as _np
+        m = _np.array(self.get_matrix(), dtype=float)
+        arr = _np.asarray(values, dtype=float)
+        if arr.ndim == 1:
+            return m[:2, :2] @ arr + m[:2, 2]
+        return (m[:2, :2] @ arr.T + m[:2, 2:3]).T
+
+    def transform_point(self, point):
+        import numpy as _np
+        m = _np.array(self.get_matrix(), dtype=float)
+        pt = _np.asarray(point, dtype=float)
+        return m[:2, :2] @ pt + m[:2, 2]
+
+    def inverted(self):
+        import numpy as _np
+        m = _np.array(self.get_matrix(), dtype=float)
+        return Affine2D(_np.linalg.inv(m))
+
 
 class Affine2D(Affine2DBase):
     """A mutable 2D affine transform.
