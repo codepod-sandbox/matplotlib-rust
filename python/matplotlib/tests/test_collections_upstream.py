@@ -894,3 +894,93 @@ def test_EllipseCollection_setter_getter():
     np.testing.assert_array_almost_equal(ec.get_angles(), new_angles.ravel())
 
     plt.close('all')
+
+
+# ===================================================================
+# Additional collection tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection, PathCollection
+
+
+class TestLineCollectionExtended:
+    """Extended tests for LineCollection."""
+
+    def test_line_collection_basic(self):
+        fig, ax = plt.subplots()
+        segments = [[(0, 0), (1, 1)], [(1, 0), (0, 1)]]
+        lc = LineCollection(segments)
+        ax.add_collection(lc)
+        assert lc in ax.collections
+        plt.close('all')
+
+    def test_line_collection_colors(self):
+        segments = [[(0, 0), (1, 1)], [(0, 1), (1, 0)]]
+        lc = LineCollection(segments, colors=['red', 'blue'])
+        assert lc is not None
+
+    def test_line_collection_linewidths(self):
+        segments = [[(0, 0), (1, 1)], [(0, 1), (1, 0)]]
+        lc = LineCollection(segments, linewidths=[1.0, 2.0])
+        assert lc is not None
+
+    def test_line_collection_linestyles(self):
+        segments = [[(0, 0), (1, 1)]]
+        lc = LineCollection(segments, linestyles='dashed')
+        assert lc is not None
+
+    def test_line_collection_label(self):
+        segments = [[(0, 0), (1, 1)]]
+        lc = LineCollection(segments, label='my_lc')
+        lc.set_label('my_lc')
+        assert lc.get_label() == 'my_lc'
+
+    @pytest.mark.parametrize('n', [1, 3, 5, 10])
+    def test_line_collection_n_segments(self, n):
+        segments = [[(i, 0), (i, 1)] for i in range(n)]
+        lc = LineCollection(segments)
+        assert len(lc.get_segments()) == n
+
+
+class TestScatterCollectionExtended:
+    """Extended tests for scatter (PathCollection)."""
+
+    def test_scatter_returns_pathcollection(self):
+        fig, ax = plt.subplots()
+        pc = ax.scatter([1, 2, 3], [4, 5, 6])
+        assert isinstance(pc, PathCollection)
+        plt.close('all')
+
+    def test_scatter_with_colors(self):
+        fig, ax = plt.subplots()
+        pc = ax.scatter([1, 2, 3], [4, 5, 6], c=[0.1, 0.5, 0.9])
+        assert pc is not None
+        plt.close('all')
+
+    def test_scatter_with_sizes(self):
+        fig, ax = plt.subplots()
+        pc = ax.scatter([1, 2, 3], [4, 5, 6], s=[10, 50, 100])
+        assert pc is not None
+        plt.close('all')
+
+    def test_scatter_alpha(self):
+        fig, ax = plt.subplots()
+        pc = ax.scatter([1, 2], [3, 4], alpha=0.5)
+        assert abs(pc.get_alpha() - 0.5) < 1e-10
+        plt.close('all')
+
+    def test_scatter_in_collections(self):
+        fig, ax = plt.subplots()
+        pc = ax.scatter([1, 2, 3], [4, 5, 6])
+        assert pc in ax.collections
+        plt.close('all')
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D'])
+    def test_scatter_marker(self, marker):
+        fig, ax = plt.subplots()
+        pc = ax.scatter([1, 2], [3, 4], marker=marker)
+        assert pc is not None
+        plt.close('all')

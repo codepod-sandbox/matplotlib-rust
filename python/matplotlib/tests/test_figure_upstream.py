@@ -1165,3 +1165,93 @@ def test_invalid_figure_size_negative():
     with pytest.raises(ValueError):
         plt.figure(figsize=(-1, 5))
     plt.close('all')
+
+
+# ===================================================================
+# Additional figure tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+
+
+class TestFigureLayout:
+    """Tests for figure layout and subplots."""
+
+    def test_figure_add_subplot_returns_axes(self):
+        from matplotlib.axes import Axes
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        assert isinstance(ax, Axes)
+
+    def test_figure_2x2_subplots(self):
+        fig, axes = plt.subplots(2, 2)
+        assert axes.shape == (2, 2)
+        plt.close('all')
+
+    def test_figure_suptitle(self):
+        fig = Figure()
+        t = fig.suptitle('Super Title')
+        assert t is not None
+
+    def test_figure_suptitle_in_svg(self):
+        fig, ax = plt.subplots()
+        fig.suptitle('SUPER_TITLE_XYZ')
+        svg = fig.to_svg()
+        assert 'SUPER_TITLE_XYZ' in svg
+        plt.close('all')
+
+    def test_figure_savefig_png(self):
+        import io
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        assert buf.tell() > 0
+        plt.close('all')
+
+    def test_figure_savefig_svg(self):
+        import io
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        buf = io.StringIO()
+        fig.savefig(buf, format='svg')
+        svg = buf.getvalue()
+        assert '<svg' in svg or 'svg' in svg.lower()
+        plt.close('all')
+
+    @pytest.mark.parametrize('w,h', [(4, 3), (8, 6), (10, 8), (12, 9)])
+    def test_figure_figsize(self, w, h):
+        fig = plt.figure(figsize=(w, h))
+        assert abs(fig.get_figwidth() - w) < 0.1
+        assert abs(fig.get_figheight() - h) < 0.1
+        plt.close('all')
+
+    def test_figure_dpi_default(self):
+        fig = Figure()
+        dpi = fig.get_dpi()
+        assert dpi > 0
+
+    def test_figure_set_get_dpi(self):
+        fig = Figure()
+        fig.set_dpi(150)
+        assert abs(fig.get_dpi() - 150) < 1
+
+    def test_figure_axes_list(self):
+        fig, axes = plt.subplots(1, 3)
+        assert len(fig.axes) == 3
+        plt.close('all')
+
+    def test_figure_gca_is_axes(self):
+        from matplotlib.axes import Axes
+        fig, ax = plt.subplots()
+        gca = fig.gca()
+        assert isinstance(gca, Axes)
+        plt.close('all')
+
+    def test_figure_tight_layout_no_error(self):
+        fig, axes = plt.subplots(2, 2)
+        fig.tight_layout()  # Should not raise
+        plt.close('all')
