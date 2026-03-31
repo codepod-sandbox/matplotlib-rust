@@ -813,3 +813,97 @@ def test_plt_savefig_stringio():
 # ===================================================================
 # Extended parametric tests for pyplot upstream
 # ===================================================================
+
+
+class TestPyplotFigureManagement:
+    """Tests for figure management through plt interface."""
+
+    def test_plt_figure_creates_figure(self):
+        from matplotlib.figure import Figure
+        plt.close('all')
+        fig = plt.figure()
+        assert isinstance(fig, Figure)
+        plt.close('all')
+
+    def test_plt_subplots_returns_fig_ax(self):
+        import matplotlib.pyplot as plt
+        from matplotlib.figure import Figure
+        from matplotlib.axes import Axes
+        plt.close('all')
+        fig, ax = plt.subplots()
+        assert isinstance(fig, Figure)
+        assert isinstance(ax, Axes)
+        plt.close('all')
+
+    def test_plt_close_all(self):
+        plt.close('all')
+        for i in range(5):
+            plt.figure()
+        plt.close('all')
+        # No error
+
+    def test_plt_gcf_returns_figure(self):
+        from matplotlib.figure import Figure
+        plt.close('all')
+        fig = plt.figure()
+        gcf = plt.gcf()
+        assert isinstance(gcf, Figure)
+        plt.close('all')
+
+    def test_plt_gca_returns_axes(self):
+        from matplotlib.axes import Axes
+        plt.close('all')
+        fig, ax = plt.subplots()
+        gca = plt.gca()
+        assert isinstance(gca, Axes)
+        plt.close('all')
+
+    def test_plt_plot_returns_list(self):
+        plt.close('all')
+        fig, ax = plt.subplots()
+        result = plt.plot([0, 1], [0, 1])
+        assert isinstance(result, list)
+        assert len(result) == 1
+        plt.close('all')
+
+    def test_plt_xlabel_ylabel(self):
+        plt.close('all')
+        fig, ax = plt.subplots()
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        assert ax.get_xlabel() == 'X'
+        assert ax.get_ylabel() == 'Y'
+        plt.close('all')
+
+    def test_plt_title(self):
+        plt.close('all')
+        fig, ax = plt.subplots()
+        plt.title('My Plot')
+        assert ax.get_title() == 'My Plot'
+        plt.close('all')
+
+    def test_plt_xlim_ylim(self):
+        plt.close('all')
+        fig, ax = plt.subplots()
+        plt.xlim(0, 10)
+        plt.ylim(-5, 5)
+        assert ax.get_xlim() == (0, 10)
+        ymin, ymax = ax.get_ylim()
+        assert abs(ymin - (-5)) < 1e-10
+        assert abs(ymax - 5) < 1e-10
+        plt.close('all')
+
+    @pytest.mark.parametrize('style', ['-', '--', '-.', ':'])
+    def test_plt_plot_linestyle(self, style):
+        plt.close('all')
+        fig, ax = plt.subplots()
+        line, = plt.plot([0, 1], [0, 1], linestyle=style)
+        plt.close('all')
+
+    def test_plt_legend_after_plot(self):
+        plt.close('all')
+        fig, ax = plt.subplots()
+        plt.plot([0, 1], [0, 1], label='line')
+        leg = plt.legend()
+        assert leg is not None
+        plt.close('all')

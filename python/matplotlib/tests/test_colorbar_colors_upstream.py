@@ -572,3 +572,101 @@ class TestColorConversionUpstream:
     def test_is_color_like_false(self):
         assert not is_color_like('not_a_color_xyz')
         assert not is_color_like(42)
+
+
+# ===================================================================
+# Additional colorbar / color tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from matplotlib.colors import Normalize, LogNorm, PowerNorm, SymLogNorm, TwoSlopeNorm
+
+
+class TestNormInAxes:
+    """Test norm classes used in actual plotting contexts."""
+
+    def test_imshow_with_lognorm(self):
+        fig, ax = plt.subplots()
+        data = np.array([[1, 10], [100, 1000]], dtype=float)
+        im = ax.imshow(data, norm=LogNorm(vmin=1, vmax=1000))
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_with_powernorm(self):
+        fig, ax = plt.subplots()
+        data = np.array([[0, 1], [2, 3]], dtype=float)
+        im = ax.imshow(data, norm=PowerNorm(gamma=2, vmin=0, vmax=3))
+        assert im is not None
+        plt.close('all')
+
+    def test_scatter_with_norm(self):
+        fig, ax = plt.subplots()
+        x = [1, 2, 3, 4, 5]
+        y = [1, 2, 3, 4, 5]
+        c = [0.1, 0.3, 0.5, 0.7, 0.9]
+        sc = ax.scatter(x, y, c=c, norm=Normalize(0, 1))
+        assert sc is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('gamma', [0.5, 1.0, 2.0, 3.0])
+    def test_powernorm_gamma(self, gamma):
+        norm = PowerNorm(gamma=gamma, vmin=0, vmax=1)
+        assert abs(float(norm(0.0))) == 0.0
+        assert abs(float(norm(1.0)) - 1.0) < 1e-6
+
+    @pytest.mark.parametrize('vmin,vmax', [(0, 1), (0, 10), (-1, 1)])
+    def test_normalize_mid_point(self, vmin, vmax):
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        mid = (vmin + vmax) / 2
+        result = float(norm(mid))
+        assert abs(result - 0.5) < 1e-6
+
+    def test_twoslopenorm_maps_vcenter_to_half(self):
+        norm = TwoSlopeNorm(vcenter=0, vmin=-1, vmax=1)
+        assert abs(float(norm(0)) - 0.5) < 1e-6
+
+    def test_lognorm_vmin_vmax_mapped(self):
+        norm = LogNorm(vmin=1, vmax=100)
+        assert abs(float(norm(1)) - 0.0) < 1e-6
+        assert abs(float(norm(100)) - 1.0) < 1e-6
+
+
+class TestColormapScalarsAndArrays:
+    """Test that colormaps work consistently with scalars and arrays."""
+
+    @pytest.mark.parametrize('name', ['viridis', 'plasma', 'hot', 'cool', 'gray'])
+    def test_scalar_and_array_consistency(self, name):
+        from matplotlib import cm
+        cmap = cm.get_cmap(name)
+        x = 0.5
+        # Scalar result
+        scalar_result = cmap(x)
+        # Array result
+        arr_result = cmap(np.array([x]))
+        # Should match
+        for s, a in zip(scalar_result, arr_result[0]):
+            assert abs(s - a) < 1e-6
+
+    def test_colormap_0_and_1_consistent(self):
+        from matplotlib import cm
+        cmap = cm.get_cmap('viridis')
+        r0 = cmap(0.0)
+        r1 = cmap(1.0)
+        # They should be different colors
+        diff = sum(abs(a - b) for a, b in zip(r0[:3], r1[:3]))
+        assert diff > 0.1  # viridis endpoints are very different
+
+    def test_norm_colormap_pipeline(self):
+        """Full pipeline: data -> norm -> colormap -> RGBA."""
+        from matplotlib import cm
+        norm = Normalize(vmin=0, vmax=10)
+        cmap = cm.get_cmap('viridis')
+        data = np.array([0.0, 5.0, 10.0])
+        normalized = norm(data)
+        rgba = cmap(normalized)
+        assert rgba.shape == (3, 4)
+        # vmin maps to first color, vmax maps to last
+        assert rgba[0][0] != rgba[2][0]  # different colors at ends
