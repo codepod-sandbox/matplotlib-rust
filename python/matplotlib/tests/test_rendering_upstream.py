@@ -427,3 +427,81 @@ def test_step_plot_svg():
 
 import pytest
 import matplotlib.pyplot as plt
+
+
+class TestSVGRendering:
+    """Tests for SVG output content."""
+
+    def test_bar_chart_svg_has_rects(self):
+        fig, ax = plt.subplots()
+        ax.bar([1, 2, 3], [4, 5, 6])
+        svg = fig.to_svg()
+        assert '<rect' in svg or '<path' in svg
+        plt.close('all')
+
+    def test_scatter_svg(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.scatter([1, 2, 3], [4, 5, 6])
+        svg = fig.to_svg()
+        assert len(svg) > 100
+        plt.close('all')
+
+    def test_fill_between_svg(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.fill_between([0, 1, 2], [0, 0, 0], [1, 2, 1])
+        svg = fig.to_svg()
+        assert len(svg) > 100
+        plt.close('all')
+
+    def test_text_svg_has_text(self):
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, 'HELLO_WORLD')
+        svg = fig.to_svg()
+        assert 'HELLO_WORLD' in svg
+        plt.close('all')
+
+    def test_xlabel_svg(self):
+        fig, ax = plt.subplots()
+        ax.set_xlabel('X Label ABC')
+        svg = fig.to_svg()
+        assert 'X Label ABC' in svg
+        plt.close('all')
+
+    def test_ylabel_svg(self):
+        fig, ax = plt.subplots()
+        ax.set_ylabel('Y Label DEF')
+        svg = fig.to_svg()
+        assert 'Y Label DEF' in svg
+        plt.close('all')
+
+    def test_title_svg(self):
+        fig, ax = plt.subplots()
+        ax.set_title('My Title XYZ')
+        svg = fig.to_svg()
+        assert 'My Title XYZ' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 3, 5])
+    def test_multiple_lines_svg(self, n):
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        svg = fig.to_svg()
+        assert svg.count('<polyline') >= n or '<path' in svg
+        plt.close('all')
+
+    def test_empty_axes_svg_valid(self):
+        fig, ax = plt.subplots()
+        svg = fig.to_svg()
+        assert svg.startswith('<?xml') or svg.startswith('<svg') or '<svg' in svg
+        plt.close('all')
+
+    def test_legend_svg_has_text(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='my line')
+        ax.legend()
+        svg = fig.to_svg()
+        assert 'my line' in svg
+        plt.close('all')

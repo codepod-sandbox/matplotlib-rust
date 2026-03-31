@@ -404,3 +404,76 @@ import pytest
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
+
+
+class TestArtistProperties:
+    """Tests for common artist property get/set."""
+
+    def test_line2d_linewidth(self):
+        line = Line2D([0, 1], [0, 1])
+        line.set_linewidth(3.0)
+        assert abs(line.get_linewidth() - 3.0) < 1e-10
+
+    def test_line2d_color(self):
+        line = Line2D([0, 1], [0, 1])
+        line.set_color('red')
+        assert line.get_color() == 'red'
+
+    def test_line2d_linestyle(self):
+        line = Line2D([0, 1], [0, 1])
+        for ls in ['solid', 'dashed', 'dotted', 'dashdot']:
+            line.set_linestyle(ls)
+            # Should not raise
+
+    def test_rectangle_xy(self):
+        r = Rectangle((1, 2), 3, 4)
+        assert r.get_xy() == (1, 2)
+
+    def test_rectangle_width_height(self):
+        r = Rectangle((0, 0), 5, 6)
+        assert r.get_width() == 5
+        assert r.get_height() == 6
+
+    def test_rectangle_facecolor(self):
+        r = Rectangle((0, 0), 1, 1, facecolor='blue')
+        fc = r.get_facecolor()
+        assert fc is not None
+
+    def test_rectangle_edgecolor(self):
+        r = Rectangle((0, 0), 1, 1, edgecolor='black')
+        ec = r.get_edgecolor()
+        assert ec is not None
+
+
+class TestArtistInAxes:
+    """Tests for artists added to axes."""
+
+    def test_line_in_ax_lines(self):
+        fig, ax = plt.subplots()
+        line, = ax.plot([1, 2, 3], [4, 5, 6])
+        assert line in ax.lines
+        plt.close('all')
+
+    def test_rectangle_in_ax_patches(self):
+        fig, ax = plt.subplots()
+        r = Rectangle((0, 0), 1, 1)
+        ax.add_patch(r)
+        assert r in ax.patches
+        plt.close('all')
+
+    def test_multiple_lines(self):
+        fig, ax = plt.subplots()
+        for i in range(5):
+            ax.plot([i, i+1], [0, 1])
+        assert len(ax.lines) == 5
+        plt.close('all')
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_line_alpha(self, alpha):
+        line = Line2D([0, 1], [0, 1], alpha=alpha)
+        assert abs(line.get_alpha() - alpha) < 1e-10
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 3.5])
+    def test_rectangle_linewidth(self, lw):
+        r = Rectangle((0, 0), 1, 1, linewidth=lw)
+        assert abs(r.get_linewidth() - lw) < 1e-6

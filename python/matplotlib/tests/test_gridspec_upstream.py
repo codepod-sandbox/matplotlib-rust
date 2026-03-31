@@ -436,3 +436,64 @@ def test_gridspec_wspace_kwarg():
 # ===================================================================
 # Parametric GridSpec tests
 # ===================================================================
+
+import pytest
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+
+
+class TestGridSpecSubplots:
+    """Tests for GridSpec subplot geometry."""
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (2, 2), (3, 4), (4, 3)])
+    def test_gridspec_size(self, nrows, ncols):
+        gs = GridSpec(nrows, ncols)
+        assert gs.nrows == nrows
+        assert gs.ncols == ncols
+
+    def test_gridspec_indexing(self):
+        gs = GridSpec(2, 3)
+        spec = gs[0, 0]
+        assert spec is not None
+
+    def test_gridspec_slice_row(self):
+        gs = GridSpec(3, 2)
+        spec = gs[0:2, :]
+        assert spec is not None
+
+    def test_gridspec_subplot_default_params(self):
+        gs = GridSpec(2, 2)
+        assert gs._hspace is None or gs._hspace >= 0
+        assert gs._wspace is None or gs._wspace >= 0
+
+    def test_gridspec_from_subplotspec(self):
+        gs = GridSpec(2, 2)
+        ss = gs[0, 0]
+        inner = GridSpecFromSubplotSpec(2, 2, subplot_spec=ss)
+        assert inner.nrows == 2
+        assert inner.ncols == 2
+
+    def test_gridspec_add_subplot(self):
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        gs = GridSpec(2, 2)
+        ax = fig.add_subplot(gs[0, 0])
+        assert ax is not None
+        plt.close('all')
+
+    def test_gridspec_all_subplots(self):
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        gs = GridSpec(2, 3)
+        axes = [fig.add_subplot(gs[i, j]) for i in range(2) for j in range(3)]
+        assert len(axes) == 6
+        plt.close('all')
+
+    @pytest.mark.parametrize('hspace', [0.1, 0.3, 0.5, 1.0])
+    def test_hspace_values(self, hspace):
+        gs = GridSpec(2, 2, hspace=hspace)
+        assert abs(gs._hspace - hspace) < 1e-10
+
+    @pytest.mark.parametrize('wspace', [0.1, 0.3, 0.5, 1.0])
+    def test_wspace_values(self, wspace):
+        gs = GridSpec(2, 2, wspace=wspace)
+        assert abs(gs._wspace - wspace) < 1e-10
