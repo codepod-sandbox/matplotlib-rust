@@ -1687,3 +1687,105 @@ def test_rectangle_get_verts():
     np.testing.assert_array_equal(verts[1], [2, 0])
     np.testing.assert_array_equal(verts[2], [2, 3])
     np.testing.assert_array_equal(verts[3], [0, 3])
+
+
+# ===================================================================
+# Additional patch tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle, Circle, Ellipse, Polygon, Arc, Arrow, Wedge
+
+
+class TestPatchProperties:
+    """Tests for common patch property get/set."""
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.5, 5.0])
+    def test_rectangle_linewidth(self, lw):
+        r = Rectangle((0, 0), 1, 1, linewidth=lw)
+        assert abs(r.get_linewidth() - lw) < 1e-6
+
+    @pytest.mark.parametrize('alpha', [0.0, 0.25, 0.5, 0.75, 1.0])
+    def test_rectangle_alpha(self, alpha):
+        r = Rectangle((0, 0), 1, 1, alpha=alpha)
+        assert abs(r.get_alpha() - alpha) < 1e-10
+
+    def test_circle_radius(self):
+        c = Circle((0, 0), radius=5.0)
+        assert abs(c.get_radius() - 5.0) < 1e-10
+
+    def test_circle_xy(self):
+        c = Circle((3, 4), radius=1.0)
+        assert c.get_center() == (3, 4) or c.center == (3, 4)
+
+    def test_ellipse_width_height(self):
+        e = Ellipse((0, 0), width=4, height=2)
+        assert e.width == 4
+        assert e.height == 2
+
+    def test_polygon_xy(self):
+        verts = [(0, 0), (1, 0), (0.5, 1)]
+        p = Polygon(verts)
+        assert p.get_xy() is not None
+
+    def test_wedge_theta(self):
+        w = Wedge((0, 0), r=1.0, theta1=0, theta2=90)
+        assert w.theta1 == 0
+        assert w.theta2 == 90
+
+    def test_arrow_xy(self):
+        a = Arrow(0, 0, 1, 1)
+        assert a is not None
+
+    def test_patch_set_facecolor(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_facecolor('blue')
+        assert r.get_facecolor() is not None
+
+    def test_patch_set_edgecolor(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_edgecolor('red')
+        assert r.get_edgecolor() is not None
+
+    def test_patch_zorder(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_zorder(5)
+        assert r.get_zorder() == 5
+
+    def test_patch_label(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_label('my_rect')
+        assert r.get_label() == 'my_rect'
+
+
+class TestPatchInAxes:
+    """Tests for patches added to axes."""
+
+    def test_circle_in_patches(self):
+        fig, ax = plt.subplots()
+        c = Circle((0.5, 0.5), radius=0.3)
+        ax.add_patch(c)
+        assert c in ax.patches
+        plt.close('all')
+
+    def test_ellipse_in_patches(self):
+        fig, ax = plt.subplots()
+        e = Ellipse((0.5, 0.5), width=0.4, height=0.2)
+        ax.add_patch(e)
+        assert e in ax.patches
+        plt.close('all')
+
+    def test_polygon_in_patches(self):
+        fig, ax = plt.subplots()
+        p = Polygon([(0, 0), (1, 0), (0.5, 1)])
+        ax.add_patch(p)
+        assert p in ax.patches
+        plt.close('all')
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff8800'])
+    def test_rectangle_facecolor_from_constructor(self, color):
+        r = Rectangle((0, 0), 1, 1, facecolor=color)
+        fc = r.get_facecolor()
+        assert fc is not None

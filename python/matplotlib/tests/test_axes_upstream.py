@@ -3321,3 +3321,149 @@ def test_axes_contains_added_patch():
     ax.add_patch(r)
     assert r in ax.patches
     plt.close('all')
+
+
+# ===================================================================
+# Additional axes tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+
+
+class TestAxesLimitsAndRange:
+    """Tests for axes limits and view range."""
+
+    def test_xlim_get_set(self):
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        xmin, xmax = ax.get_xlim()
+        assert abs(xmin - 0) < 1e-10
+        assert abs(xmax - 10) < 1e-10
+        plt.close('all')
+
+    def test_ylim_get_set(self):
+        fig, ax = plt.subplots()
+        ax.set_ylim(-5, 5)
+        ymin, ymax = ax.get_ylim()
+        assert abs(ymin - (-5)) < 1e-10
+        assert abs(ymax - 5) < 1e-10
+        plt.close('all')
+
+    def test_xlim_after_plot(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 10], [0, 10])
+        xmin, xmax = ax.get_xlim()
+        assert xmin <= 0
+        assert xmax >= 10
+        plt.close('all')
+
+    def test_ylim_after_plot(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 100])
+        ymin, ymax = ax.get_ylim()
+        assert ymin <= 0
+        assert ymax >= 100
+        plt.close('all')
+
+    @pytest.mark.parametrize('lo,hi', [(0, 1), (-10, 10), (100, 200)])
+    def test_set_xlim_parametric(self, lo, hi):
+        fig, ax = plt.subplots()
+        ax.set_xlim(lo, hi)
+        xmin, xmax = ax.get_xlim()
+        assert abs(xmin - lo) < 1e-10
+        assert abs(xmax - hi) < 1e-10
+        plt.close('all')
+
+
+class TestAxesPlotTypes:
+    """Tests for various ax plot methods."""
+
+    def test_scatter_adds_collection(self):
+        from matplotlib.collections import PathCollection
+        fig, ax = plt.subplots()
+        sc = ax.scatter([1, 2, 3], [4, 5, 6])
+        assert sc in ax.collections
+        plt.close('all')
+
+    def test_bar_adds_patches(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2, 3], [4, 5, 6])
+        assert len(ax.patches) >= 3
+        plt.close('all')
+
+    def test_hist_returns_counts(self):
+        fig, ax = plt.subplots()
+        data = [1, 1, 2, 3, 3, 3, 4]
+        n, bins, patches = ax.hist(data)
+        assert len(n) == len(patches)
+        plt.close('all')
+
+    def test_axhline_adds_line(self):
+        fig, ax = plt.subplots()
+        ax.axhline(y=0.5)
+        assert len(ax.lines) >= 1
+        plt.close('all')
+
+    def test_axvline_adds_line(self):
+        fig, ax = plt.subplots()
+        ax.axvline(x=0.5)
+        assert len(ax.lines) >= 1
+        plt.close('all')
+
+    def test_errorbar_returns_container(self):
+        from matplotlib.container import ErrorbarContainer
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2, 3], [1, 2, 3], yerr=[0.1, 0.2, 0.1])
+        assert isinstance(ec, ErrorbarContainer)
+        plt.close('all')
+
+    def test_stem_returns_container(self):
+        from matplotlib.container import StemContainer
+        fig, ax = plt.subplots()
+        sc = ax.stem([1, 2, 3], [4, 5, 6])
+        assert isinstance(sc, StemContainer)
+        plt.close('all')
+
+    def test_hlines_adds_lines(self):
+        fig, ax = plt.subplots()
+        ax.hlines([0.25, 0.5, 0.75], 0, 1)
+        assert len(ax.lines) >= 3 or len(ax.collections) >= 1
+        plt.close('all')
+
+    def test_vlines_adds_lines(self):
+        fig, ax = plt.subplots()
+        ax.vlines([0.25, 0.5, 0.75], 0, 1)
+        assert len(ax.lines) >= 3 or len(ax.collections) >= 1
+        plt.close('all')
+
+
+class TestAxesTextMethods:
+    """Tests for text methods on axes."""
+
+    def test_set_title_get_title(self):
+        fig, ax = plt.subplots()
+        ax.set_title('My Title')
+        assert ax.get_title() == 'My Title'
+        plt.close('all')
+
+    def test_set_xlabel_get_xlabel(self):
+        fig, ax = plt.subplots()
+        ax.set_xlabel('X Label')
+        assert ax.get_xlabel() == 'X Label'
+        plt.close('all')
+
+    def test_set_ylabel_get_ylabel(self):
+        fig, ax = plt.subplots()
+        ax.set_ylabel('Y Label')
+        assert ax.get_ylabel() == 'Y Label'
+        plt.close('all')
+
+    def test_text_returns_text_object(self):
+        from matplotlib.text import Text
+        fig, ax = plt.subplots()
+        t = ax.text(0.5, 0.5, 'hello')
+        assert isinstance(t, Text)
+        plt.close('all')

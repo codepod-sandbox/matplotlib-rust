@@ -948,3 +948,115 @@ def test_line_fillstyle_none():
     from matplotlib.lines import Line2D
     line = Line2D([0], [0], marker='o', fillstyle='none')
     assert line.get_fillstyle() == 'none'
+
+
+# ===================================================================
+# Additional line tests (upstream-inspired batch, round 2)
+# ===================================================================
+
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+
+class TestLine2DProperties:
+    """Tests for Line2D property get/set."""
+
+    @pytest.mark.parametrize('lw', [0.5, 1.0, 2.0, 4.0])
+    def test_linewidth_parametric(self, lw):
+        line = Line2D([0, 1], [0, 1], linewidth=lw)
+        assert abs(line.get_linewidth() - lw) < 1e-6
+
+    @pytest.mark.parametrize('ls', ['solid', 'dashed', 'dotted', 'dashdot'])
+    def test_linestyle_parametric(self, ls):
+        line = Line2D([0, 1], [0, 1])
+        line.set_linestyle(ls)
+        # Should not raise
+
+    @pytest.mark.parametrize('color', ['red', 'blue', 'green', '#ff8800', 'k'])
+    def test_color_parametric(self, color):
+        line = Line2D([0, 1], [0, 1], color=color)
+        assert line.get_color() == color
+
+    @pytest.mark.parametrize('marker', ['o', 's', '^', 'D', 'x', '+', '.'])
+    def test_marker_parametric(self, marker):
+        line = Line2D([0, 1], [0, 1], marker=marker)
+        assert line.get_marker() == marker
+
+    def test_line_label(self):
+        line = Line2D([0, 1], [0, 1])
+        line.set_label('my_line')
+        assert line.get_label() == 'my_line'
+
+    def test_line_zorder(self):
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(3)
+        assert line.get_zorder() == 3
+
+    def test_line_visible(self):
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(False)
+        assert not line.get_visible()
+        line.set_visible(True)
+        assert line.get_visible()
+
+    def test_line_xydata_get(self):
+        xdata = [1.0, 2.0, 3.0]
+        ydata = [4.0, 5.0, 6.0]
+        line = Line2D(xdata, ydata)
+        np.testing.assert_array_equal(line.get_xdata(), xdata)
+        np.testing.assert_array_equal(line.get_ydata(), ydata)
+
+
+class TestLine2DInAxes:
+    """Tests for Line2D behavior within axes."""
+
+    def test_plot_line_data(self):
+        fig, ax = plt.subplots()
+        line, = ax.plot([1, 2, 3], [4, 5, 6])
+        np.testing.assert_array_equal(line.get_xdata(), [1, 2, 3])
+        np.testing.assert_array_equal(line.get_ydata(), [4, 5, 6])
+        plt.close('all')
+
+    def test_plot_color_argument(self):
+        import matplotlib.colors as mcolors
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], color='red')
+        # color may be stored as name or normalized hex
+        c = line.get_color()
+        assert mcolors.to_hex(c) == '#ff0000'
+        plt.close('all')
+
+    def test_plot_linewidth_argument(self):
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], linewidth=3.0)
+        assert abs(line.get_linewidth() - 3.0) < 1e-6
+        plt.close('all')
+
+    def test_plot_marker_argument(self):
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], marker='o')
+        assert line.get_marker() == 'o'
+        plt.close('all')
+
+    def test_plot_label_argument(self):
+        fig, ax = plt.subplots()
+        line, = ax.plot([0, 1], [0, 1], label='series_1')
+        assert line.get_label() == 'series_1'
+        plt.close('all')
+
+    def test_multiple_plots_in_lines(self):
+        fig, ax = plt.subplots()
+        n = 5
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1])
+        assert len(ax.lines) == n
+        plt.close('all')
+
+    def test_line_in_svg(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1, 2], [0, 1, 0])
+        svg = fig.to_svg()
+        assert '<polyline' in svg or '<path' in svg
+        plt.close('all')
