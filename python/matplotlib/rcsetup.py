@@ -214,6 +214,14 @@ _default_params = {
     # Animation
     'animation.html': 'none',
 
+    # Path
+    'path.simplify': True,
+    'path.simplify_threshold': 0.111111111111,
+    'path.snap': True,
+    'path.sketch': None,
+    'path.effects': [],
+    'agg.path.chunksize': 0,
+
     # Internal flags used by real matplotlib ticker/scale modules
     '_internal.classic_mode': False,
 }

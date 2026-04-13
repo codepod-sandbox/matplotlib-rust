@@ -348,6 +348,12 @@ class Transform(TransformNode):
         """Transform a single point."""
         return self.transform(point)
 
+    def transform_path(self, path):
+        """Apply this transform to a Path, returning a new Path."""
+        from matplotlib.path import Path
+        new_verts = self.transform(path.vertices)
+        return Path(new_verts, path.codes, path._interpolation_steps)
+
     def inverted(self):
         """Return the inverse transform."""
         return self
@@ -405,6 +411,18 @@ class Affine2DBase(Transform):
         import numpy as _np
         m = _np.array(self.get_matrix(), dtype=float)
         return Affine2D(_np.linalg.inv(m))
+
+    def transform_path(self, path):
+        """Apply this affine transform to a Path, returning a new Path."""
+        from matplotlib.path import Path
+        new_verts = self.transform(path.vertices)
+        return Path(new_verts, path.codes, path._interpolation_steps)
+
+    def transform_affine(self, values):
+        return self.transform(values)
+
+    def transform_non_affine(self, values):
+        return values
 
 
 class Affine2D(Affine2DBase):

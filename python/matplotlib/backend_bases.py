@@ -135,3 +135,85 @@ class RendererBase:
 
     def get_result(self):
         raise NotImplementedError
+
+
+class Event:
+    """Base class for matplotlib events."""
+
+    def __init__(self, name, canvas, guiEvent=None):
+        self.name = name
+        self.canvas = canvas
+        self.guiEvent = guiEvent
+
+
+class LocationEvent(Event):
+    """Event with a location in display coordinates."""
+
+    def __init__(self, name, canvas, x, y, guiEvent=None):
+        super().__init__(name, canvas, guiEvent)
+        self.x = x
+        self.y = y
+        self.inaxes = None
+        self.xdata = None
+        self.ydata = None
+
+        # Try to find which axes the event is in
+        if hasattr(canvas, 'figure') and canvas.figure is not None:
+            for ax in canvas.figure.axes:
+                if hasattr(ax, 'get_position'):
+                    self.inaxes = ax
+                    break
+
+
+class MouseEvent(LocationEvent):
+    """Mouse event."""
+
+    def __init__(self, name, canvas, x, y, button=None, key=None,
+                 step=0, dblclick=False, guiEvent=None):
+        super().__init__(name, canvas, x, y, guiEvent)
+        self.button = button
+        self.key = key
+        self.step = step
+        self.dblclick = dblclick
+
+
+class KeyEvent(LocationEvent):
+    """Key event."""
+
+    def __init__(self, name, canvas, key, x=0, y=0, guiEvent=None):
+        super().__init__(name, canvas, x, y, guiEvent)
+        self.key = key
+
+
+class PickEvent(Event):
+    """Pick event."""
+
+    def __init__(self, name, canvas, mouseevent, artist, guiEvent=None, **kwargs):
+        super().__init__(name, canvas, guiEvent)
+        self.mouseevent = mouseevent
+        self.artist = artist
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
+class FigureCanvasBase:
+    """Minimal figure canvas base."""
+
+    def __init__(self, figure=None):
+        self.figure = figure
+        self._callbacks = {}
+
+    def draw(self):
+        pass
+
+    def draw_idle(self):
+        pass
+
+    def mpl_connect(self, event, callback):
+        self._callbacks.setdefault(event, []).append(callback)
+
+    def mpl_disconnect(self, cid):
+        pass
+
+    def flush_events(self):
+        pass
