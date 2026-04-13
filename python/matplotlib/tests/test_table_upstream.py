@@ -385,3 +385,62 @@ class TestTableWithLabels:
         ax = fig.add_subplot(1, 1, 1)
         tbl = ax.table(cellText=[['x']], loc=loc)
         assert isinstance(tbl, Table)
+
+
+class TestTableCellAccess:
+    def test_cell_00_exists(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['A', 'B']])
+        assert (0, 0) in tbl.get_celld()
+
+    def test_cell_text_content(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['hello', 'world']])
+        cell = tbl.get_celld()[(0, 0)]
+        assert cell.get_text().get_text() == 'hello'
+
+    def test_cell_facecolor_set(self):
+        import matplotlib.colors as mc
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['x']])
+        cell = tbl.get_celld()[(0, 0)]
+        cell.set_facecolor('red')
+        assert mc.to_hex(cell.get_facecolor()) == '#ff0000'
+
+    def test_table_visible(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['x']])
+        assert tbl.get_visible() is True
+
+    def test_table_set_visible_false(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['x']])
+        tbl.set_visible(False)
+        assert tbl.get_visible() is False
+
+    @pytest.mark.parametrize('nrows', [1, 2, 3])
+    def test_table_nrows_cells(self, nrows):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['val'] for _ in range(nrows)])
+        assert len(tbl.get_celld()) >= nrows
+
+    def test_table_2x3_has_6_cells(self):
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['a', 'b', 'c'], ['d', 'e', 'f']])
+        assert len(tbl.get_celld()) == 6
+
+    def test_cell_edgecolor_set(self):
+        import matplotlib.colors as mc
+        fig = Figure()
+        ax = fig.add_subplot(1, 1, 1)
+        tbl = ax.table(cellText=[['x']])
+        cell = tbl.get_celld()[(0, 0)]
+        cell.set_edgecolor('blue')
+        assert mc.to_hex(cell.get_edgecolor()) == '#0000ff'

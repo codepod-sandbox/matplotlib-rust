@@ -12,7 +12,6 @@ from matplotlib.colors import (
     CSS4_COLORS,
     TABLEAU_COLORS,
     BASE_COLORS,
-    DEFAULT_CYCLE,
     _colors_full_map,
     to_rgba,
     to_rgba_array,
@@ -23,8 +22,8 @@ from matplotlib.colors import (
     _has_alpha_channel,
     Normalize,
     LogNorm,
-    parse_fmt,
 )
+from matplotlib._codepod_compat import DEFAULT_CYCLE, parse_fmt
 
 
 # ===================================================================

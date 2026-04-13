@@ -3,14 +3,23 @@ matplotlib.rcsetup — default parameters and RcParams dict subclass.
 """
 
 from contextlib import contextmanager
+try:
+    from cycler import cycler  # re-export for matplotlib.rcsetup.cycler compatibility
+    _prop_cycle_default = cycler('color', [
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+    ])
+except ImportError:
+    cycler = None  # type: ignore[assignment]
+    _prop_cycle_default = [
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+    ]
 
 # Default parameter values mirroring real matplotlib defaults.
 _default_params = {
     # Axes
-    'axes.prop_cycle': [
-        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-    ],
+    'axes.prop_cycle': _prop_cycle_default,
     'axes.facecolor': 'white',
     'axes.edgecolor': 'black',
     'axes.linewidth': 0.8,
@@ -204,6 +213,9 @@ _default_params = {
 
     # Animation
     'animation.html': 'none',
+
+    # Internal flags used by real matplotlib ticker/scale modules
+    '_internal.classic_mode': False,
 }
 
 

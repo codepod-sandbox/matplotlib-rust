@@ -360,3 +360,80 @@ class TestErrorbarContainerExtended:
         ec = ax.errorbar([1, 2], [3, 4], yerr=[0.1, 0.1])
         assert ec.lines is not None
         plt.close('all')
+
+
+class TestStemContainerExtended:
+    def test_stem_returns_stem_container(self):
+        fig, ax = plt.subplots()
+        sc = ax.stem([0, 1, 2], [1, 3, 2])
+        assert isinstance(sc, StemContainer)
+        plt.close('all')
+
+    def test_stem_has_markerline(self):
+        fig, ax = plt.subplots()
+        sc = ax.stem([0, 1, 2], [1, 3, 2])
+        assert sc.markerline is not None
+        plt.close('all')
+
+    def test_stem_has_stemlines(self):
+        fig, ax = plt.subplots()
+        sc = ax.stem([0, 1, 2], [1, 3, 2])
+        assert sc.stemlines is not None
+        plt.close('all')
+
+    def test_stem_has_baseline(self):
+        fig, ax = plt.subplots()
+        sc = ax.stem([0, 1, 2], [1, 3, 2])
+        assert sc.baseline is not None
+        plt.close('all')
+
+    def test_stem_label(self):
+        fig, ax = plt.subplots()
+        sc = ax.stem([0, 1], [1, 2], label='stem data')
+        assert sc.get_label() == 'stem data'
+        plt.close('all')
+
+
+class TestBarContainerProperties:
+    def test_bar_container_iterable(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2, 3], [4, 5, 6])
+        rects = list(bc)
+        assert len(rects) == 3
+        plt.close('all')
+
+    def test_bar_container_patches_are_rectangles(self):
+        from matplotlib.patches import Rectangle
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2, 3], [4, 5, 6])
+        for patch in bc.patches:
+            assert isinstance(patch, Rectangle)
+        plt.close('all')
+
+    def test_bar_all_patches_visible(self):
+        fig, ax = plt.subplots()
+        bc = ax.bar([1, 2], [3, 4])
+        for patch in bc.patches:
+            assert patch.get_visible()
+        plt.close('all')
+
+    @pytest.mark.parametrize('fc', ['red', 'blue', 'green'])
+    def test_bar_facecolor_applied(self, fc):
+        import matplotlib.colors as mc
+        fig, ax = plt.subplots()
+        bc = ax.bar([1], [2], facecolor=fc)
+        hex_color = mc.to_hex(bc.patches[0].get_facecolor())
+        assert hex_color == mc.to_hex(fc)
+        plt.close('all')
+
+    def test_errorbar_xerr(self):
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2], [3, 4], xerr=[0.1, 0.1])
+        assert isinstance(ec, ErrorbarContainer)
+        plt.close('all')
+
+    def test_errorbar_both_err(self):
+        fig, ax = plt.subplots()
+        ec = ax.errorbar([1, 2], [3, 4], xerr=[0.1, 0.1], yerr=[0.2, 0.2])
+        assert isinstance(ec, ErrorbarContainer)
+        plt.close('all')

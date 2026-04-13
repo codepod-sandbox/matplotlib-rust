@@ -687,3 +687,88 @@ class TestLegendHandlesLabels:
         # legend with no labeled artists is still a Legend object
         assert leg is not None
         plt.close('all')
+
+
+class TestLegendMultipleEntries:
+    def test_legend_two_lines_two_texts(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='first')
+        ax.plot([0, 1], [1, 0], label='second')
+        leg = ax.legend()
+        assert len(leg.get_texts()) == 2
+        plt.close('all')
+
+    def test_legend_text_content(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='my_series')
+        leg = ax.legend()
+        texts = [t.get_text() for t in leg.get_texts()]
+        assert 'my_series' in texts
+        plt.close('all')
+
+    def test_legend_title_content(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='x')
+        leg = ax.legend(title='My Legend')
+        assert leg.get_title().get_text() == 'My Legend'
+        plt.close('all')
+
+    def test_legend_handles_count_matches_labels(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='A')
+        ax.plot([0, 1], [0, 2], label='B')
+        ax.plot([0, 1], [0, 3], label='C')
+        leg = ax.legend()
+        handles, labels = ax.get_legend_handles_labels()
+        assert len(handles) == 3
+        assert len(labels) == 3
+        plt.close('all')
+
+    @pytest.mark.parametrize('loc', ['upper right', 'upper left', 'lower left', 'lower right'])
+    def test_legend_loc_no_raise(self, loc):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='data')
+        leg = ax.legend(loc=loc)
+        assert leg is not None
+        plt.close('all')
+
+    def test_legend_remove(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='data')
+        leg = ax.legend()
+        # remove() should not raise
+        leg.remove()
+        plt.close('all')
+
+    def test_legend_fontsize(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label='data')
+        leg = ax.legend(fontsize=14)
+        texts = leg.get_texts()
+        assert len(texts) >= 1
+        plt.close('all')
+
+    def test_legend_scatter_label(self):
+        fig, ax = plt.subplots()
+        ax.scatter([0, 1], [0, 1], label='scatter data')
+        leg = ax.legend()
+        texts = [t.get_text() for t in leg.get_texts()]
+        assert 'scatter data' in texts
+        plt.close('all')
+
+    def test_legend_bar_label(self):
+        fig, ax = plt.subplots()
+        ax.bar([1, 2, 3], [1, 2, 3], label='bars')
+        leg = ax.legend()
+        texts = [t.get_text() for t in leg.get_texts()]
+        assert 'bars' in texts
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4])
+    def test_legend_n_lines(self, n):
+        fig, ax = plt.subplots()
+        for i in range(n):
+            ax.plot([0, 1], [i, i+1], label=f'line {i}')
+        leg = ax.legend()
+        assert len(leg.get_texts()) == n
+        plt.close('all')

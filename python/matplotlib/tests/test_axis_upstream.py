@@ -418,3 +418,90 @@ class TestAxisTicksExtended:
         labels = [l.get_text() for l in ax.xaxis.get_ticklabels()]
         assert labels == ['one', 'two', 'three']
         plt.close('all')
+
+
+class TestAxisScaleAndGrid:
+    def test_xaxis_set_scale_log(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 10, 100], [1, 2, 3])
+        ax.set_xscale('log')
+        assert ax.get_xscale() == 'log'
+        plt.close('all')
+
+    def test_yaxis_set_scale_log(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 10, 100])
+        ax.set_yscale('log')
+        assert ax.get_yscale() == 'log'
+        plt.close('all')
+
+    def test_xaxis_set_scale_linear(self):
+        fig, ax = plt.subplots()
+        ax.plot([1, 2, 3], [1, 2, 3])
+        ax.set_xscale('linear')
+        assert ax.get_xscale() == 'linear'
+        plt.close('all')
+
+    def test_xaxis_major_ticks_count(self):
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, 10)
+        ticks = ax.xaxis.get_major_ticks()
+        assert len(ticks) > 0
+        plt.close('all')
+
+    def test_yaxis_major_ticks_count(self):
+        fig, ax = plt.subplots()
+        ax.set_ylim(0, 10)
+        ticks = ax.yaxis.get_major_ticks()
+        assert len(ticks) > 0
+        plt.close('all')
+
+    def test_set_xticks_count(self):
+        fig, ax = plt.subplots()
+        ax.set_xticks([0, 1, 2, 3, 4])
+        ticks = ax.get_xticks()
+        assert len(ticks) == 5
+        plt.close('all')
+
+    def test_set_yticks_count(self):
+        fig, ax = plt.subplots()
+        ax.set_yticks([0, 0.5, 1.0])
+        ticks = ax.get_yticks()
+        assert len(ticks) == 3
+        plt.close('all')
+
+    @pytest.mark.parametrize('scale', ['linear', 'log', 'symlog'])
+    def test_set_xscale_no_raise(self, scale):
+        fig, ax = plt.subplots()
+        ax.plot([1, 10, 100], [1, 2, 3])
+        ax.set_xscale(scale)
+        plt.close('all')
+
+    def test_xaxis_get_label(self):
+        fig, ax = plt.subplots()
+        ax.set_xlabel('time (s)')
+        lbl = ax.xaxis.get_label()
+        assert lbl.get_text() == 'time (s)'
+        plt.close('all')
+
+    def test_yaxis_get_label(self):
+        fig, ax = plt.subplots()
+        ax.set_ylabel('value')
+        lbl = ax.yaxis.get_label()
+        assert lbl.get_text() == 'value'
+        plt.close('all')
+
+    def test_xaxis_tick_positions_match_set_xticks(self):
+        fig, ax = plt.subplots()
+        positions = [1.0, 2.5, 4.0]
+        ax.set_xticks(positions)
+        result = list(ax.get_xticks())
+        assert result == positions
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [3, 5, 7])
+    def test_set_xticks_n_ticks(self, n):
+        fig, ax = plt.subplots()
+        ax.set_xticks(list(range(n)))
+        assert len(ax.get_xticks()) == n
+        plt.close('all')

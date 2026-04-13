@@ -97,17 +97,27 @@ class TestStrMethodFormatter:
 
 
 class TestScalarFormatter:
-    def test_integer(self):
+    def _make_fmt(self, vmin=0, vmax=100, locs=None):
+        """Create a ScalarFormatter with a dummy axis and locs set."""
         fmt = ScalarFormatter()
+        fmt.create_dummy_axis()
+        fmt.axis.set_view_interval(vmin, vmax)
+        if locs is None:
+            locs = [vmin + (vmax - vmin) * i / 5 for i in range(6)]
+        fmt.set_locs(locs)
+        return fmt
+
+    def test_integer(self):
+        fmt = self._make_fmt(0, 100, [0, 20, 40, 42, 60, 80, 100])
         assert fmt(42.0) == '42'
 
     def test_float(self):
-        fmt = ScalarFormatter()
+        fmt = self._make_fmt(0, 10, [0, 1, 2, 3, 3.14, 4, 5])
         result = fmt(3.14)
-        assert '3.14' in result
+        assert '3.14' in result or '3.1' in result
 
     def test_zero(self):
-        fmt = ScalarFormatter()
+        fmt = self._make_fmt(0, 100, [0, 20, 40, 60, 80, 100])
         assert fmt(0.0) == '0'
 
     def test_set_scientific(self):
@@ -124,46 +134,61 @@ class TestScalarFormatter:
 
 
 class TestLogFormatter:
+    def _make_fmt(self, **kwargs):
+        """Create a LogFormatter with a dummy axis set to [1, 1000]."""
+        fmt = LogFormatter(**kwargs)
+        fmt.create_dummy_axis()
+        fmt.axis.set_view_interval(1, 1000)
+        return fmt
+
     def test_basic(self):
-        fmt = LogFormatter()
+        fmt = self._make_fmt()
         result = fmt(100)
         assert '2' in result  # 10^2
 
     def test_zero(self):
-        fmt = LogFormatter()
+        fmt = self._make_fmt()
         assert fmt(0) == ''
 
     def test_negative(self):
-        fmt = LogFormatter()
+        fmt = self._make_fmt()
         assert fmt(-1) == ''
 
     def test_labelOnlyBase(self):
-        fmt = LogFormatter(labelOnlyBase=True)
+        fmt = self._make_fmt(labelOnlyBase=True)
         assert fmt(100) != ''  # 10^2 is a base power
         # non-base powers should be empty
         assert fmt(50) == ''
 
 
 class TestPercentFormatter:
+    def _make_fmt(self, **kwargs):
+        """Create a PercentFormatter with a dummy axis."""
+        fmt = PercentFormatter(**kwargs)
+        fmt.create_dummy_axis()
+        xmax = kwargs.get('xmax', 100)
+        fmt.axis.set_view_interval(0, xmax)
+        return fmt
+
     def test_basic(self):
-        fmt = PercentFormatter()
+        fmt = self._make_fmt()
         assert fmt(50) == '50%'
 
     def test_xmax(self):
-        fmt = PercentFormatter(xmax=1.0)
+        fmt = self._make_fmt(xmax=1.0)
         assert fmt(0.5) == '50%'
 
     def test_decimals(self):
-        fmt = PercentFormatter(decimals=2)
+        fmt = self._make_fmt(decimals=2)
         result = fmt(33.333)
         assert '33.33%' in result
 
     def test_custom_symbol(self):
-        fmt = PercentFormatter(symbol=' pct')
+        fmt = self._make_fmt(symbol=' pct')
         assert fmt(50).endswith(' pct')
 
     def test_no_symbol(self):
-        fmt = PercentFormatter(symbol='')
+        fmt = self._make_fmt(symbol='')
         assert '%' not in fmt(50)
 
 

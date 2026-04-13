@@ -505,3 +505,89 @@ class TestSVGRendering:
         svg = fig.to_svg()
         assert 'my line' in svg
         plt.close('all')
+
+
+class TestSVGContentDetails:
+    def test_xlabel_in_svg(self):
+        fig, ax = plt.subplots()
+        ax.set_xlabel('Time (s)')
+        svg = fig.to_svg()
+        assert 'Time (s)' in svg
+        plt.close('all')
+
+    def test_ylabel_in_svg(self):
+        fig, ax = plt.subplots()
+        ax.set_ylabel('Amplitude')
+        svg = fig.to_svg()
+        assert 'Amplitude' in svg
+        plt.close('all')
+
+    def test_imshow_svg_not_empty(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4))
+        ax.imshow(data)
+        svg = fig.to_svg()
+        assert len(svg) > 100
+        plt.close('all')
+
+    def test_pie_svg_not_empty(self):
+        fig, ax = plt.subplots()
+        ax.pie([30, 40, 30], labels=['A', 'B', 'C'])
+        svg = fig.to_svg()
+        assert len(svg) > 100
+        plt.close('all')
+
+    def test_pie_svg_contains_labels(self):
+        fig, ax = plt.subplots()
+        ax.pie([30, 40, 30], labels=['Alpha', 'Beta', 'Gamma'])
+        svg = fig.to_svg()
+        assert 'Alpha' in svg
+        assert 'Beta' in svg
+        plt.close('all')
+
+    def test_histogram_svg_not_empty(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.hist(np.random.randn(50), bins=10)
+        svg = fig.to_svg()
+        assert len(svg) > 100
+        plt.close('all')
+
+    def test_svg_contains_svg_tag(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '<svg' in svg
+        plt.close('all')
+
+    def test_svg_well_formed_closes_svg(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        svg = fig.to_svg()
+        assert '</svg>' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('label', ['series A', 'test data', 'line 1'])
+    def test_label_appears_in_legend_svg(self, label):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label=label)
+        ax.legend()
+        svg = fig.to_svg()
+        assert label in svg
+        plt.close('all')
+
+    def test_two_axes_svg_not_empty(self):
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        ax1.plot([0, 1], [0, 1])
+        ax2.plot([0, 1], [1, 0])
+        svg = fig.to_svg()
+        assert len(svg) > 200
+        plt.close('all')
+
+    def test_suptitle_in_svg(self):
+        fig, ax = plt.subplots()
+        fig.suptitle('Overall Title')
+        svg = fig.to_svg()
+        assert 'Overall Title' in svg
+        plt.close('all')

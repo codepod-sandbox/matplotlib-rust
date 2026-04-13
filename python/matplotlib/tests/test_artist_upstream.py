@@ -477,3 +477,62 @@ class TestArtistInAxes:
     def test_rectangle_linewidth(self, lw):
         r = Rectangle((0, 0), 1, 1, linewidth=lw)
         assert abs(r.get_linewidth() - lw) < 1e-6
+
+
+class TestArtistTransformAndZorder:
+    def test_line_zorder_default(self):
+        line = Line2D([0, 1], [0, 1])
+        assert line.get_zorder() is not None
+
+    def test_line_zorder_set(self):
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(5)
+        assert line.get_zorder() == 5
+
+    def test_rectangle_zorder_set(self):
+        r = Rectangle((0, 0), 1, 1)
+        r.set_zorder(3)
+        assert r.get_zorder() == 3
+
+    def test_line_label_default_empty(self):
+        line = Line2D([0, 1], [0, 1])
+        # Default label is '_line0' or similar, but it's set
+        lbl = line.get_label()
+        assert lbl is not None
+
+    def test_line_label_set(self):
+        line = Line2D([0, 1], [0, 1], label='my series')
+        assert line.get_label() == 'my series'
+
+    def test_rectangle_label_set(self):
+        r = Rectangle((0, 0), 1, 1, label='box')
+        assert r.get_label() == 'box'
+
+    def test_line_visible_default_true(self):
+        line = Line2D([0, 1], [0, 1])
+        assert line.get_visible() is True
+
+    def test_line_set_visible_false(self):
+        line = Line2D([0, 1], [0, 1])
+        line.set_visible(False)
+        assert line.get_visible() is False
+
+    def test_rectangle_visible_default_true(self):
+        r = Rectangle((0, 0), 1, 1)
+        assert r.get_visible() is True
+
+    @pytest.mark.parametrize('zorder', [0, 1, 5, 10])
+    def test_line_zorder_parametric(self, zorder):
+        line = Line2D([0, 1], [0, 1])
+        line.set_zorder(zorder)
+        assert line.get_zorder() == zorder
+
+    def test_line_set_color_and_retrieve(self):
+        import matplotlib.colors as mc
+        line = Line2D([0, 1], [0, 1], color='green')
+        assert mc.to_hex(line.get_color()) == '#008000'
+
+    def test_rectangle_facecolor_retrieve(self):
+        import matplotlib.colors as mc
+        r = Rectangle((0, 0), 1, 1, facecolor='cyan')
+        assert mc.to_hex(r.get_facecolor()) == '#00ffff'

@@ -420,3 +420,79 @@ class TestAnnotationInAxes:
         assert ann.get_ha() == 'right'
         assert ann.get_va() == 'top'
         plt.close('all')
+
+
+class TestAnnotationTextContent:
+    def test_annotate_text_is_retrievable(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('hello world', xy=(0.5, 0.5))
+        assert ann.get_text() == 'hello world'
+        plt.close('all')
+
+    def test_annotate_set_text_updates(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('original', xy=(0.5, 0.5))
+        ann.set_text('updated')
+        assert ann.get_text() == 'updated'
+        plt.close('all')
+
+    def test_annotate_fontsize_set(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('label', xy=(0.5, 0.5), fontsize=14)
+        assert ann.get_fontsize() == 14
+        plt.close('all')
+
+    def test_annotate_color_set(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('label', xy=(0.5, 0.5), color='blue')
+        import matplotlib.colors as mc
+        assert mc.to_hex(ann.get_color()) == '#0000ff'
+        plt.close('all')
+
+    def test_annotate_xy_stored(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('pt', xy=(0.3, 0.7))
+        assert ann.xy == (0.3, 0.7)
+        plt.close('all')
+
+    def test_annotate_xytext_offset(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('pt', xy=(0.5, 0.5), xytext=(0.1, 0.9))
+        # xytext stored separately
+        assert ann.xytext == (0.1, 0.9)
+        plt.close('all')
+
+    @pytest.mark.parametrize('fs', [8, 10, 12, 16, 20])
+    def test_annotate_fontsize_parametric(self, fs):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('x', xy=(0.5, 0.5), fontsize=fs)
+        assert ann.get_fontsize() == fs
+        plt.close('all')
+
+    def test_annotate_visible_false(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('hidden', xy=(0.5, 0.5))
+        ann.set_visible(False)
+        assert not ann.get_visible()
+        plt.close('all')
+
+    def test_annotate_alpha_set(self):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('transparent', xy=(0.5, 0.5))
+        ann.set_alpha(0.5)
+        assert abs(ann.get_alpha() - 0.5) < 1e-6
+        plt.close('all')
+
+    def test_annotate_in_svg_contains_text(self):
+        fig, ax = plt.subplots()
+        ax.annotate('SVG_MARKER_TEXT', xy=(0.5, 0.5))
+        svg = fig.to_svg()
+        assert 'SVG_MARKER_TEXT' in svg
+        plt.close('all')
+
+    @pytest.mark.parametrize('ha', ['left', 'center', 'right'])
+    def test_annotate_ha_parametric(self, ha):
+        fig, ax = plt.subplots()
+        ann = ax.annotate('pt', xy=(0.5, 0.5), ha=ha)
+        assert ann.get_ha() == ha
+        plt.close('all')

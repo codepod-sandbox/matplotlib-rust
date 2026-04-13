@@ -387,3 +387,92 @@ class TestAxesImageExtended:
         im.set_alpha(0.3)
         assert abs(im.get_alpha() - 0.3) < 1e-10
         plt.close('all')
+
+
+class TestAxesImageColormaps:
+    def test_imshow_cmap_gray(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)), cmap='gray')
+        cmap = im.get_cmap()
+        cmap_name = cmap.name if hasattr(cmap, 'name') else cmap
+        assert cmap_name == 'gray'
+        plt.close('all')
+
+    def test_imshow_cmap_viridis(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)), cmap='viridis')
+        cmap = im.get_cmap()
+        cmap_name = cmap.name if hasattr(cmap, 'name') else cmap
+        assert cmap_name == 'viridis'
+        plt.close('all')
+
+    def test_imshow_cmap_set_cmap(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)))
+        im.set_cmap('plasma')
+        cmap = im.get_cmap()
+        cmap_name = cmap.name if hasattr(cmap, 'name') else cmap
+        assert cmap_name == 'plasma'
+        plt.close('all')
+
+    def test_imshow_vmin_vmax(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)), vmin=-1, vmax=1)
+        clim = im.get_clim()
+        assert clim[0] == -1 and clim[1] == 1
+        plt.close('all')
+
+    def test_imshow_rgb_data(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4, 3))
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    def test_imshow_rgba_data(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        data = np.zeros((4, 4, 4))
+        im = ax.imshow(data)
+        assert im is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('cmap', ['jet', 'hot', 'cool', 'spring', 'summer'])
+    def test_imshow_builtin_cmaps(self, cmap):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)), cmap=cmap)
+        c = im.get_cmap()
+        cmap_name = c.name if hasattr(c, 'name') else c
+        assert cmap_name == cmap
+        plt.close('all')
+
+    def test_imshow_in_svg(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        ax.imshow(np.zeros((4, 4)))
+        svg = fig.to_svg()
+        assert len(svg) > 100
+        plt.close('all')
+
+    def test_imshow_visible(self):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros((4, 4)))
+        assert im.get_visible() is True
+        im.set_visible(False)
+        assert im.get_visible() is False
+        plt.close('all')
+
+    @pytest.mark.parametrize('shape', [(2, 2), (4, 8), (10, 10)])
+    def test_imshow_various_shapes(self, shape):
+        import numpy as np
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.zeros(shape))
+        assert im is not None
+        plt.close('all')

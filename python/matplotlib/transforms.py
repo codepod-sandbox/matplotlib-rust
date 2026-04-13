@@ -329,11 +329,24 @@ class Transform(TransformNode):
 
     def transform(self, values):
         """Transform a set of values."""
+        import numpy as np
+        if not isinstance(values, np.ndarray):
+            values = np.atleast_1d(np.asarray(values, dtype=float))
+        elif values.ndim == 0:
+            values = values.reshape(1)
+        return self.transform_non_affine(values)
+
+    def transform_non_affine(self, values):
+        """Apply the non-affine part of this transform."""
+        return values
+
+    def transform_affine(self, values):
+        """Apply the affine part of this transform."""
         return values
 
     def transform_point(self, point):
         """Transform a single point."""
-        return point
+        return self.transform(point)
 
     def inverted(self):
         """Return the inverse transform."""

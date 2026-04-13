@@ -4,12 +4,15 @@ matplotlib.pyplot — stateful module-level plotting API.
 
 import matplotlib
 from matplotlib.figure import Figure
+from matplotlib import cm
+from matplotlib.colors import Normalize, LogNorm, SymLogNorm, BoundaryNorm, PowerNorm, NoNorm
 
 # ------------------------------------------------------------------
 # Re-exports
 # ------------------------------------------------------------------
 rcParams = matplotlib.rcParams
 rc_context = matplotlib.rc_context
+color_sequences = matplotlib.color_sequences
 
 # ------------------------------------------------------------------
 # Global state: figure management
@@ -330,19 +333,19 @@ def subplots(nrows=1, ncols=1, figsize=None, dpi=100, **kwargs):
 
     _current_ax = axes_grid[0][0] if axes_grid else None
 
-    axes_arr = np.array(axes_grid)  # shape (nrows, ncols)
-
     if not squeeze:
+        axes_arr = np.array(axes_grid)
         return fig, axes_arr
 
-    # squeeze: remove axes with length 1
+    # squeeze: remove dimensions with length 1
     if nrows == 1 and ncols == 1:
-        return fig, axes_arr[0, 0]
+        return fig, axes_grid[0][0]
     elif nrows == 1:
-        return fig, axes_arr[0, :]
+        return fig, np.array(axes_grid[0])
     elif ncols == 1:
-        return fig, axes_arr[:, 0]
+        return fig, np.array([row[0] for row in axes_grid])
     else:
+        axes_arr = np.array(axes_grid)
         return fig, axes_arr
 
 
@@ -556,6 +559,24 @@ def imshow(X, **kwargs):
 
 def pcolormesh(*args, **kwargs):
     return gca().pcolormesh(*args, **kwargs)
+
+def pcolor(*args, **kwargs):
+    return gca().pcolormesh(*args, **kwargs)
+
+def get_cmap(name=None, lut=None):
+    """Return a colormap by name."""
+    return cm.get_cmap(name, lut)
+
+def set_cmap(cmap):
+    """Set the default colormap."""
+    import matplotlib
+    if isinstance(cmap, str):
+        cmap_name = cmap
+        cmap_obj = cm.get_cmap(cmap_name)
+        # Use the registered name (key in colormaps) so get_cmap can find it later
+        matplotlib.rcParams['image.cmap'] = cmap_name
+    else:
+        matplotlib.rcParams['image.cmap'] = cmap.name
 
 def contour(*args, **kwargs):
     return gca().contour(*args, **kwargs)

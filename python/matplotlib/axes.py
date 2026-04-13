@@ -6,7 +6,8 @@ import math
 
 builtins_range = range  # alias so we can use 'range' as a parameter name
 
-from matplotlib.colors import DEFAULT_CYCLE, to_hex, parse_fmt
+from matplotlib.colors import to_hex
+from matplotlib._codepod_compat import DEFAULT_CYCLE, parse_fmt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle, Polygon, Wedge
 from matplotlib.collections import PathCollection, LineCollection, Collection
@@ -511,8 +512,8 @@ class Axes:
         self._y_inverted = False
         self._xscale = 'linear'
         self._yscale = 'linear'
-        self._xscale_obj = LinearScale()
-        self._yscale_obj = LinearScale()
+        self._xscale_obj = LinearScale(None)
+        self._yscale_obj = LinearScale(None)
         self._aspect = 'auto'
 
         # Shared axes
@@ -2440,12 +2441,14 @@ class Axes:
 
     def set_xlabel(self, s, **kwargs):
         self._xlabel = s
+        self.xaxis._label.set_text(s)
 
     def get_xlabel(self):
         return self._xlabel
 
     def set_ylabel(self, s, **kwargs):
         self._ylabel = s
+        self.yaxis._label.set_text(s)
 
     def get_ylabel(self):
         return self._ylabel
@@ -2766,12 +2769,13 @@ class Axes:
                                        SymmetricalLogScale, FuncScale)
         if isinstance(scale, str):
             if scale == 'linear':
-                scale_obj = LinearScale()
+                scale_obj = LinearScale(None)
             elif scale == 'log':
-                scale_obj = LogScale(base=kwargs.get('base', 10.0),
+                scale_obj = LogScale(None, base=kwargs.get('base', 10.0),
                                      nonpositive=kwargs.get('nonpositive', 'mask'))
             elif scale == 'symlog':
                 scale_obj = SymmetricalLogScale(
+                    None,
                     base=kwargs.get('base', 10.0),
                     linthresh=kwargs.get('linthresh', 2.0),
                     linscale=kwargs.get('linscale', 1.0))
@@ -2793,12 +2797,13 @@ class Axes:
                                        SymmetricalLogScale, FuncScale)
         if isinstance(scale, str):
             if scale == 'linear':
-                scale_obj = LinearScale()
+                scale_obj = LinearScale(None)
             elif scale == 'log':
-                scale_obj = LogScale(base=kwargs.get('base', 10.0),
+                scale_obj = LogScale(None, base=kwargs.get('base', 10.0),
                                      nonpositive=kwargs.get('nonpositive', 'mask'))
             elif scale == 'symlog':
                 scale_obj = SymmetricalLogScale(
+                    None,
                     base=kwargs.get('base', 10.0),
                     linthresh=kwargs.get('linthresh', 2.0),
                     linscale=kwargs.get('linscale', 1.0))
@@ -3257,8 +3262,8 @@ class Axes:
         from matplotlib.scale import LinearScale
         self._xscale = 'linear'
         self._yscale = 'linear'
-        self._xscale_obj = LinearScale()
-        self._yscale_obj = LinearScale()
+        self._xscale_obj = LinearScale(None)
+        self._yscale_obj = LinearScale(None)
         self._aspect = 'auto'
         # Note: do NOT reset _shared_x/_shared_y — shared axes persist across cla()
         self._xticklabels_visible = True
@@ -3603,6 +3608,8 @@ class Axes:
                         origin=origin)
         if alpha is not None:
             im.set_alpha(alpha)
+        if vmin is not None or vmax is not None:
+            im.set_clim(vmin, vmax)
 
         label = kwargs.get('label')
         if label is not None:

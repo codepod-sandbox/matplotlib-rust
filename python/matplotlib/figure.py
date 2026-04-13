@@ -9,6 +9,16 @@ from matplotlib.gridspec import SubplotSpec
 from matplotlib.text import Text
 
 
+class _FigureCanvas:
+    """Minimal canvas stub for Figure."""
+    def __init__(self, figure):
+        self.figure = figure
+    def draw(self):
+        pass
+    def draw_idle(self):
+        pass
+
+
 def _validate_figsize(w, h):
     for val, name in [(w, 'width'), (h, 'height')]:
         if math.isnan(val):
@@ -37,6 +47,7 @@ class Figure:
         self.stale = True
         self.texts = []
         self._current_ax = None
+        self.canvas = _FigureCanvas(self)
 
     # ------------------------------------------------------------------
     # Axes management
@@ -439,16 +450,19 @@ class Figure:
         pass
 
     def colorbar(self, mappable, ax=None, cax=None, **kwargs):
-        """Add a colorbar (stub that returns a minimal object)."""
-        class _Colorbar:
-            def __init__(self, mappable):
-                self.mappable = mappable
-                self.ax = None
-            def set_label(self, label):
-                pass
-            def remove(self):
-                pass
-        return _Colorbar(mappable)
+        """Add a colorbar to the figure."""
+        from matplotlib.colorbar import Colorbar
+        cbar_ax = self.add_subplot(111) if cax is None else cax
+        cbar = Colorbar(cbar_ax, mappable, **kwargs)
+        cbar.ax = cbar_ax
+        # Set the ylim from the mappable's norm if available
+        norm = getattr(mappable, 'norm', None)
+        if norm is not None:
+            vmin = getattr(norm, 'vmin', None)
+            vmax = getattr(norm, 'vmax', None)
+            if vmin is not None and vmax is not None:
+                cbar_ax.set_ylim(vmin, vmax)
+        return cbar
 
     def add_gridspec(self, nrows=1, ncols=1, **kwargs):
         """Add a GridSpec to the figure."""

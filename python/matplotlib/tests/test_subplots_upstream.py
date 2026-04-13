@@ -541,3 +541,86 @@ class TestSubplotsLayout:
         assert isinstance(ax2, Axes)
         assert ax1 is not ax2
         plt.close('all')
+
+
+class TestSubplotsProperties:
+    def test_subplots_axes_have_correct_xlim_default(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        xmin, xmax = ax.get_xlim()
+        assert xmin <= 0
+        assert xmax >= 1
+        plt.close('all')
+
+    def test_subplots_2x1_axes_are_distinct(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 1)
+        ax1, ax2 = axes[0], axes[1]
+        assert ax1 is not ax2
+        plt.close('all')
+
+    def test_subplots_1x2_axes_are_distinct(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, 2)
+        ax1, ax2 = axes[0], axes[1]
+        assert ax1 is not ax2
+        plt.close('all')
+
+    def test_subplots_sharex_axes(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 1, sharex=True)
+        ax1, ax2 = axes[0], axes[1]
+        ax1.set_xlim(0, 5)
+        assert ax2.get_xlim() == ax1.get_xlim()
+        plt.close('all')
+
+    def test_subplots_sharey_axes(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, 2, sharey=True)
+        ax1, ax2 = axes[0], axes[1]
+        ax1.set_ylim(0, 5)
+        assert ax2.get_ylim() == ax1.get_ylim()
+        plt.close('all')
+
+    def test_subplots_figsize(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(10, 5))
+        w, h = fig.get_size_inches()
+        assert abs(w - 10) < 1e-6
+        assert abs(h - 5) < 1e-6
+        plt.close('all')
+
+    def test_subplots_dpi(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        fig.set_dpi(150)
+        assert abs(fig.get_dpi() - 150) < 1e-6
+        plt.close('all')
+
+    @pytest.mark.parametrize('n', [1, 2, 3, 4])
+    def test_subplots_row_count(self, n):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(n, 1)
+        if n == 1:
+            axes = [axes]
+        assert len(axes) == n
+        plt.close('all')
+
+    def test_subplots_title_on_each_ax(self):
+        import matplotlib.pyplot as plt
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        ax1.set_title('left')
+        ax2.set_title('right')
+        assert ax1.get_title() == 'left'
+        assert ax2.get_title() == 'right'
+        plt.close('all')
+
+    def test_subplots_plot_on_both_axes(self):
+        import matplotlib.pyplot as plt
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        ax1.plot([0, 1], [0, 1])
+        ax2.plot([0, 1], [1, 0])
+        assert len(ax1.lines) == 1
+        assert len(ax2.lines) == 1
+        plt.close('all')

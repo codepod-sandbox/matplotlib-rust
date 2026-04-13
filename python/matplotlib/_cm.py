@@ -1,8 +1,12 @@
-# Copyright (c) 2012- Matplotlib Development Team; All Rights Reserved
-# Copyright (c) 2024 CodePod Contributors — BSD 3-Clause License
-"""Colormap segment data for classic colormaps (jet, hot, cool, bone, copper, etc.)."""
+"""
+Nothing here but dictionaries for generating LinearSegmentedColormaps,
+and a dictionary of these dictionaries.
 
-import functools
+Documentation for each is in pyplot.colormaps().  Please update this
+with the purpose and type of your colormap if you add data for one here.
+"""
+
+from functools import partial
 
 import numpy as np
 
@@ -95,9 +99,9 @@ def cubehelix(gamma=1.0, s=0.5, r=-1.5, h=1.0):
         The hue, i.e. how saturated the colors are. If this parameter is zero
         then the color scheme is purely a greyscale.
     """
-    return {'red': functools.partial(_ch_helper, gamma, s, r, h, -0.14861, 1.78277),
-            'green': functools.partial(_ch_helper, gamma, s, r, h, -0.29227, -0.90649),
-            'blue': functools.partial(_ch_helper, gamma, s, r, h, 1.97294, 0.0)}
+    return {'red': partial(_ch_helper, gamma, s, r, h, -0.14861, 1.78277),
+            'green': partial(_ch_helper, gamma, s, r, h, -0.29227, -0.90649),
+            'blue': partial(_ch_helper, gamma, s, r, h, 1.97294, 0.0)}
 
 _cubehelix_data = cubehelix()
 
@@ -1359,6 +1363,20 @@ _tab20c_data = (
     (0.5882352941176471,  0.5882352941176471,  0.5882352941176471  ),  # 969696
     (0.7411764705882353,  0.7411764705882353,  0.7411764705882353  ),  # bdbdbd
     (0.8509803921568627,  0.8509803921568627,  0.8509803921568627  ),  # d9d9d9
+)
+
+
+_petroff10_data = (
+    (0.24705882352941178, 0.5647058823529412,  0.8549019607843137),    # 3f90da
+    (1.0,                 0.6627450980392157,  0.054901960784313725),  # ffa90e
+    (0.7411764705882353,  0.12156862745098039, 0.00392156862745098),   # bd1f01
+    (0.5803921568627451,  0.6431372549019608,  0.6352941176470588),    # 94a4a2
+    (0.5137254901960784,  0.17647058823529413, 0.7137254901960784),    # 832db6
+    (0.6627450980392157,  0.4196078431372549,  0.34901960784313724),   # a96b59
+    (0.9058823529411765,  0.38823529411764707, 0.0),                   # e76300
+    (0.7254901960784313,  0.6745098039215687,  0.4392156862745098),    # b9ac70
+    (0.44313725490196076, 0.4588235294117647,  0.5058823529411764),    # 717581
+    (0.5725490196078431,  0.8549019607843137,  0.8666666666666667),    # 92dadd
 )
 
 

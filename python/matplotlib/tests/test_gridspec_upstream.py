@@ -497,3 +497,73 @@ class TestGridSpecSubplots:
     def test_wspace_values(self, wspace):
         gs = GridSpec(2, 2, wspace=wspace)
         assert abs(gs._wspace - wspace) < 1e-10
+
+
+class TestGridSpecSubplotSpec:
+    def test_gridspec_nrows_ncols(self):
+        gs = GridSpec(3, 4)
+        assert gs.nrows == 3
+        assert gs.ncols == 4
+
+    def test_gridspec_get_subplot_params_default(self):
+        gs = GridSpec(2, 2)
+        # Should not raise
+        params = gs.get_subplot_params()
+        assert params is not None
+
+    def test_gridspec_subplotspec_rowspan(self):
+        gs = GridSpec(3, 3)
+        spec = gs[0:2, 0]
+        assert spec is not None
+
+    def test_gridspec_single_cell(self):
+        gs = GridSpec(1, 1)
+        spec = gs[0, 0]
+        assert spec is not None
+
+    def test_gridspecfromsubplotspec_shape(self):
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        outer = GridSpec(2, 2)
+        inner = GridSpecFromSubplotSpec(2, 2, subplot_spec=outer[0, 0])
+        assert inner.nrows == 2
+        assert inner.ncols == 2
+        plt.close('all')
+
+    def test_gridspecfromsubplotspec_add_subplot(self):
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        outer = GridSpec(1, 2)
+        inner = GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[0, 0])
+        ax = fig.add_subplot(inner[0, 0])
+        assert ax is not None
+        plt.close('all')
+
+    @pytest.mark.parametrize('nrows,ncols', [(1, 1), (2, 2), (3, 3), (2, 4)])
+    def test_gridspec_shape_parametric(self, nrows, ncols):
+        gs = GridSpec(nrows, ncols)
+        assert gs.nrows == nrows
+        assert gs.ncols == ncols
+
+    def test_gridspec_index_returns_subplotspec(self):
+        from matplotlib.gridspec import SubplotSpec
+        gs = GridSpec(2, 2)
+        spec = gs[0, 1]
+        assert isinstance(spec, SubplotSpec)
+
+    def test_gridspec_slice_returns_subplotspec(self):
+        from matplotlib.gridspec import SubplotSpec
+        gs = GridSpec(2, 3)
+        spec = gs[0, :]
+        assert isinstance(spec, SubplotSpec)
+
+    def test_nested_gridspec_axes_count(self):
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        outer = GridSpec(1, 2)
+        inner_left = GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[0, 0])
+        inner_right = GridSpecFromSubplotSpec(1, 2, subplot_spec=outer[0, 1])
+        axes = [fig.add_subplot(inner_left[i, 0]) for i in range(2)]
+        axes += [fig.add_subplot(inner_right[0, j]) for j in range(2)]
+        assert len(axes) == 4
+        plt.close('all')

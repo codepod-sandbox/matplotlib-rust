@@ -5,7 +5,9 @@ Provides colormap objects (ListedColormap, LinearSegmentedColormap),
 a global registry, get_cmap(), and the ScalarMappable mixin.
 """
 
+import numpy as np
 from matplotlib.colors import Normalize, to_rgba
+from matplotlib.cbook import CallbackRegistry as _CallbackRegistry
 
 # Copyright (c) 2012- Matplotlib Development Team; All Rights Reserved
 
@@ -498,6 +500,8 @@ class ColormapRegistry:
     def __init__(self, cmaps):
         # cmaps: dict of name -> Colormap
         self._cmaps = dict(cmaps)
+        # Track names of builtin cmaps so register() can give the right error
+        self._builtin_cmaps = frozenset(cmaps)
 
     def __getitem__(self, item):
         try:
@@ -527,6 +531,8 @@ class ColormapRegistry:
             name = cmap.name
         if not isinstance(cmap, Colormap):
             raise ValueError(f"register() requires a Colormap instance, got {type(cmap)}")
+        if name in self._builtin_cmaps:
+            raise ValueError(f"Re-registering the builtin cmap {name!r}.")
         if name in self._cmaps and not force:
             raise ValueError(
                 f"A colormap named {name!r} is already registered. "
@@ -535,7 +541,9 @@ class ColormapRegistry:
         self._cmaps[name] = cmap
 
     def __call__(self, name=None, lut=None):
-        """Get a colormap by name (like get_cmap)."""
+        """Get a colormap by name, or return self (iterable) when called with no args."""
+        if name is None and lut is None:
+            return self
         return self.get_cmap(name, lut)
 
     def unregister(self, name):
@@ -664,9 +672,12 @@ def _build_registry():
                 pass
 
     # Aliases (after _r generation so grey_r == gray_r)
+    # Store copies with the alias name so colormaps["grey"].name == "grey"
     for alias, canonical in [('grey', 'gray'), ('grey_r', 'gray_r')]:
         if canonical in cmaps:
-            cmaps[alias] = cmaps[canonical]
+            cmap_copy = cmaps[canonical].copy()
+            cmap_copy.name = alias
+            cmaps[alias] = cmap_copy
 
     return ColormapRegistry(cmaps)
 
@@ -726,6 +737,8 @@ class ScalarMappable:
         self._A = None  # data array
         self.colorbar = None  # set by colorbar
         self._update_dict = {'array': False}
+        self.stale = False
+        self.callbacks = _CallbackRegistry()
 
     @property
     def norm(self):
@@ -789,13 +802,31 @@ class ScalarMappable:
 
         Parameters
         ----------
-        x : float or list
-            Data values.
+        x : float or array
+            Data values, or pre-formed RGB/RGBA array (last dim 3 or 4).
         alpha : float, optional
         bytes : bool
         norm : bool
             If True, normalize x first.
         """
+        x = np.asarray(x)
+        # If already an RGB/RGBA array (shape [..., 3] or [..., 4]), pass through.
+        if x.ndim >= 2 and x.shape[-1] in (3, 4):
+            # Convert to float in 0-1 if uint8, or keep as-is if float
+            if x.dtype == np.uint8:
+                rgba = x.astype(np.float32) / 255
+            else:
+                rgba = x.astype(np.float32)
+            # Add alpha channel if only 3 channels
+            if rgba.shape[-1] == 3:
+                alpha_ch = np.ones(rgba.shape[:-1] + (1,), dtype=np.float32)
+                rgba = np.concatenate([rgba, alpha_ch], axis=-1)
+            # Override alpha if provided
+            if alpha is not None:
+                rgba[..., -1] = alpha
+            if bytes:
+                return (rgba * 255).astype(np.uint8)
+            return rgba
         if norm and self._norm is not None:
             x_normed = self._norm(x)
         else:
@@ -804,7 +835,8 @@ class ScalarMappable:
 
     def changed(self):
         """Call to notify that the mappable has changed."""
-        pass
+        self.stale = True
+        self.callbacks.process('changed', self)
 
     def autoscale(self):
         """Autoscale the norm from the current array."""
@@ -819,3 +851,10 @@ class ScalarMappable:
             if self._norm is None:
                 self._norm = Normalize()
             self._norm.autoscale_None(self._A)
+
+
+def __getattr__(name):
+    """Support ``cm.viridis``, ``cm.Reds``, etc. as colormap lookups."""
+    if name in _colormaps:
+        return _colormaps[name]
+    raise AttributeError(f"module 'matplotlib.cm' has no attribute {name!r}")

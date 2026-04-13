@@ -14,7 +14,8 @@ from matplotlib.collections import PathCollection
 from matplotlib.container import BarContainer, ErrorbarContainer
 from matplotlib.patches import Rectangle, Patch
 from matplotlib.text import Text, Annotation
-from matplotlib.colors import to_hex, DEFAULT_CYCLE
+from matplotlib.colors import to_hex
+from matplotlib._codepod_compat import DEFAULT_CYCLE
 
 
 # ===================================================================
