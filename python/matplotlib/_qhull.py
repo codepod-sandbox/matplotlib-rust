@@ -5,6 +5,7 @@ Replaced by crates/matplotlib-qhull (spade crate) in Phase 3.
 
 
 class Delaunay:
+    """Stub Delaunay triangulation."""
     def __init__(self, points):
         raise NotImplementedError("_qhull not yet implemented (Phase 3)")
 

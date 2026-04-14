@@ -33,11 +33,18 @@ FACE_FLAG_KERNING = 64
 FACE_FLAG_FAST_GLYPHS = 128
 FACE_FLAG_MULTIPLE_MASTERS = 256
 FACE_FLAG_GLYPH_NAMES = 512
+FACE_FLAG_BOLD = 1
+FACE_FLAG_ITALIC = 2
 STYLE_FLAG_ITALIC = 1
 STYLE_FLAG_BOLD = 2
 
 
 class FT2Font:
+    """Stub FT2Font.
+
+    Attributes are populated so font_manager can scan fonts without crashing.
+    Rendering calls raise NotImplementedError.
+    """
     def __init__(self, filename, hinting_factor=8, *, _fallback_list=None,
                  _kerning=False):
         self.fname = filename
@@ -119,6 +126,7 @@ class FT2Font:
 
 
 class FT2Image:
+    """Stub FT2Image."""
     def __init__(self, width, height):
         self.width = int(width)
         self.height = int(height)
