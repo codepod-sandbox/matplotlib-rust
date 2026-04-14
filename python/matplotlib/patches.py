@@ -138,9 +138,9 @@ class Patch(Artist):
     def get_fill(self):
         return getattr(self, '_fill', True)
 
-    def set_path_effects(self, effects):
+    def set_path_effects(self, path_effects):
         """Set path effects."""
-        self._path_effects = effects
+        self._path_effects = path_effects
 
     def get_path_effects(self):
         return getattr(self, '_path_effects', [])

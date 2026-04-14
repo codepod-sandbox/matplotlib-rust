@@ -65,6 +65,16 @@ class BboxBase:
         return (self.x1, self.y1)
 
     @property
+    def width(self):
+        """Width of the bounding box (x1 - x0)."""
+        return self.x1 - self.x0
+
+    @property
+    def height(self):
+        """Height of the bounding box (y1 - y0)."""
+        return self.y1 - self.y0
+
+    @property
     def size(self):
         return (self.width, self.height)
 
@@ -748,7 +758,7 @@ class Affine2D(Affine2DBase):
     def frozen(self):
         return Affine2D(self._mtx.copy())
 
-    def __add__(self, other):
+    def __add__(self, other):  # type: ignore[override]
         """Compose: apply self then other."""
         if isinstance(other, Affine2D):
             return Affine2D(other._mtx @ self._mtx)

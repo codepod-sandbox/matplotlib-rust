@@ -155,8 +155,10 @@ def _preprocess_data(func=None, *, replace_names=None, label_namer=None):
                 return func(ax, *args, **kwargs)
 
         bound = new_sig.bind(ax, *args, **kwargs)
-        auto_label = (bound.arguments.get(label_namer)
-                      or bound.kwargs.get(label_namer))
+        auto_label = (
+            (bound.arguments.get(label_namer) or bound.kwargs.get(label_namer))
+            if label_namer is not None else None
+        )
 
         for k, v in bound.arguments.items():
             if k == varkwargs_name:
@@ -181,5 +183,5 @@ def _preprocess_data(func=None, *, replace_names=None, label_namer=None):
         return func(*new_args, **new_kwargs)
 
     inner.__doc__ = _add_data_doc(inner.__doc__, replace_names)
-    inner.__signature__ = new_sig
+    inner.__signature__ = new_sig  # type: ignore[attr-defined]
     return inner

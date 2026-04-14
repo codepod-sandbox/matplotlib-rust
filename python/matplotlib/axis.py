@@ -8,6 +8,7 @@ from matplotlib.ticker import (
     AutoLocator, ScalarFormatter,
     FixedLocator, FixedFormatter,
     NullLocator, NullFormatter,
+    Locator, Formatter,
 )
 from matplotlib.scale import LinearScale
 from matplotlib.artist import Artist
@@ -17,7 +18,10 @@ from matplotlib.cbook import CallbackRegistry
 class _TickerPair:
     """Holds a (locator, formatter) pair for major or minor ticks."""
 
-    def __init__(self, locator, formatter):
+    locator: Locator
+    formatter: Formatter
+
+    def __init__(self, locator: Locator, formatter: Formatter) -> None:
         self.locator = locator
         self.formatter = formatter
 

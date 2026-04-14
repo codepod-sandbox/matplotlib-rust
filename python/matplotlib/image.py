@@ -133,6 +133,8 @@ class AxesImage(ColorizerMixin, Artist):
             cmap_name = self._cmap if self._cmap else 'viridis'
             colormap = _cm.get_cmap(cmap_name)
             vmin, vmax = self.get_clim()
+            vmin = float(vmin) if vmin is not None else 0.0
+            vmax = float(vmax) if vmax is not None else 1.0
             rng = (vmax - vmin) if vmax != vmin else 1.0
             rgba_array = []
             for row in rows:
