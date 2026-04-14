@@ -348,7 +348,8 @@ class _LinePath:
     """Lightweight path-like object returned by Line2D.get_path()."""
 
     def __init__(self, vertices):
-        self.vertices = vertices
+        import numpy as np
+        self.vertices = np.array(vertices) if vertices else np.zeros((0, 2))
 
     def __len__(self):
         return len(self.vertices)
@@ -360,4 +361,9 @@ class _LinePath:
 # Module-level aliases for upstream compatibility
 lineStyles = Line2D.lineStyles
 lineMarkers = Line2D.markers
+
+# Marker constants (match matplotlib.markers numeric codes)
+(TICKLEFT, TICKRIGHT, TICKUP, TICKDOWN,
+ CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
+ CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE) = range(12)
 

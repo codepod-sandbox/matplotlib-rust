@@ -28,13 +28,17 @@ class Container(tuple):
 class BarContainer(Container):
     """Container for bar-chart rectangles and optional errorbars."""
 
-    def __new__(cls, patches, errorbar=None, label=None):
+    def __new__(cls, patches, errorbar=None, datavalues=None, label=None,
+                orientation=None):
         return super().__new__(cls, patches)
 
-    def __init__(self, patches, errorbar=None, label=None):
+    def __init__(self, patches, errorbar=None, datavalues=None, label=None,
+                 orientation=None):
         super().__init__(patches)
         self._patches = list(patches)
         self.errorbar = errorbar
+        self.datavalues = datavalues
+        self.orientation = orientation
         self.set_label(label)
 
     @property

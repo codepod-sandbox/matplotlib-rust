@@ -1,4 +1,14 @@
 """matplotlib.artist --- base class for all visual objects."""
+import functools
+
+
+def allow_rasterization(draw):
+    """Decorator to allow rasterization for an artist's draw method."""
+    @functools.wraps(draw)
+    def draw_wrapper(artist, renderer):
+        return draw(artist, renderer)
+    draw_wrapper._supports_rasterization = True
+    return draw_wrapper
 
 
 class Artist:
@@ -13,8 +23,17 @@ class Artist:
         self._zorder = self.__class__.zorder
         self._clip_on = True
         self.figure = None
-        self.axes = None
+        self._axes = None
         self._stale = True
+
+    @property
+    def axes(self):
+        """The `~.axes.Axes` instance the artist resides in, or *None*."""
+        return self._axes
+
+    @axes.setter
+    def axes(self, new_axes):
+        self._axes = new_axes
 
     def get_visible(self):
         return self._visible
@@ -47,8 +66,10 @@ class Artist:
         self._zorder = level
 
     def remove(self):
-        """Remove this artist from its axes."""
-        if self.axes is not None:
+        """Remove this artist from its figure/axes."""
+        if hasattr(self, '_remove_method') and self._remove_method is not None:
+            self._remove_method(self)
+        elif self.axes is not None and hasattr(self.axes, '_remove_artist'):
             self.axes._remove_artist(self)
 
     def set(self, **kwargs):
@@ -206,8 +227,128 @@ class Artist:
         """Set the contains test function."""
         self._contains = picker
 
-    def get_figure(self):
-        """Return the figure."""
+    def convert_xunits(self, x):
+        """Convert *x* using the unit type of the xaxis."""
+        ax = getattr(self, 'axes', None)
+        if ax is None:
+            return x
+        xaxis = getattr(ax, 'xaxis', None)
+        if xaxis is None:
+            return x
+        return xaxis.convert_units(x)
+
+    def convert_yunits(self, y):
+        """Convert *y* using the unit type of the yaxis."""
+        ax = getattr(self, 'axes', None)
+        if ax is None:
+            return y
+        yaxis = getattr(ax, 'yaxis', None)
+        if yaxis is None:
+            return y
+        return yaxis.convert_units(y)
+
+    class _StickyEdges:
+        """Simple container for sticky_edges x/y lists."""
+        def __init__(self):
+            self.x = []
+            self.y = []
+
+    @property
+    def sticky_edges(self):
+        """x and y sticky edge lists for autoscaling."""
+        if not hasattr(self, '_sticky_edges'):
+            self._sticky_edges = Artist._StickyEdges()
+        return self._sticky_edges
+
+    def _internal_update(self, kwargs):
+        """Update artist properties from kwargs dict."""
+        for k, v in kwargs.items():
+            setter = getattr(self, f'set_{k}', None)
+            if setter is not None:
+                setter(v)
+            else:
+                raise AttributeError(
+                    f"{type(self).__name__}.set() got an unexpected keyword "
+                    f"argument {k!r}")
+        return self
+
+    def get_mouseover(self):
+        """Return whether the artist responds to mouse-over."""
+        return getattr(self, '_mouseover', False)
+
+    def set_mouseover(self, val):
+        """Set whether the artist responds to mouse-over."""
+        self._mouseover = bool(val)
+
+    def get_clip_path(self):
+        """Return the clip path."""
+        return getattr(self, '_clip_path', None)
+
+    def set_clip_path(self, path, transform=None):
+        """Set the clip path."""
+        self._clip_path = path
+
+    def get_path_effects(self):
+        """Return path effects."""
+        return getattr(self, '_path_effects', [])
+
+    def set_path_effects(self, effects):
+        """Set path effects."""
+        self._path_effects = effects
+
+    def get_sketch_params(self):
+        """Return sketch params."""
+        return getattr(self, '_sketch', None)
+
+    def set_sketch_params(self, scale=0.1, length=0.1, randomness=0.1):
+        """Set sketch params."""
+        self._sketch = (scale, length, randomness)
+
+    def get_snap(self):
+        """Return whether snapping is enabled."""
+        return getattr(self, '_snap', None)
+
+    def set_snap(self, snap):
+        """Set whether snapping is enabled."""
+        self._snap = snap
+
+    def get_agg_filter(self):
+        """Return the agg filter."""
+        return getattr(self, '_agg_filter', None)
+
+    def set_agg_filter(self, filter_func):
+        """Set the agg filter."""
+        self._agg_filter = filter_func
+
+    def get_rasterized(self):
+        """Return whether the artist is rasterized."""
+        return getattr(self, '_rasterized', False)
+
+    def set_rasterized(self, val):
+        """Set whether the artist is rasterized."""
+        self._rasterized = bool(val)
+
+    def get_in_layout(self):
+        """Return whether the artist is included in layout calculations."""
+        return getattr(self, '_in_layout', True)
+
+    def set_in_layout(self, val):
+        """Set whether the artist is included in layout calculations."""
+        self._in_layout = bool(val)
+
+    def get_transform(self):
+        """Return the transform."""
+        return getattr(self, '_transform', None)
+
+    def get_figure(self, root=True):
+        """Return the figure.
+
+        Parameters
+        ----------
+        root : bool, default True
+            If True, return the root-level Figure. If False, return the
+            immediate parent Figure (may be a subfigure).
+        """
         return self.figure
 
     def set_figure(self, fig):
@@ -256,3 +397,21 @@ class Artist:
             for child in self.get_children():
                 result.extend(child.findobj(match, include_self=True))
         return result
+
+
+def kwdoc(artist):
+    """Stub kwdoc for _docstring.interpd compatibility."""
+    return ''
+
+
+class ArtistInspector:
+    """Stub ArtistInspector."""
+
+    def __init__(self, o):
+        pass
+
+    def pprint_setters(self, leadingspace=2):
+        return []
+
+    def pprint_setters_rest(self, leadingspace=4):
+        return []

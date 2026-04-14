@@ -3,6 +3,7 @@
 import numpy as np
 from matplotlib.artist import Artist
 from matplotlib.colors import to_hex, to_rgba
+from matplotlib.colorizer import ColorizerMixin
 
 _LINESTYLE_ALIASES = {
     '-': 'solid', '--': 'dashed', '-.': 'dashdot', ':': 'dotted',
@@ -10,7 +11,7 @@ _LINESTYLE_ALIASES = {
 }
 
 
-class Collection(Artist):
+class Collection(ColorizerMixin, Artist):
     """Base class for collections of similar artists."""
 
     zorder = 1
@@ -25,6 +26,7 @@ class Collection(Artist):
         self._capstyle = None
         self._joinstyle = None
         self.norm = None
+        self._transform = None
         if kwargs:
             self.set(**kwargs)
 
@@ -178,19 +180,59 @@ class Collection(Artist):
         """Set the normalization instance."""
         self.norm = norm
 
+    def get_datalim(self, transData):
+        """Return the data bounding box of this collection."""
+        import numpy as np
+        from matplotlib.transforms import Bbox
+        try:
+            paths = self.get_paths()
+            if paths:
+                all_points = []
+                for p in paths:
+                    if hasattr(p, 'vertices'):
+                        all_points.extend(p.vertices.tolist())
+                    elif hasattr(p, '__iter__'):
+                        all_points.extend(p)
+                if all_points:
+                    arr = np.array(all_points)
+                    return Bbox.from_extents(
+                        arr[:, 0].min(), arr[:, 1].min(),
+                        arr[:, 0].max(), arr[:, 1].max()
+                    )
+        except Exception:
+            pass
+        return Bbox.null()
+
+    def set_transform(self, t):
+        """Set the transform for this collection."""
+        self._transform = t
+
+    def get_transform(self):
+        """Return the transform."""
+        from matplotlib.transforms import IdentityTransform
+        return getattr(self, '_transform', IdentityTransform())
+
 
 class PathCollection(Collection):
     """A collection of paths with offsets, used by scatter()."""
 
-    def __init__(self, offsets=None, sizes=None, facecolors=None,
-                 edgecolors=None, label=None, marker='o', **kwargs):
+    def __init__(self, paths=None, sizes=None, facecolors=None,
+                 edgecolors=None, linewidths=None, label=None,
+                 offsets=None, offset_transform=None, **kwargs):
         super().__init__(**kwargs)
 
+        self._paths = list(paths) if paths is not None else []
         self._offsets = list(offsets) if offsets is not None else []
         self._sizes = list(sizes) if sizes is not None else [20.0]
         self._facecolors = list(facecolors) if facecolors is not None else []
         self._edgecolors = list(edgecolors) if edgecolors is not None else []
-        self._marker = marker
+        self._offset_transform = offset_transform
+
+        if linewidths is not None:
+            if hasattr(linewidths, '__iter__'):
+                self._linewidths = list(linewidths)
+            else:
+                self._linewidths = [linewidths]
 
         if label is not None:
             self.set_label(label)
@@ -236,7 +278,7 @@ class LineCollection(Collection):
     def __init__(self, segments=None, linewidths=None, colors=None,
                  linestyles=None, label=None, **kwargs):
         super().__init__(**kwargs)
-        self._segments = [list(seg) for seg in segments] if segments else []
+        self._segments = [list(seg) for seg in segments] if segments is not None else []
         if linewidths is not None:
             if hasattr(linewidths, '__iter__'):
                 self._linewidths = list(linewidths)
@@ -255,13 +297,16 @@ class LineCollection(Collection):
         if label is not None:
             self.set_label(label)
 
+    def __len__(self):
+        return len(self._segments)
+
     def get_segments(self):
         """Return a copy of the segments."""
         return [list(seg) for seg in self._segments]
 
     def set_segments(self, segments):
         """Set the segments."""
-        self._segments = [list(seg) for seg in segments] if segments else []
+        self._segments = [list(seg) for seg in segments] if segments is not None else []
 
     set_verts = set_segments
 
@@ -663,3 +708,63 @@ class BrokenBarHCollection(PolyCollection):
             else:
                 i += 1
         return cls(xranges, (ymin, ymax - ymin), **kwargs)
+
+
+class FillBetweenPolyCollection(PolyCollection):
+    """A PolyCollection used for fill_between areas."""
+
+    def __init__(self, t_direction, t, f1, f2, *, where=None,
+                 interpolate=False, step=None, **kwargs):
+        self.t_direction = t_direction
+        verts = self._make_verts_simple(t, f1, f2, where)
+        super().__init__(verts, **kwargs)
+
+    @staticmethod
+    def _f_dir_from_t(t_direction):
+        """The direction that is other than `t_direction`."""
+        if t_direction == "x":
+            return "y"
+        elif t_direction == "y":
+            return "x"
+        else:
+            raise ValueError(f"t_direction must be 'x' or 'y', got {t_direction!r}")
+
+    @property
+    def _f_direction(self):
+        return self._f_dir_from_t(self.t_direction)
+
+    def _make_verts_simple(self, t, f1, f2, where):
+        """Create vertices for fill_between polygon."""
+        import numpy as np
+        t = np.asarray(t, dtype=float)
+        f1 = np.broadcast_to(np.asarray(f1, dtype=float), t.shape)
+        f2 = np.broadcast_to(np.asarray(f2, dtype=float), t.shape)
+        if where is not None:
+            where = np.asarray(where, dtype=bool)
+        else:
+            where = np.ones(len(t), dtype=bool)
+        verts = []
+        if self.t_direction == 'x':
+            pts = list(zip(t[where], f1[where])) + \
+                  list(zip(t[where][::-1], f2[where][::-1]))
+        else:
+            pts = list(zip(f1[where], t[where])) + \
+                  list(zip(f2[where][::-1], t[where][::-1]))
+        if pts:
+            verts = [pts]
+        return verts
+
+    def set_data(self, t, f1, f2, *, where=None):
+        """Update data."""
+        verts = self._make_verts_simple(t, f1, f2, where)
+        self.set_verts(verts)
+
+
+class StarPolygonCollection(RegularPolyCollection):
+    """Stub StarPolygonCollection."""
+    pass
+
+
+class AsteriskPolygonCollection(RegularPolyCollection):
+    """Stub AsteriskPolygonCollection."""
+    pass

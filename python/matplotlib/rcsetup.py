@@ -24,7 +24,24 @@ _default_params = {
     'axes.edgecolor': 'black',
     'axes.linewidth': 0.8,
     'axes.grid': False,
+    'axes.spines.left': True,
+    'axes.spines.bottom': True,
+    'axes.spines.top': True,
+    'axes.spines.right': True,
+    'axes.axisbelow': 'line',
+    'axes.formatter.limits': (-5, 6),
+    'axes.formatter.use_locale': False,
+    'axes.formatter.use_mathtext': False,
+    'axes.formatter.min_exponent': 0,
+    'axes.formatter.useoffset': True,
+    'axes.formatter.offset_threshold': 4,
+    'axes.unicode_minus': True,
+    'axes.autolimit_mode': 'data',
+    'axes.xmargin': 0.05,
+    'axes.ymargin': 0.05,
+    'axes.zmargin': 0.05,
     'axes.grid.which': 'major',
+    'axes.grid.axis': 'both',
     'axes.titlesize': 'large',
     'axes.titlepad': 6.0,
     'axes.titlelocation': 'center',
@@ -224,7 +241,97 @@ _default_params = {
 
     # Internal flags used by real matplotlib ticker/scale modules
     '_internal.classic_mode': False,
+
+    # Axes title/label extras
+    'axes.titleweight': 'normal',
+    'axes.titley': None,
+    'axes.titlecolor': 'auto',
+    'axes.labelcolor': 'black',
+    'axes.labelweight': 'normal',
+
+    # Axis label location
+    'xaxis.labellocation': 'center',
+    'yaxis.labellocation': 'center',
+
+    # Boxplot extras
+    'boxplot.flierprops.color': 'black',
+    'boxplot.flierprops.linestyle': 'none',
+    'boxplot.flierprops.linewidth': 1.0,
+    'boxplot.flierprops.marker': 'o',
+    'boxplot.flierprops.markeredgecolor': 'black',
+    'boxplot.flierprops.markeredgewidth': 1.0,
+    'boxplot.flierprops.markerfacecolor': 'auto',
+    'boxplot.flierprops.markersize': 6.0,
+    'boxplot.boxprops.color': 'black',
+    'boxplot.boxprops.linestyle': '-',
+    'boxplot.boxprops.linewidth': 1.0,
+    'boxplot.whiskerprops.color': 'black',
+    'boxplot.whiskerprops.linestyle': '-',
+    'boxplot.whiskerprops.linewidth': 1.0,
+    'boxplot.capprops.color': 'black',
+    'boxplot.capprops.linestyle': '-',
+    'boxplot.capprops.linewidth': 1.0,
+    'boxplot.medianprops.color': 'C1',
+    'boxplot.medianprops.linestyle': '-',
+    'boxplot.medianprops.linewidth': 1.0,
+    'boxplot.meanprops.color': 'C2',
+    'boxplot.meanprops.linestyle': '--',
+    'boxplot.meanprops.linewidth': 1.0,
+    'boxplot.meanprops.marker': '^',
+    'boxplot.meanprops.markerfacecolor': 'C2',
+    'boxplot.meanprops.markeredgecolor': 'C2',
+    'boxplot.meanprops.markersize': 6.0,
+
+    # pcolor/pcolormesh
+    'pcolor.shading': 'auto',
+    'pcolormesh.snap': True,
+
+    # image extras
+    'image.resample': True,
+    'image.composite_image': True,
+
+    # Scatter extras
+    'scatter.edgecolors': 'face',
+
+    # Contour
+    'contour.negative_linestyle': 'dashed',
+    'contour.corner_mask': True,
+    'contour.linewidth': None,
+    'contour.algorithm': 'mpl2014',
+
+    # Hatching
+    'hatch.color': 'black',
+    'hatch.linewidth': 1.0,
+
+    # Polaraxes
+    'polaraxes.grid': True,
+
+    # Misc axes
+    'axes3d.grid': True,
+    'axes.labelsize': 'medium',
 }
+
+
+def validate_bool(b):
+    """Convert b to ``bool`` or raise."""
+    if isinstance(b, str):
+        b = b.lower()
+    if b in ('t', 'y', 'yes', 'on', 'true', '1', 1, True):
+        return True
+    elif b in ('f', 'n', 'no', 'off', 'false', '0', 0, False):
+        return False
+    else:
+        raise ValueError(f'Cannot convert {b!r} to bool')
+
+
+def validate_axisbelow(s):
+    try:
+        return validate_bool(s)
+    except ValueError:
+        if isinstance(s, str):
+            if s == 'line':
+                return 'line'
+    raise ValueError(f'{s!r} cannot be interpreted as True, False, or "line"')
 
 
 class RcParams(dict):

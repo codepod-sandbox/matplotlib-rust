@@ -11,6 +11,14 @@ import numpy as np
 class BboxBase:
     """Base class for bounding boxes."""
 
+    # Position coefficients for anchored/shrunk_to_aspect
+    coefs = {
+        'C': (0.5, 0.5),
+        'SW': (0, 0), 'S': (0.5, 0), 'SE': (1, 0),
+        'E': (1, 0.5), 'NE': (1, 1),
+        'N': (0.5, 1), 'NW': (0, 1), 'W': (0, 0.5),
+    }
+
     def __init__(self):
         pass
 
@@ -32,11 +40,21 @@ class BboxBase:
 
     @property
     def intervalx(self):
-        return (self.x0, self.x1)
+        import numpy as np
+        return np.array([self.x0, self.x1])
+
+    @intervalx.setter
+    def intervalx(self, interval):
+        self.x0, self.x1 = interval[0], interval[1]
 
     @property
     def intervaly(self):
-        return (self.y0, self.y1)
+        import numpy as np
+        return np.array([self.y0, self.y1])
+
+    @intervaly.setter
+    def intervaly(self, interval):
+        self.y0, self.y1 = interval[0], interval[1]
 
     @property
     def p0(self):
@@ -77,6 +95,14 @@ class BboxBase:
     def frozen(self):
         """Return a frozen copy."""
         return Bbox.from_bounds(self.x0, self.y0, self.width, self.height)
+
+    def transformed(self, transform):
+        """Return a new Bbox transformed by *transform*."""
+        import numpy as np
+        pts = [[self.x0, self.y0], [self.x1, self.y1]]
+        arr = np.array(pts)
+        result = transform.transform(arr)
+        return Bbox([[result[0][0], result[0][1]], [result[1][0], result[1][1]]])
 
     def __repr__(self):
         return (f"Bbox([[{self.x0}, {self.y0}], "
@@ -142,23 +168,6 @@ class Bbox(BboxBase):
         """Return a null (inverted, empty) Bbox."""
         return Bbox([[float('inf'), float('inf')],
                      [float('-inf'), float('-inf')]])
-
-    def update_from_data_xy(self, xy, ignore=True):
-        """Update bbox from data xy points."""
-        if not xy:
-            return
-        xs = [p[0] for p in xy]
-        ys = [p[1] for p in xy]
-        if ignore:
-            self.x0 = min(xs)
-            self.y0 = min(ys)
-            self.x1 = max(xs)
-            self.y1 = max(ys)
-        else:
-            self.x0 = min(self.x0, min(xs))
-            self.y0 = min(self.y0, min(ys))
-            self.x1 = max(self.x1, max(xs))
-            self.y1 = max(self.y1, max(ys))
 
     def expanded(self, sw, sh):
         """Return a Bbox expanded by factors *sw* and *sh*."""
@@ -279,6 +288,113 @@ class Bbox(BboxBase):
         ys = [p[1] for p in rotated]
         return Bbox.from_extents(min(xs), min(ys), max(xs), max(ys))
 
+    @property
+    def xmin(self):
+        """The left edge of the bounding box."""
+        return min(self.x0, self.x1)
+
+    @property
+    def ymin(self):
+        """The bottom edge of the bounding box."""
+        return min(self.y0, self.y1)
+
+    @property
+    def xmax(self):
+        """The right edge of the bounding box."""
+        return max(self.x0, self.x1)
+
+    @property
+    def ymax(self):
+        """The top edge of the bounding box."""
+        return max(self.y0, self.y1)
+
+    @property
+    def min(self):
+        """The bottom-left corner of the bounding box."""
+        return (self.xmin, self.ymin)
+
+    @property
+    def max(self):
+        """The top-right corner of the bounding box."""
+        return (self.xmax, self.ymax)
+
+    @property
+    def extents(self):
+        """Return (x0, y0, x1, y1)."""
+        return (self.x0, self.y0, self.x1, self.y1)
+
+    @property
+    def bounds(self):
+        """Return (x0, y0, width, height)."""
+        return (self.x0, self.y0, self.width, self.height)
+
+    @property
+    def p0(self):
+        """Lower-left corner (x0, y0)."""
+        return (self.x0, self.y0)
+
+    @property
+    def p1(self):
+        """Upper-right corner (x1, y1)."""
+        return (self.x1, self.y1)
+
+    @property
+    def corners(self):
+        """Return the four corners of the bbox."""
+        return ((self.x0, self.y0), (self.x1, self.y0),
+                (self.x0, self.y1), (self.x1, self.y1))
+
+    def update_from_path(self, path, ignore=None, updatex=True, updatey=True):
+        """Update the bounding box to contain the vertices of *path*."""
+        if path is None:
+            return
+        verts = path.vertices if hasattr(path, 'vertices') else []
+        if len(verts) == 0:
+            return
+        import numpy as np
+        arr = np.asarray(verts, dtype=float)
+        if arr.size == 0:
+            return
+        if ignore:
+            if updatex:
+                self.x0 = arr[:, 0].min()
+                self.x1 = arr[:, 0].max()
+            if updatey:
+                self.y0 = arr[:, 1].min()
+                self.y1 = arr[:, 1].max()
+        else:
+            if updatex:
+                self.x0 = min(self.x0, arr[:, 0].min())
+                self.x1 = max(self.x1, arr[:, 0].max())
+            if updatey:
+                self.y0 = min(self.y0, arr[:, 1].min())
+                self.y1 = max(self.y1, arr[:, 1].max())
+
+    def update_from_data_xy(self, xy, ignore=True, updatex=True, updatey=True):
+        """Update bbox from data xy points with optional axis-specific updates."""
+        if xy is None or len(xy) == 0:
+            return
+        import numpy as np
+        arr = np.asarray(xy, dtype=float)
+        if arr.ndim == 1:
+            arr = arr.reshape(-1, 2)
+        if arr.size == 0:
+            return
+        if ignore:
+            if updatex:
+                self.x0 = arr[:, 0].min()
+                self.x1 = arr[:, 0].max()
+            if updatey:
+                self.y0 = arr[:, 1].min()
+                self.y1 = arr[:, 1].max()
+        else:
+            if updatex:
+                self.x0 = min(self.x0, arr[:, 0].min())
+                self.x1 = max(self.x1, arr[:, 0].max())
+            if updatey:
+                self.y0 = min(self.y0, arr[:, 1].min())
+                self.y1 = max(self.y1, arr[:, 1].max())
+
     def get_points(self):
         """Return [[x0, y0], [x1, y1]]."""
         return [[self.x0, self.y0], [self.x1, self.y1]]
@@ -289,6 +405,65 @@ class Bbox(BboxBase):
         self.y0 = float(points[0][1])
         self.x1 = float(points[1][0])
         self.y1 = float(points[1][1])
+
+    def set(self, other):
+        """Set this bounding box from another Bbox or Bbox-like."""
+        if hasattr(other, 'x0'):
+            self.x0 = other.x0
+            self.y0 = other.y0
+            self.x1 = other.x1
+            self.y1 = other.y1
+        elif hasattr(other, 'get_points'):
+            pts = other.get_points()
+            self.x0 = float(pts[0][0])
+            self.y0 = float(pts[0][1])
+            self.x1 = float(pts[1][0])
+            self.y1 = float(pts[1][1])
+
+    def mutated(self):
+        return True
+
+    def mutatedx(self):
+        return True
+
+    def mutatedy(self):
+        return True
+
+    def invalidate(self):
+        pass
+
+    @property
+    def minpos(self):
+        """Return minimum positive values [minposx, minposy]."""
+        import numpy as np
+        return getattr(self, '_minpos', np.array([np.inf, np.inf]))
+
+    @minpos.setter
+    def minpos(self, val):
+        import numpy as np
+        self._minpos = np.array(val)
+
+    @property
+    def minposx(self):
+        return self.minpos[0]
+
+    @minposx.setter
+    def minposx(self, val):
+        import numpy as np
+        mp = self.minpos.copy()
+        mp[0] = val
+        self._minpos = mp
+
+    @property
+    def minposy(self):
+        return self.minpos[1]
+
+    @minposy.setter
+    def minposy(self, val):
+        import numpy as np
+        mp = self.minpos.copy()
+        mp[1] = val
+        self._minpos = mp
 
 
 class TransformNode:
@@ -362,6 +537,17 @@ class Transform(TransformNode):
         if type(self) is not type(other):
             return NotImplemented
         return True
+
+    def contains_branch_seperately(self, other_transform):
+        """Return whether this transform contains *other_transform* in its x/y branches."""
+        # Default implementation: check if this transform is or contains other
+        if self == other_transform:
+            return True, True
+        return False, False
+
+    def contains_branch(self, other_transform):
+        """Return whether this transform contains *other_transform*."""
+        return any(self.contains_branch_seperately(other_transform))
 
 
 class IdentityTransform(Transform):
@@ -652,23 +838,60 @@ class CompositeGenericTransform(Transform):
         return CompositeGenericTransform(self._b.inverted(),
                                          self._a.inverted())
 
+    def contains_branch_seperately(self, other_transform):
+        """Return whether x or y branches contain other_transform."""
+        if other_transform is self:
+            return True, True
+        # Delegate to _b which is the outer transform
+        if hasattr(self._b, 'contains_branch_seperately'):
+            bx, by = self._b.contains_branch_seperately(other_transform)
+            if bx or by:
+                return bx, by
+        if hasattr(self._a, 'contains_branch_seperately'):
+            return self._a.contains_branch_seperately(other_transform)
+        return False, False
+
 
 class BlendedGenericTransform(Transform):
     """A blended transform that uses *x_transform* for x and *y_transform* for y."""
+
+    is_separable = True
 
     def __init__(self, x_transform, y_transform):
         super().__init__()
         self._x = x_transform
         self._y = y_transform
+
+    def contains_branch_seperately(self, other_transform):
+        """Return whether x or y branches contain other_transform."""
+        x_contains = (self._x == other_transform or
+                      (hasattr(self._x, 'contains_branch') and
+                       self._x.contains_branch(other_transform)))
+        y_contains = (self._y == other_transform or
+                      (hasattr(self._y, 'contains_branch') and
+                       self._y.contains_branch(other_transform)))
+        return x_contains, y_contains
 
 
 class BlendedAffine2D(Affine2DBase):
     """A blended affine transform."""
 
+    is_separable = True
+
     def __init__(self, x_transform, y_transform):
         super().__init__()
         self._x = x_transform
         self._y = y_transform
+
+    def contains_branch_seperately(self, other_transform):
+        """Return whether x or y branches contain other_transform."""
+        x_contains = (self._x == other_transform or
+                      (hasattr(self._x, 'contains_branch') and
+                       self._x.contains_branch(other_transform)))
+        y_contains = (self._y == other_transform or
+                      (hasattr(self._y, 'contains_branch') and
+                       self._y.contains_branch(other_transform)))
+        return x_contains, y_contains
 
 
 def blended_transform_factory(x_transform, y_transform):
@@ -758,3 +981,122 @@ def nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
     if increasing and vmin > vmax:
         vmin, vmax = vmax, vmin
     return vmin, vmax
+
+
+class TransformWrapper(Transform):
+    """A wrapper that holds a single child transform."""
+
+    def __init__(self, child):
+        self._child = child
+
+    def set(self, child):
+        self._child = child
+
+    def transform(self, values):
+        return self._child.transform(values)
+
+    def get_matrix(self):
+        if hasattr(self._child, 'get_matrix'):
+            return self._child.get_matrix()
+        import numpy as np
+        return np.eye(3)
+
+    def frozen(self):
+        return self._child.frozen() if hasattr(self._child, 'frozen') else self._child
+
+    def __add__(self, other):
+        return CompositeGenericTransform(self, other)
+
+    def __radd__(self, other):
+        return CompositeGenericTransform(other, self)
+
+
+class _ScaledRotation(Affine2DBase):
+    """A transformation that applies rotation by *theta*, scaled by *trans_shift*."""
+
+    def __init__(self, theta, trans_shift):
+        super().__init__()
+        self._theta = theta
+        self._trans_shift = trans_shift
+
+    def get_matrix(self):
+        import numpy as np
+        return np.eye(3)
+
+    def transform(self, values):
+        import numpy as np
+        return np.asarray(values)
+
+
+class TransformedBbox(BboxBase):
+    """A bounding box defined by transforming another bbox by a transform."""
+
+    def __init__(self, bbox, transform):
+        super().__init__()
+        self._bbox = bbox
+        self._transform = transform
+
+    def _get_transformed_points(self):
+        """Return transformed extents as (x0, y0, x1, y1)."""
+        ext = self._bbox.extents
+        pts = self._transform.transform([[ext[0], ext[1]], [ext[2], ext[3]]])
+        return float(pts[0][0]), float(pts[0][1]), float(pts[1][0]), float(pts[1][1])
+
+    @property
+    def x0(self):
+        return self._get_transformed_points()[0]
+
+    @property
+    def y0(self):
+        return self._get_transformed_points()[1]
+
+    @property
+    def x1(self):
+        return self._get_transformed_points()[2]
+
+    @property
+    def y1(self):
+        return self._get_transformed_points()[3]
+
+    @property
+    def width(self):
+        x0, y0, x1, y1 = self._get_transformed_points()
+        return abs(x1 - x0)
+
+    @property
+    def height(self):
+        x0, y0, x1, y1 = self._get_transformed_points()
+        return abs(y1 - y0)
+
+    @property
+    def extents(self):
+        return self._get_transformed_points()
+
+    def get_points(self):
+        x0, y0, x1, y1 = self._get_transformed_points()
+        return [[x0, y0], [x1, y1]]
+
+    def frozen(self):
+        x0, y0, x1, y1 = self._get_transformed_points()
+        return Bbox([[x0, y0], [x1, y1]])
+
+
+class TransformedPath:
+    """Stub TransformedPath."""
+
+    def __init__(self, path, transform):
+        self._path = path
+        self._transform = transform
+
+    def get_transformed_path_and_affine(self):
+        return self._path, self._transform
+
+    def get_fully_transformed_path(self):
+        return self._path
+
+
+class TransformedPatchPath:
+    """Stub TransformedPatchPath."""
+
+    def __init__(self, patch):
+        self._patch = patch

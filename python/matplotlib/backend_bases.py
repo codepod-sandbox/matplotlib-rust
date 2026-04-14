@@ -133,6 +133,14 @@ class RendererBase:
         """
         pass
 
+    def open_group(self, s, gid=None):
+        """Open a grouping element (no-op for most backends)."""
+        pass
+
+    def close_group(self, s):
+        """Close a grouping element (no-op for most backends)."""
+        pass
+
     def get_result(self):
         raise NotImplementedError
 

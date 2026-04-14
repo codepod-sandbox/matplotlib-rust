@@ -25,7 +25,8 @@ class SubplotSpec:
         return (self.rowspan[1] - 1) * gs.ncols + (self.colspan[1] - 1)
 
     def get_position(self, figure=None):
-        """Return the position as (x0, y0, width, height)."""
+        """Return Bbox for this SubplotSpec position."""
+        from matplotlib.transforms import Bbox
         gs = self._gridspec
         nrows, ncols = gs.nrows, gs.ncols
         r0, r1 = self.rowspan
@@ -34,7 +35,58 @@ class SubplotSpec:
         h = (r1 - r0) / nrows
         x0 = c0 / ncols
         y0 = 1.0 - r1 / nrows
-        return (x0, y0, w, h)
+        return Bbox.from_bounds(x0, y0, w, h)
+
+    def get_geometry(self):
+        gs = self._gridspec
+        return gs.nrows, gs.ncols
+
+    @staticmethod
+    def _from_subplot_args(figure, args):
+        """Construct a SubplotSpec from a Figure and subplot args."""
+        from numbers import Integral
+        if len(args) == 1:
+            arg = args[0]
+            if isinstance(arg, SubplotSpec):
+                return arg
+            elif isinstance(arg, Integral):
+                rows, cols, num = map(int, str(arg))
+            else:
+                raise ValueError(
+                    f"Single argument to subplot must be a three-digit integer, "
+                    f"not {arg!r}")
+        elif len(args) == 3:
+            rows, cols, num = args
+        else:
+            raise ValueError(f"subplot takes 1 or 3 arguments, got {len(args)}")
+        gs = GridSpec._check_gridspec_exists(figure, rows, cols)
+        if gs is None:
+            gs = GridSpec(rows, cols, figure=figure)
+        if isinstance(num, tuple) and len(num) == 2:
+            i, j = num
+        else:
+            if not isinstance(num, Integral) or num < 1 or num > rows * cols:
+                raise ValueError(
+                    f"num must be an integer with 1 <= num <= {rows * cols}, "
+                    f"not {num!r}")
+            i = j = num
+        return SubplotSpec(gs, (i - 1, i), (0, cols))
+
+    def is_first_row(self):
+        """Return True if this subplot starts at row 0."""
+        return self.rowspan[0] == 0
+
+    def is_last_row(self):
+        """Return True if this subplot ends at the last row."""
+        return self.rowspan[1] == self._gridspec.nrows
+
+    def is_first_col(self):
+        """Return True if this subplot starts at column 0."""
+        return self.colspan[0] == 0
+
+    def is_last_col(self):
+        """Return True if this subplot ends at the last column."""
+        return self.colspan[1] == self._gridspec.ncols
 
     def __repr__(self):
         return (f"SubplotSpec({self.rowspan}, {self.colspan})")
@@ -156,6 +208,16 @@ class GridSpec:
     def tight_layout(self, figure=None, **kwargs):
         """No-op."""
         pass
+
+    @staticmethod
+    def _check_gridspec_exists(figure, nrows, ncols):
+        """Check if figure has a gridspec with these dimensions, else create."""
+        for ax in figure.get_axes():
+            gs = ax.get_gridspec() if hasattr(ax, 'get_gridspec') else None
+            if gs is not None:
+                if hasattr(gs, 'get_geometry') and gs.get_geometry() == (nrows, ncols):
+                    return gs
+        return GridSpec(nrows, ncols, figure=figure)
 
     def subplots(self, **kwargs):
         """Create subplots for this GridSpec (requires figure)."""

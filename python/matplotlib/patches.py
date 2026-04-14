@@ -117,6 +117,34 @@ class Patch(Artist):
     def get_hatch(self):
         return getattr(self, '_hatch', None)
 
+    def set_capstyle(self, s):
+        """Set the capstyle ('butt', 'round', 'projecting')."""
+        self._capstyle = s
+
+    def get_capstyle(self):
+        return getattr(self, '_capstyle', 'butt')
+
+    def set_joinstyle(self, s):
+        """Set the joinstyle ('miter', 'round', 'bevel')."""
+        self._joinstyle = s
+
+    def get_joinstyle(self):
+        return getattr(self, '_joinstyle', 'miter')
+
+    def set_fill(self, b):
+        """Set whether the patch is filled."""
+        self._fill = bool(b)
+
+    def get_fill(self):
+        return getattr(self, '_fill', True)
+
+    def set_path_effects(self, effects):
+        """Set path effects."""
+        self._path_effects = effects
+
+    def get_path_effects(self):
+        return getattr(self, '_path_effects', [])
+
     def _resolved_facecolor_hex(self):
         fc = self._facecolor
         if isinstance(fc, str) and fc.lower() == 'none':
@@ -1021,6 +1049,28 @@ class Wedge(Patch):
         """Get the radial width of the annular wedge."""
         return self._width
 
+    def get_path(self):
+        """Return a Path approximating this wedge."""
+        import numpy as np
+        from matplotlib.path import Path
+        cx, cy = self._center
+        r = self._r
+        t1 = np.radians(self._theta1)
+        t2 = np.radians(self._theta2)
+        n = 64
+        thetas = np.linspace(t1, t2, n)
+        xs = cx + r * np.cos(thetas)
+        ys = cy + r * np.sin(thetas)
+        if self._width is not None:
+            r_inner = r - self._width
+            thetas2 = np.linspace(t2, t1, n)
+            xs2 = cx + r_inner * np.cos(thetas2)
+            ys2 = cy + r_inner * np.sin(thetas2)
+            verts = list(zip(xs, ys)) + list(zip(xs2, ys2)) + [(xs[0], ys[0])]
+        else:
+            verts = [(cx, cy)] + list(zip(xs, ys)) + [(cx, cy)]
+        return Path(verts)
+
     def __str__(self):
         return (f'Wedge(center={self._center}, r={self._r}, '
                 f'theta1={self._theta1}, theta2={self._theta2}, '
@@ -1044,8 +1094,47 @@ class _PolygonPath:
     """Lightweight path-like object for Polygon.get_path()."""
 
     def __init__(self, xy, closed=True):
-        self.vertices = list(xy)
+        import numpy as np
+        self.vertices = np.array(xy, dtype=float) if len(xy) else np.zeros((0, 2))
         self.closed = closed
+        # Build codes array: MOVETO + LINETO * (n-1) [+ CLOSEPOLY if closed]
+        n = len(xy)
+        if n > 0:
+            MOVETO, LINETO, CLOSEPOLY = 1, 2, 79
+            codes = [MOVETO] + [LINETO] * (n - 1)
+            if closed:
+                codes.append(CLOSEPOLY)
+                import numpy as np2
+                close_pt = np.array([xy[0]], dtype=float)
+                self.vertices = np2.vstack([self.vertices, close_pt])
+            self.codes = np.array(codes, dtype=np.uint8)
+        else:
+            self.codes = np.array([], dtype=np.uint8)
+        self._interpolation_steps = 1
+
+    def iter_bezier(self, **kwargs):
+        """Iterate as line segments (BezierSegment wrappers)."""
+        from matplotlib.bezier import BezierSegment
+        import numpy as np
+        verts = self.vertices
+        codes = self.codes
+        MOVETO, LINETO, CLOSEPOLY = 1, 2, 79
+        i = 0
+        while i < len(codes):
+            code = codes[i]
+            if code == MOVETO:
+                i += 1
+            elif code in (LINETO, CLOSEPOLY):
+                if i > 0:
+                    seg = BezierSegment(np.array([verts[i-1], verts[i]], dtype=float))
+                    yield seg, code
+                i += 1
+            else:
+                i += 1
+
+    def iter_segments(self, *args, **kwargs):
+        """Iterate over (vertices, code) pairs."""
+        yield from zip(self.vertices, self.codes)
 
     def contains_point(self, point, radius=0.0):
         """Ray casting algorithm to test if *point* is inside the polygon."""
@@ -1061,6 +1150,83 @@ class _PolygonPath:
                 inside = not inside
             j = i
         return inside
+
+
+class StepPatch(Patch):
+    """Stub StepPatch for step/histogram plots."""
+
+    def __init__(self, values, edges, *, orientation='vertical',
+                 baseline=0, **kwargs):
+        super().__init__(**kwargs)
+        self._values = values
+        self._edges = edges
+        self.orientation = orientation
+        self.baseline = baseline
+
+    def get_data(self):
+        return self._values, self._edges
+
+    def get_path(self):
+        """Return a Path approximating this step patch."""
+        import numpy as np
+        from matplotlib.path import Path
+        values = np.asarray(self._values, dtype=float)
+        edges = np.asarray(self._edges, dtype=float)
+        baseline = self.baseline if self.baseline is not None else 0
+        # Build step-function vertices
+        verts = []
+        if self.orientation == 'vertical':
+            for i, (v, e0, e1) in enumerate(zip(values, edges[:-1], edges[1:])):
+                verts += [(e0, baseline), (e0, v), (e1, v), (e1, baseline)]
+        else:
+            for i, (v, e0, e1) in enumerate(zip(values, edges[:-1], edges[1:])):
+                verts += [(baseline, e0), (v, e0), (v, e1), (baseline, e1)]
+        return Path(verts)
+
+    def set_data(self, values=None, edges=None, baseline=None):
+        if values is not None:
+            self._values = values
+        if edges is not None:
+            self._edges = edges
+        if baseline is not None:
+            self.baseline = baseline
+
+
+def bbox_artist(artist, renderer, props=None, fill=True):
+    """Stub bbox_artist for offsetbox compatibility."""
+    pass
+
+
+class FancyBboxPatch(Patch):
+    """Stub FancyBboxPatch for offsetbox compatibility."""
+
+    def __init__(self, xy, width, height, boxstyle="round", **kwargs):
+        super().__init__(**kwargs)
+        self.xy = xy
+        self.width = width
+        self.height = height
+        self.boxstyle = boxstyle
+
+    def set_bounds(self, *args):
+        pass
+
+    def get_bbox(self):
+        from matplotlib.transforms import Bbox
+        x, y = self.xy
+        return Bbox([[x, y], [x + self.width, y + self.height]])
+
+    def set_boxstyle(self, boxstyle, **kwargs):
+        self.boxstyle = boxstyle
+
+
+class FancyArrowPatch(Patch):
+    """Stub FancyArrowPatch for offsetbox compatibility."""
+
+    def __init__(self, posA=None, posB=None, *, arrowstyle=None,
+                 connectionstyle=None, **kwargs):
+        super().__init__(**kwargs)
+        self.posA = posA
+        self.posB = posB
 
 
 class _IdentityTransform:

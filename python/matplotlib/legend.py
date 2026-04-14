@@ -5,6 +5,18 @@ matplotlib.legend --- Legend artist.
 
 from matplotlib.text import Text
 from matplotlib.colors import to_hex
+from matplotlib import _docstring
+from matplotlib.artist import Artist
+
+# Register docstring interpolation keys used by axes/_axes.py
+_legend_kw_axes_st = """
+loc : str or pair of floats, default: :rc:`legend.loc`
+    The location of the legend.
+"""
+_docstring.interpd.register(_legend_kw_axes=_legend_kw_axes_st)
+_docstring.interpd.register(_legend_kw_figure=_legend_kw_axes_st)
+_docstring.interpd.register(_legend_kw_doc=_legend_kw_axes_st)
+_docstring.interpd.register(_legend_kw_set_loc_doc=_legend_kw_axes_st)
 
 
 _LOC_MAP = {
@@ -31,7 +43,7 @@ class LegendText:
         self._text = s
 
 
-class Legend:
+class Legend(Artist):
     """A legend for an Axes.
 
     Parameters
@@ -68,6 +80,7 @@ class Legend:
                  bbox_to_anchor=None, framealpha=0.8,
                  frameon=None, fontsize=None, title_fontsize=None,
                  title=None, **kwargs):
+        super().__init__()
         self._parent = parent
         self._ax = parent
         self._handles = list(handles) if handles else []
@@ -92,6 +105,9 @@ class Legend:
         self._texts = [LegendText(lbl) for lbl in labels]
         # Build Text objects for each label (alternate API)
         self._text_objects = [Text(0, 0, l) for l in self._labels]
+
+        # _loc_real for upstream compatibility
+        self._loc_real = self._loc
 
     # --- API ---
     def get_texts(self):
@@ -314,3 +330,88 @@ class Legend:
 
     def __repr__(self):
         return f"<Legend>"
+
+
+def _get_legend_handles(axs, legend_handler_map=None):
+    """Return handles (artists) that can appear in legend from *axs*."""
+    handles_seen = set()
+    for ax in axs:
+        artists = []
+        if hasattr(ax, 'get_lines'):
+            artists.extend(ax.get_lines())
+        if hasattr(ax, 'collections'):
+            artists.extend(ax.collections)
+        if hasattr(ax, 'patches'):
+            artists.extend(ax.patches)
+        for artist in artists:
+            if id(artist) not in handles_seen:
+                handles_seen.add(id(artist))
+                yield artist
+
+
+def _get_legend_handles_labels(axs, legend_handler_map=None):
+    """Return handles and labels for legend."""
+    handles = []
+    labels = []
+    for handle in _get_legend_handles(axs, legend_handler_map):
+        if hasattr(handle, 'get_label'):
+            label = handle.get_label()
+            if label and not label.startswith('_'):
+                handles.append(handle)
+                labels.append(label)
+    return handles, labels
+
+
+def _parse_legend_args(axs, *args, handles=None, labels=None, **kwargs):
+    """Parse legend arguments from axes or figure."""
+    # If both handles and labels provided as kwargs
+    if handles is not None and labels is not None:
+        return list(handles), list(labels), kwargs
+
+    # If handles only
+    if handles is not None and labels is None:
+        labels = [h.get_label() for h in handles
+                  if hasattr(h, 'get_label')]
+        return list(handles), labels, kwargs
+
+    # If labels only
+    if labels is not None and handles is None:
+        # Try to get handles from axs
+        all_handles = []
+        for ax in axs:
+            if hasattr(ax, 'get_lines'):
+                all_handles.extend(ax.get_lines())
+            if hasattr(ax, 'patches'):
+                all_handles.extend(ax.patches)
+        handles = all_handles[:len(labels)] if all_handles else []
+        return list(handles), list(labels), kwargs
+
+    # Parse positional args
+    if len(args) == 0:
+        # Auto-detect from axs
+        all_handles, all_labels = [], []
+        for ax in axs:
+            if hasattr(ax, 'get_legend_handles_labels'):
+                h, l = ax.get_legend_handles_labels()
+                all_handles.extend(h)
+                all_labels.extend(l)
+            else:
+                if hasattr(ax, 'get_lines'):
+                    for line in ax.get_lines():
+                        lbl = line.get_label() if hasattr(line, 'get_label') else ''
+                        if lbl and not lbl.startswith('_'):
+                            all_handles.append(line)
+                            all_labels.append(lbl)
+        return all_handles, all_labels, kwargs
+    elif len(args) == 1:
+        # labels only
+        labels = args[0]
+        all_handles = []
+        for ax in axs:
+            if hasattr(ax, 'get_lines'):
+                all_handles.extend(ax.get_lines())
+        handles = all_handles[:len(labels)] if all_handles else []
+        return list(handles), list(labels), kwargs
+    else:
+        # handles, labels
+        return list(args[0]), list(args[1]), kwargs

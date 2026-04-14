@@ -9,6 +9,21 @@ from matplotlib.gridspec import SubplotSpec
 from matplotlib.text import Text
 
 
+class _AlignGroup:
+    """Stub for align_xlabels/align_ylabels grouping."""
+
+    def __init__(self):
+        self._groups = []
+
+    def join(self, ax, *args):
+        """Join axes into the group."""
+        pass
+
+    def get_siblings(self, ax):
+        """Return sibling axes in the same group."""
+        return [ax]
+
+
 class _FigureCanvas:
     """Minimal canvas stub for Figure."""
     def __init__(self, figure):
@@ -33,6 +48,24 @@ class _FigureCanvas:
                         pass
     def draw_idle(self):
         self.draw()
+
+    def is_saving(self):
+        """Return whether the canvas is currently saving."""
+        return False
+
+    def get_renderer(self):
+        """Return a renderer (stub)."""
+        return None
+
+    @property
+    def toolbar(self):
+        return None
+
+    def mpl_disconnect(self, cid):
+        pass
+
+    def mpl_connect(self, s, func):
+        return 0
 
 
 def _validate_figsize(w, h):
@@ -64,6 +97,27 @@ class Figure:
         self.texts = []
         self._current_ax = None
         self.canvas = _FigureCanvas(self)
+        self.suppressComposite = None
+        self._setup_transforms()
+
+    def _setup_transforms(self):
+        """Set up figure-level transform stubs required by _AxesBase."""
+        from matplotlib.transforms import (
+            BboxTransformTo, Bbox, IdentityTransform, Affine2D
+        )
+        # transSubfigure: maps [0,1]x[0,1] subfigure coords to display coords
+        # For our purposes, a simple identity-like transform suffices.
+        w, h = self.figsize
+        dpi = self.dpi
+        self.bbox_inches = Bbox([[0, 0], [w, h]])
+        self.bbox = Bbox([[0, 0], [w * dpi, h * dpi]])
+        self.transSubfigure = BboxTransformTo(self.bbox)
+        self.transFigure = self.transSubfigure
+        # dpi_scale_trans: scale from inches to display points
+        self.dpi_scale_trans = Affine2D().scale(dpi)
+        # align label groups for align_xlabels/align_ylabels support
+        self._align_label_groups = {'x': _AlignGroup(), 'y': _AlignGroup(),
+                                     'title': _AlignGroup()}
 
     # ------------------------------------------------------------------
     # Axes management
@@ -90,7 +144,13 @@ class Figure:
 
         if len(args) == 1 and isinstance(args[0], SubplotSpec):
             ss = args[0]
-            pos = (ss.rowspan, ss.colspan)
+            gs = ss.get_gridspec()
+            nrows, ncols = gs.nrows, gs.ncols
+            # Compute flat index from rowspan/colspan
+            r0, r1 = ss.rowspan[0], ss.rowspan[1]
+            c0, c1 = ss.colspan[0], ss.colspan[1]
+            index = r0 * ncols + c0 + 1
+            pos = (nrows, ncols, index)
         elif len(args) == 1 and isinstance(args[0], int) and args[0] >= 100:
             # 3-digit form: 211 -> (2, 1, 1)
             n = args[0]
@@ -123,7 +183,10 @@ class Figure:
             index = args[2] if len(args) > 2 else kwargs.get('index', 1)
             pos = (nrows, ncols, index)
 
-        ax = Axes(self, pos)
+        # Pass nrows, ncols, index as separate positional args so that
+        # _AxesBase.__init__ can call SubplotSpec._from_subplot_args(fig, args)
+        nrows, ncols, index = pos
+        ax = Axes(self, nrows, ncols, index)
         self._axes.append(ax)
         self._current_ax = ax
         return ax

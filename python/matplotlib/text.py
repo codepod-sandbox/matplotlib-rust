@@ -225,6 +225,106 @@ class Text(Artist):
     def set_position(self, xy):
         self._x, self._y = xy
 
+    def get_x(self):
+        return self._x
+
+    def set_x(self, x):
+        self._x = x
+
+    def get_y(self):
+        return self._y
+
+    def set_y(self, y):
+        self._y = y
+
+    def set_fontproperties(self, fp):
+        """Set font properties from FontProperties object."""
+        if fp is not None:
+            if hasattr(fp, 'get_size'):
+                self._fontsize = fp.get_size()
+            if hasattr(fp, 'get_weight'):
+                self._fontweight = fp.get_weight()
+            if hasattr(fp, 'get_family'):
+                families = fp.get_family()
+                if families:
+                    self._fontfamily = families[0]
+
+    def get_fontproperties(self):
+        """Return a FontProperties object."""
+        from matplotlib.font_manager import FontProperties
+        return FontProperties(size=self._fontsize, weight=self._fontweight,
+                              family=self._fontfamily)
+
+    def set_fontsize(self, size):
+        """Set font size."""
+        self._fontsize = size
+
+    def set_fontweight(self, weight):
+        """Set font weight."""
+        self._fontweight = weight
+
+    def set_fontfamily(self, family):
+        """Set font family."""
+        self._fontfamily = family
+
+    def set_verticalalignment(self, align):
+        """Set vertical alignment."""
+        self._va = align
+
+    def get_verticalalignment(self):
+        return self._va
+
+    def set_horizontalalignment(self, align):
+        """Set horizontal alignment."""
+        self._ha = align
+
+    def get_horizontalalignment(self):
+        return self._ha
+
+    def set_va(self, va):
+        self._va = va
+
+    def set_ha(self, ha):
+        self._ha = ha
+
+    def set_multialignment(self, align):
+        """Set multi-line alignment."""
+        self._multialignment = align
+
+    def set_linespacing(self, spacing):
+        """Set line spacing."""
+        self._linespacing = spacing
+
+    def set_wrap(self, wrap):
+        """Set text wrapping."""
+        self._wrap = wrap
+
+    def set_usetex(self, usetex):
+        """Set whether to use TeX."""
+        self._usetex = usetex
+
+    def get_usetex(self):
+        return getattr(self, '_usetex', False)
+
+    def set_parse_math(self, b):
+        """Set whether to parse math."""
+        self._parse_math = b
+
+    def get_parse_math(self):
+        return getattr(self, '_parse_math', True)
+
+    def get_color(self):
+        return getattr(self, '_color', 'black')
+
+    def set_color(self, c):
+        self._color = c
+
+    def _reset_visual_defaults(self):
+        """Reset visual properties to defaults."""
+        import matplotlib
+        self._fontsize = matplotlib.rcParams.get('font.size', 10.0)
+        self._fontweight = matplotlib.rcParams.get('font.weight', 'normal')
+
     # --- draw (new renderer architecture) ---
     def draw(self, renderer, layout):
         if not self.get_visible():
@@ -299,3 +399,23 @@ class Annotation(Text):
                 linewidth=linewidth,
             )
             patch.draw(renderer, layout)
+
+
+class _AnnotationBase:
+    """Stub _AnnotationBase for offsetbox/AnnotationBbox compatibility."""
+
+    def __init__(self, xy, xycoords='data', annotation_clip=None):
+        x, y = xy
+        self.xy = x, y
+        self.xycoords = xycoords
+        self._annotation_clip = annotation_clip
+        self._draggable = None
+
+    def set_annotation_clip(self, b):
+        self._annotation_clip = b
+
+    def get_annotation_clip(self):
+        return self._annotation_clip
+
+    def draggable(self, state=None, use_blit=False):
+        return self._draggable

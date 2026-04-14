@@ -1,9 +1,10 @@
 """matplotlib.image --- Image artists (AxesImage, etc.)."""
 
 from matplotlib.artist import Artist
+from matplotlib.colorizer import ColorizerMixin
 
 
-class AxesImage(Artist):
+class AxesImage(ColorizerMixin, Artist):
     """An image attached to an Axes, returned by imshow()."""
 
     zorder = 0
@@ -57,9 +58,12 @@ class AxesImage(Artist):
         """Return the image extent as (x0, x1, y0, y1)."""
         return self._extent
 
-    def set_extent(self, extent):
+    def set_extent(self, extent, **kwargs):
         """Set the image extent as (x0, x1, y0, y1)."""
-        self._extent = tuple(extent)
+        if extent is None:
+            self._extent = None
+        else:
+            self._extent = tuple(extent)
 
     # --- clim ---
     def set_clim(self, vmin=None, vmax=None):
@@ -172,3 +176,53 @@ class AxesImage(Artist):
             img_h = layout.plot_h if layout else renderer.height
 
         renderer.draw_image(img_x, img_y, img_w, img_h, rgba_array)
+
+
+class _ImageBase(AxesImage):
+    """Base class for images."""
+    pass
+
+
+class NonUniformImage(AxesImage):
+    """Non-uniform image."""
+    pass
+
+
+def _draw_list_compositing_images(renderer, parent, artists,
+                                   suppress_composite=None):
+    """Draw a sorted list of artists, compositing images where possible."""
+    for a in artists:
+        if hasattr(a, 'draw'):
+            try:
+                if hasattr(renderer, 'layout'):
+                    a.draw(renderer, renderer.layout)
+                else:
+                    a.draw(renderer)
+            except TypeError:
+                try:
+                    a.draw(renderer)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+
+class BboxImage(AxesImage):
+    """Stub BboxImage for offsetbox compatibility."""
+
+    def __init__(self, bbox, **kwargs):
+        super().__init__(None, **kwargs)
+        self.bbox = bbox
+
+
+class PcolorImage(AxesImage):
+    """Pcolor image."""
+    pass
+
+
+class FigureImage(Artist):
+    """A non-resampled image."""
+
+    def __init__(self, fig, **kwargs):
+        super().__init__()
+        self.figure = fig
