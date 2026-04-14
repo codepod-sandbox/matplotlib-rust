@@ -129,6 +129,7 @@ class Bbox(BboxBase):
 
     def __init__(self, points=None):
         super().__init__()
+        self._ignore = False
         if points is not None:
             self.x0 = float(points[0][0])
             self.y0 = float(points[0][1])
@@ -431,6 +432,10 @@ class Bbox(BboxBase):
 
     def invalidate(self):
         pass
+
+    def ignore(self, value):
+        """Set whether to ignore limits updates (stub — no-op)."""
+        self._ignore = bool(value)
 
     @property
     def minpos(self):

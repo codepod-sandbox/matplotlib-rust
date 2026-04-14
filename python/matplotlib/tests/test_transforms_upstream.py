@@ -93,11 +93,11 @@ class TestBboxProperties:
 
     def test_intervalx(self):
         bb = Bbox.from_extents(1, 2, 5, 8)
-        assert bb.intervalx == (1, 5)
+        assert tuple(bb.intervalx) == (1, 5)
 
     def test_intervaly(self):
         bb = Bbox.from_extents(1, 2, 5, 8)
-        assert bb.intervaly == (2, 8)
+        assert tuple(bb.intervaly) == (2, 8)
 
     def test_p0_p1(self):
         bb = Bbox.from_extents(1, 2, 5, 8)

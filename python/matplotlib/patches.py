@@ -1197,38 +1197,6 @@ def bbox_artist(artist, renderer, props=None, fill=True):
     pass
 
 
-class FancyBboxPatch(Patch):
-    """Stub FancyBboxPatch for offsetbox compatibility."""
-
-    def __init__(self, xy, width, height, boxstyle="round", **kwargs):
-        super().__init__(**kwargs)
-        self.xy = xy
-        self.width = width
-        self.height = height
-        self.boxstyle = boxstyle
-
-    def set_bounds(self, *args):
-        pass
-
-    def get_bbox(self):
-        from matplotlib.transforms import Bbox
-        x, y = self.xy
-        return Bbox([[x, y], [x + self.width, y + self.height]])
-
-    def set_boxstyle(self, boxstyle, **kwargs):
-        self.boxstyle = boxstyle
-
-
-class FancyArrowPatch(Patch):
-    """Stub FancyArrowPatch for offsetbox compatibility."""
-
-    def __init__(self, posA=None, posB=None, *, arrowstyle=None,
-                 connectionstyle=None, **kwargs):
-        super().__init__(**kwargs)
-        self.posA = posA
-        self.posB = posB
-
-
 class _IdentityTransform:
     """Minimal identity transform for compatibility."""
 

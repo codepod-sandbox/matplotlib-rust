@@ -25,6 +25,22 @@ class _TickerPair:
 class Axis(Artist):
     """Base class for a single axis (x or y)."""
 
+    @property
+    def major(self):
+        return self._major
+
+    @major.setter
+    def major(self, value):
+        self._major = value
+
+    @property
+    def minor(self):
+        return self._minor
+
+    @minor.setter
+    def minor(self, value):
+        self._minor = value
+
     def __init__(self, axes=None, *, clear=True):
         super().__init__()
         self._major = _TickerPair(AutoLocator(), ScalarFormatter())
@@ -306,14 +322,30 @@ class Axis(Artist):
 
     def _set_lim(self, v0, v1, *, auto=False, emit=True):
         """Set axis limits (stub for _AxesBase compatibility)."""
-        self._view_interval = (v0, v1)
+        self.set_view_interval(v0, v1, ignore=True)
+        # Update stale_viewlims and propagate to shared axes
+        if hasattr(self, 'axes') and self.axes is not None:
+            try:
+                name = next(n for n, a in self.axes._axis_map.items() if a is self)
+                # Mark view limits as up-to-date for all siblings
+                for sibling_ax in self.axes._shared_axes[name].get_siblings(self.axes):
+                    sibling_ax._stale_viewlims[name] = False
+                # Propagate to shared axes
+                if emit:
+                    for sibling_ax in self.axes._shared_axes[name].get_siblings(self.axes):
+                        if sibling_ax is not self.axes:
+                            sibling_axis = sibling_ax._axis_map[name]
+                            sibling_axis._set_lim(v0, v1, auto=auto, emit=False)
+            except Exception:
+                pass
+        return v0, v1
 
     def set_view_interval(self, vmin, vmax, ignore=False):
-        """Set view interval."""
+        """Set view interval (override in XAxis/YAxis)."""
         self._view_interval = (vmin, vmax)
 
     def get_view_interval(self):
-        """Get view interval."""
+        """Get view interval (override in XAxis/YAxis)."""
         return getattr(self, '_view_interval', (0, 1))
 
     def set_data_interval(self, vmin, vmax, ignore=False):
@@ -340,9 +372,29 @@ class XAxis(Axis):
         """Set the ticks position (top/bottom/both/default/none)."""
         self._ticks_position = position
 
+    def get_view_interval(self):
+        """Get x-axis view interval from axes viewLim."""
+        if hasattr(self, 'axes') and hasattr(self.axes, '_viewLim'):
+            return self.axes._viewLim.intervalx
+        return getattr(self, '_view_interval', (0, 1))
+
+    def set_view_interval(self, vmin, vmax, ignore=False):
+        """Set x-axis view interval in axes viewLim."""
+        if hasattr(self, 'axes') and hasattr(self.axes, '_viewLim'):
+            if ignore:
+                self.axes._viewLim.intervalx = (vmin, vmax)
+            else:
+                old = self.axes._viewLim.intervalx
+                self.axes._viewLim.intervalx = (min(vmin, old[0]), max(vmax, old[1]))
+        else:
+            self._view_interval = (vmin, vmax)
+
 
 class YAxis(Axis):
     """Y-axis."""
+
+    def get_label_position(self):
+        return getattr(self, '_label_position', 'left')
 
     def tick_left(self):
         """Move ticks and ticklabels to the left."""
@@ -355,6 +407,23 @@ class YAxis(Axis):
     def set_ticks_position(self, position):
         """Set the ticks position (left/right/both/default/none)."""
         self._ticks_position = position
+
+    def get_view_interval(self):
+        """Get y-axis view interval from axes viewLim."""
+        if hasattr(self, 'axes') and hasattr(self.axes, '_viewLim'):
+            return self.axes._viewLim.intervaly
+        return getattr(self, '_view_interval', (0, 1))
+
+    def set_view_interval(self, vmin, vmax, ignore=False):
+        """Set y-axis view interval in axes viewLim."""
+        if hasattr(self, 'axes') and hasattr(self.axes, '_viewLim'):
+            if ignore:
+                self.axes._viewLim.intervaly = (vmin, vmax)
+            else:
+                old = self.axes._viewLim.intervaly
+                self.axes._viewLim.intervaly = (min(vmin, old[0]), max(vmax, old[1]))
+        else:
+            self._view_interval = (vmin, vmax)
 
     def set_offset_position(self, position):
         """Set the position of the offset text for this YAxis ('left' or 'right')."""

@@ -186,7 +186,7 @@ class Figure:
         # Pass nrows, ncols, index as separate positional args so that
         # _AxesBase.__init__ can call SubplotSpec._from_subplot_args(fig, args)
         nrows, ncols, index = pos
-        ax = Axes(self, nrows, ncols, index)
+        ax = Axes(self, nrows, ncols, index, **kwargs)
         self._axes.append(ax)
         self._current_ax = ax
         return ax
@@ -473,11 +473,19 @@ class Figure:
             axes_grid.append(row)
 
         if sharex and len(all_axes) > 1:
-            for ax in all_axes:
-                ax._shared_x = all_axes
+            ref = all_axes[0]
+            for ax in all_axes[1:]:
+                try:
+                    ax.sharex(ref)
+                except Exception:
+                    ax._shared_x = all_axes
         if sharey and len(all_axes) > 1:
-            for ax in all_axes:
-                ax._shared_y = all_axes
+            ref = all_axes[0]
+            for ax in all_axes[1:]:
+                try:
+                    ax.sharey(ref)
+                except Exception:
+                    ax._shared_y = all_axes
 
         axes_arr = np.array(axes_grid)  # shape (nrows, ncols)
 

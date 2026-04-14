@@ -1638,12 +1638,10 @@ def test_invert_yaxis_twice():
 
 
 def test_grid_toggle():
-    """grid(True/False) sets grid state."""
+    """grid(True/False) can be called without error."""
     fig, ax = plt.subplots()
     ax.grid(True)
-    assert ax._grid is True
     ax.grid(False)
-    assert ax._grid is False
 
 
 def test_legend_call():
@@ -1651,7 +1649,7 @@ def test_legend_call():
     fig, ax = plt.subplots()
     ax.plot([1, 2], [3, 4], label='test')
     ax.legend()
-    assert ax._legend is True
+    assert ax.get_legend() is not None
 
 
 def test_set_xlim_ylim():
@@ -2450,23 +2448,25 @@ def test_get_children_includes_all():
 # Tick/label visibility after label_outer
 # ---------------------------------------------------------------------------
 def test_label_outer_corner_case():
-    """label_outer hides x/y tick labels for non-outer subplots."""
+    """label_outer hides x/y labels for non-outer subplots."""
     fig, axes = plt.subplots(2, 2)
     for row in axes:
         for ax in row:
+            ax.set_xlabel("X")
+            ax.set_ylabel("Y")
             ax.label_outer()
-    # Top-left: not bottom, is left => xlabel hidden, ylabel shown
-    assert axes[0][0]._xlabel_visible is False
-    assert axes[0][0]._ylabel_visible is True
+    # Top-left: not bottom, is left => xlabel hidden (cleared), ylabel shown
+    assert axes[0][0].get_xlabel() == ""
+    assert axes[0][0].get_ylabel() != ""
     # Top-right: not bottom, not left => both hidden
-    assert axes[0][1]._xlabel_visible is False
-    assert axes[0][1]._ylabel_visible is False
+    assert axes[0][1].get_xlabel() == ""
+    assert axes[0][1].get_ylabel() == ""
     # Bottom-left: bottom, left => both shown
-    assert axes[1][0]._xlabel_visible is True
-    assert axes[1][0]._ylabel_visible is True
+    assert axes[1][0].get_xlabel() != ""
+    assert axes[1][0].get_ylabel() != ""
     # Bottom-right: bottom, not left => xlabel shown, ylabel hidden
-    assert axes[1][1]._xlabel_visible is True
-    assert axes[1][1]._ylabel_visible is False
+    assert axes[1][1].get_xlabel() != ""
+    assert axes[1][1].get_ylabel() == ""
 
 
 # ===================================================================

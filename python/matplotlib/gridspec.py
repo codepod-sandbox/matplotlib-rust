@@ -70,7 +70,12 @@ class SubplotSpec:
                     f"num must be an integer with 1 <= num <= {rows * cols}, "
                     f"not {num!r}")
             i = j = num
-        return SubplotSpec(gs, (i - 1, i), (0, cols))
+        # Compute row/col from flat index (1-based)
+        row = (i - 1) // cols
+        col = (i - 1) % cols
+        row_end = (j - 1) // cols + 1
+        col_end = (j - 1) % cols + 1
+        return SubplotSpec(gs, (row, row_end), (col, col_end))
 
     def is_first_row(self):
         """Return True if this subplot starts at row 0."""

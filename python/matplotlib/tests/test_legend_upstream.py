@@ -239,9 +239,9 @@ class TestLegendRemove:
         ax = fig.add_subplot(1, 1, 1)
         ax.plot([1, 2], label='x')
         leg = ax.legend()
-        assert ax._legend is True
+        assert ax.get_legend() is not None
         leg.remove()
-        assert ax._legend is False
+        assert ax.get_legend() is None
 
 
 # ===================================================================

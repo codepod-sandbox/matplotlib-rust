@@ -323,13 +323,21 @@ def subplots(nrows=1, ncols=1, figsize=None, dpi=100, **kwargs):
             all_axes.append(ax)
         axes_grid.append(row)
 
-    # Link shared axes
+    # Link shared axes using OG axes sharing mechanism
     if sharex and len(all_axes) > 1:
-        for ax in all_axes:
-            ax._shared_x = all_axes
+        ref = all_axes[0]
+        for ax in all_axes[1:]:
+            try:
+                ax.sharex(ref)
+            except Exception:
+                ax._shared_x = all_axes
     if sharey and len(all_axes) > 1:
-        for ax in all_axes:
-            ax._shared_y = all_axes
+        ref = all_axes[0]
+        for ax in all_axes[1:]:
+            try:
+                ax.sharey(ref)
+            except Exception:
+                ax._shared_y = all_axes
 
     _current_ax = axes_grid[0][0] if axes_grid else None
 
