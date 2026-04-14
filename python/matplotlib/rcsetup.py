@@ -37,7 +37,7 @@ _default_params = {
     'axes.formatter.use_mathtext': False,
     'axes.formatter.min_exponent': 0,
     'axes.formatter.useoffset': True,
-    'axes.formatter.offset_threshold': 4,
+    'axes.formatter.offset_threshold': 2,
     'axes.unicode_minus': True,
     'axes.autolimit_mode': 'data',
 

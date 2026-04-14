@@ -14,9 +14,25 @@ class _FigureCanvas:
     def __init__(self, figure):
         self.figure = figure
     def draw(self):
-        pass
+        """Trigger tick formatter updates on all axes (needed for tests)."""
+        if self.figure is None:
+            return
+        for ax in getattr(self.figure, '_axes', []):
+            for axis in [getattr(ax, 'xaxis', None), getattr(ax, 'yaxis', None)]:
+                if axis is None:
+                    continue
+                try:
+                    locs = list(axis._major_locator())
+                except Exception:
+                    continue
+                fmt = axis._major_formatter
+                if hasattr(fmt, 'set_locs') and locs:
+                    try:
+                        fmt.set_locs(locs)
+                    except Exception:
+                        pass
     def draw_idle(self):
-        pass
+        self.draw()
 
 
 def _validate_figsize(w, h):

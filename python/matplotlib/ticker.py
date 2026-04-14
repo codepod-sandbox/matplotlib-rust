@@ -685,9 +685,9 @@ class ScalarFormatter(Formatter):
                         screen_xy + [[0, -1], [0, +1]])[:, 1]
                 delta = abs(neighbor_values - value).max()
             else:
-                # Rough approximation: no more than 1e4 divisions.
+                # Rough approximation: no more than 2000 divisions.
                 a, b = self.axis.get_view_interval()
-                delta = (b - a) / 1e4
+                delta = (b - a) / 2000
             fmt = f"%-#.{cbook._g_sig_digits(value, delta)}g"
         return self._format_maybe_minus_and_locale(fmt, value)
 
@@ -2187,7 +2187,7 @@ class MaxNLocator(Locator):
             # adjust the raw step to match the mpl3.8 appearance. The zoom
             # factor of 2/48, gives us the 23/24 modifier.
             raw_step = raw_step * 23/24
-        large_steps = steps >= raw_step
+        large_steps = steps > raw_step
         if mpl.rcParams['axes.autolimit_mode'] == 'round_numbers':
             # Classic round_numbers mode may require a larger step.
             # Get first multiple of steps that are <= _vmin
@@ -2656,6 +2656,20 @@ class SymmetricalLogLocator(Locator):
         b = self._base
         if vmax < vmin:
             vmin, vmax = vmax, vmin
+
+        if vmin == vmax:
+            # Singular case: expand to nearest decades
+            if vmin == 0:
+                vmin = -self._linthresh * 1e-3
+                vmax = self._linthresh * 1e-3
+            elif vmin > 0:
+                vmin = _decade_less(vmin, b)
+                vmax = _decade_greater(vmax, b)
+            else:
+                abs_v = abs(vmin)
+                vmax = -_decade_less(abs_v, b)
+                vmin = -_decade_greater(abs_v, b)
+            return vmin, vmax
 
         if mpl.rcParams['axes.autolimit_mode'] == 'round_numbers':
             vmin = _decade_less_equal(vmin, b)

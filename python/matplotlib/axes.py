@@ -144,6 +144,8 @@ class Axis:
         self._minor_formatter = NullFormatter()
         self._major_locator.set_axis(self)
         self._minor_locator.set_axis(self)
+        self._major_formatter.set_axis(self)
+        self._minor_formatter.set_axis(self)
         self._visible = True
         self._label = _TickLabel('')
         self.label = self._label
@@ -156,11 +158,12 @@ class Axis:
         self.isDefault_majloc = True
         self.isDefault_minloc = True
         self.pickradius = pickradius
+        self._remove_overlapping_locs = True
 
     def set_scale(self, scale):
         """Update locator/formatter for the given Scale object."""
         from matplotlib.scale import LogScale, SymmetricalLogScale
-        from matplotlib.ticker import (LogLocator, LogFormatter,
+        from matplotlib.ticker import (LogLocator, LogFormatterSciNotation,
                                         SymmetricalLogLocator, AutoLocator,
                                         ScalarFormatter)
         self._scale_obj = scale
@@ -169,7 +172,8 @@ class Axis:
                 self._major_locator = LogLocator(base=scale.base)
                 self._major_locator.set_axis(self)
             if self.isDefault_majfmt:
-                self._major_formatter = LogFormatter(base=scale.base)
+                self._major_formatter = LogFormatterSciNotation(base=scale.base)
+                self._major_formatter.set_axis(self)
         elif isinstance(scale, SymmetricalLogScale):
             if self.isDefault_majloc:
                 self._major_locator = SymmetricalLogLocator(base=scale.base,
@@ -182,16 +186,30 @@ class Axis:
                 self._major_locator.set_axis(self)
             if self.isDefault_majfmt:
                 self._major_formatter = ScalarFormatter()
+                self._major_formatter.set_axis(self)
 
     def get_scale(self):
         """Return the current scale name string."""
-        from matplotlib.scale import LogScale, SymmetricalLogScale, LinearScale
+        from matplotlib.scale import LogScale, SymmetricalLogScale, AsinhScale, LogitScale
         scale_obj = getattr(self, '_scale_obj', None)
         if isinstance(scale_obj, LogScale):
             return 'log'
         elif isinstance(scale_obj, SymmetricalLogScale):
             return 'symlog'
+        elif isinstance(scale_obj, AsinhScale):
+            return 'asinh'
+        elif isinstance(scale_obj, LogitScale):
+            return 'logit'
         return 'linear'
+
+    def get_remove_overlapping_locs(self):
+        return self._remove_overlapping_locs
+
+    def set_remove_overlapping_locs(self, val):
+        self._remove_overlapping_locs = bool(val)
+
+    remove_overlapping_locs = property(
+        get_remove_overlapping_locs, set_remove_overlapping_locs)
 
     def get_scale_obj(self):
         """Return the current Scale object."""
@@ -201,6 +219,10 @@ class Axis:
         return self._major_locator
 
     def set_major_locator(self, locator):
+        from matplotlib.ticker import Locator, Formatter
+        if isinstance(locator, Formatter):
+            raise TypeError(
+                f"{type(locator).__name__} is not a Locator; pass a Locator instance")
         self._major_locator = locator
         locator.set_axis(self)
         self.isDefault_majloc = False
@@ -209,6 +231,10 @@ class Axis:
         return self._minor_locator
 
     def set_minor_locator(self, locator):
+        from matplotlib.ticker import Locator, Formatter
+        if isinstance(locator, Formatter):
+            raise TypeError(
+                f"{type(locator).__name__} is not a Locator; pass a Locator instance")
         self._minor_locator = locator
         locator.set_axis(self)
         self.isDefault_minloc = False
@@ -217,20 +243,32 @@ class Axis:
         return self._major_formatter
 
     def set_major_formatter(self, formatter):
+        from matplotlib.ticker import Locator, Formatter
+        if isinstance(formatter, Locator):
+            raise TypeError(
+                f"{type(formatter).__name__} is not a Formatter; pass a Formatter instance")
         if callable(formatter) and not hasattr(formatter, 'set_locs'):
             from matplotlib.ticker import FuncFormatter
             formatter = FuncFormatter(formatter)
         self._major_formatter = formatter
+        if hasattr(formatter, 'set_axis'):
+            formatter.set_axis(self)
         self.isDefault_majfmt = False
 
     def get_minor_formatter(self):
         return self._minor_formatter
 
     def set_minor_formatter(self, formatter):
+        from matplotlib.ticker import Locator, Formatter
+        if isinstance(formatter, Locator):
+            raise TypeError(
+                f"{type(formatter).__name__} is not a Formatter; pass a Formatter instance")
         if callable(formatter) and not hasattr(formatter, 'set_locs'):
             from matplotlib.ticker import FuncFormatter
             formatter = FuncFormatter(formatter)
         self._minor_formatter = formatter
+        if hasattr(formatter, 'set_axis'):
+            formatter.set_axis(self)
         self.isDefault_minfmt = False
 
     def get_visible(self):
@@ -276,38 +314,71 @@ class Axis:
     def get_tick_params(self, which='major'):
         return dict(self._tick_params)
 
-    def get_major_ticks(self):
+    def get_major_ticks(self, numticks=None):
         return list(self.majorTicks)
 
-    def get_minor_ticks(self):
+    def get_minor_ticks(self, numticks=None):
+        """Return minor Tick objects, computing dynamically from the minor locator."""
+        locs = self.get_minorticklocs()
+        if locs:
+            self.minorTicks = [Tick(v, '') for v in locs]
         return list(self.minorTicks)
+
+    def minorticks_on(self):
+        """Turn on minor ticks — mirrors real matplotlib Axis.minorticks_on."""
+        from matplotlib.ticker import AutoMinorLocator, LogLocator, SymmetricalLogLocator
+        from matplotlib.scale import LogScale, SymmetricalLogScale
+        scale = getattr(self, '_scale_obj', None)
+        if isinstance(scale, LogScale):
+            loc = LogLocator(scale.base, scale.subs)
+        elif isinstance(scale, SymmetricalLogScale):
+            loc = SymmetricalLogLocator(scale._transform, scale.subs)
+        else:
+            loc = AutoMinorLocator()
+        self.set_minor_locator(loc)
+
+    def minorticks_off(self):
+        """Turn off minor ticks by installing NullLocator."""
+        from matplotlib.ticker import NullLocator
+        self._minor_locator = NullLocator()
+        self._minor_locator.set_axis(self)
+        self.isDefault_minloc = False
 
     def get_ticklocs(self, minor=False):
         if minor:
             return self.get_minorticklocs()
-        return [t.get_loc() for t in self.majorTicks]
+        return self.get_majorticklocs()
 
     def get_majorticklocs(self):
         """Return major tick locations from the major locator."""
-        if self.majorTicks:
-            return [t.get_loc() for t in self.majorTicks]
-        # Compute dynamically from the locator
         try:
             locs = self._major_locator()
             return list(locs)
         except Exception:
+            if self.majorTicks:
+                return [t.get_loc() for t in self.majorTicks]
             return []
 
     def get_minorticklocs(self):
-        """Return minor tick locations by calling the minor locator."""
+        """Return minor tick locations, filtered to exclude major tick positions."""
+        import numpy as np
         from matplotlib.ticker import NullLocator
         if isinstance(self._minor_locator, NullLocator):
             return []
         try:
-            locs = self._minor_locator()
-            return list(locs)
+            minor_locs = np.asarray(self._minor_locator())
         except Exception:
             return [t.get_loc() for t in self.minorTicks]
+        # Filter out minor ticks close to major ticks (matching real matplotlib behavior)
+        major_locs = np.asarray(self.get_majorticklocs())
+        if len(major_locs) > 0 and len(minor_locs) > 0:
+            vmin, vmax = sorted(self.get_view_interval())
+            span = vmax - vmin
+            if span > 0:
+                tol = span * 1e-5
+                mask = np.abs(minor_locs[:, None] - major_locs[None, :]).min(axis=1) <= tol
+                minor_locs = minor_locs[~mask]
+        return list(minor_locs)
 
     def get_ticklabels(self, minor=False):
         ticks = self.minorTicks if minor else self.majorTicks
@@ -382,6 +453,24 @@ class Axis:
         return self.get_inverted()
 
     def _update_ticks(self):
+        """Recompute tick positions from the locator and update formatter."""
+        import numpy as np
+        try:
+            locs = list(self._major_locator())
+        except Exception:
+            locs = []
+        self.majorTicks = [Tick(v, '') for v in locs]
+        fmt = self._major_formatter
+        if hasattr(fmt, 'set_locs'):
+            if hasattr(fmt, 'axis') and fmt.axis is None:
+                if hasattr(fmt, 'create_dummy_axis'):
+                    fmt.create_dummy_axis()
+            fmt.set_locs(locs)
+        try:
+            minor_locs = list(self._minor_locator())
+        except Exception:
+            minor_locs = []
+        self.minorTicks = [Tick(v, '') for v in minor_locs]
         return self.majorTicks + self.minorTicks
 
     def get_view_interval(self):
@@ -415,6 +504,14 @@ class XAxis(Axis):
     """X-axis object."""
     axis_name = 'x'
 
+    def __init__(self, axes=None, **kwargs):
+        super().__init__(axes, **kwargs)
+        import matplotlib
+        if matplotlib.rcParams.get('xtick.minor.visible', False):
+            from matplotlib.ticker import AutoMinorLocator
+            self._minor_locator = AutoMinorLocator()
+            self._minor_locator.set_axis(self)
+
     def get_view_interval(self):
         if self.axes is not None:
             return self.axes.get_xlim()
@@ -445,6 +542,14 @@ class XAxis(Axis):
 class YAxis(Axis):
     """Y-axis object."""
     axis_name = 'y'
+
+    def __init__(self, axes=None, **kwargs):
+        super().__init__(axes, **kwargs)
+        import matplotlib
+        if matplotlib.rcParams.get('ytick.minor.visible', False):
+            from matplotlib.ticker import AutoMinorLocator
+            self._minor_locator = AutoMinorLocator()
+            self._minor_locator.set_axis(self)
 
     def get_view_interval(self):
         if self.axes is not None:
@@ -487,6 +592,8 @@ class Axes:
         self._xlim = None
         self._ylim = None
         self._grid = False
+        self._major_grid = False
+        self._minor_grid = False
         self._legend_obj = None
         self._color_idx = 0
         self._facecolor = 'white'
@@ -1758,7 +1865,9 @@ class Axes:
     def boxplot(self, x, vert=True, widths=None, showfliers=True,
                 showmeans=False, **kwargs):
         """Box-and-whisker plot."""
-        if not x:
+        import numpy as np
+        x = np.asarray(x) if not isinstance(x, (list, tuple)) else x
+        if len(x) == 0:
             return {'boxes': [], 'medians': [], 'whiskers': [],
                     'caps': [], 'fliers': [], 'means': []}
         # Normalize input: always a list of datasets
@@ -2467,6 +2576,14 @@ class Axes:
                 if math.isinf(fval):
                     raise ValueError(
                         f"Axis limits cannot be Inf: {name}={val}")
+        if left is not None and right is not None and left == right:
+            import warnings
+            warnings.warn(
+                f"Attempting to set identical left == right == {left} results "
+                f"in singular transformations; automatically expanding.",
+                UserWarning, stacklevel=2)
+            from matplotlib.transforms import nonsingular
+            left, right = nonsingular(left, right, expander=0.05)
         self._xlim = (left, right)
         if auto is not None:
             self._autoscalex_on = auto
@@ -2502,6 +2619,14 @@ class Axes:
                 if math.isinf(fval):
                     raise ValueError(
                         f"Axis limits cannot be Inf: {name}={val}")
+        if bottom is not None and top is not None and bottom == top:
+            import warnings
+            warnings.warn(
+                f"Attempting to set identical bottom == top == {bottom} results "
+                f"in singular transformations; automatically expanding.",
+                UserWarning, stacklevel=2)
+            from matplotlib.transforms import nonsingular
+            bottom, top = nonsingular(bottom, top, expander=0.05)
         self._ylim = (bottom, top)
         if auto is not None:
             self._autoscaley_on = auto
@@ -2607,7 +2732,9 @@ class Axes:
             self._xticklabels = list(labels)
 
     def get_xticks(self):
-        return self.xaxis.get_ticks()
+        import numpy as np
+        locs = self.xaxis.get_majorticklocs()
+        return np.array(locs)
 
     def set_yticks(self, ticks, labels=None, **kwargs):
         from matplotlib.ticker import FixedLocator
@@ -2617,13 +2744,25 @@ class Axes:
             self._yticklabels = list(labels)
 
     def get_yticks(self):
-        return self.yaxis.get_ticks()
+        import numpy as np
+        locs = self.yaxis.get_majorticklocs()
+        return np.array(locs)
 
     def get_xticklabels(self):
         """Return the x-axis tick labels."""
         if self._xticklabels is not None:
             return list(self._xticklabels)
-        return []
+        # Generate from formatter
+        locs = self.xaxis.get_majorticklocs()
+        fmt = self.xaxis._major_formatter
+        labels = []
+        for i, loc in enumerate(locs):
+            try:
+                text = fmt(loc, i)
+            except Exception:
+                text = str(loc)
+            labels.append(_TickLabel(text))
+        return labels
 
     def set_xticklabels(self, labels, **kwargs):
         self._xticklabels = list(labels)
@@ -2633,7 +2772,17 @@ class Axes:
         """Return the y-axis tick labels."""
         if self._yticklabels is not None:
             return list(self._yticklabels)
-        return []
+        # Generate from formatter
+        locs = self.yaxis.get_majorticklocs()
+        fmt = self.yaxis._major_formatter
+        labels = []
+        for i, loc in enumerate(locs):
+            try:
+                text = fmt(loc, i)
+            except Exception:
+                text = str(loc)
+            labels.append(_TickLabel(text))
+        return labels
 
     def set_yticklabels(self, labels, **kwargs):
         self._yticklabels = list(labels)
@@ -2672,15 +2821,13 @@ class Axes:
 
     def minorticks_on(self):
         """Turn on automatic minor ticks for both axes."""
-        from matplotlib.ticker import AutoMinorLocator
-        self.xaxis.set_minor_locator(AutoMinorLocator())
-        self.yaxis.set_minor_locator(AutoMinorLocator())
+        self.xaxis.minorticks_on()
+        self.yaxis.minorticks_on()
 
     def minorticks_off(self):
         """Turn off minor ticks by installing NullLocator."""
-        from matplotlib.ticker import NullLocator
-        self.xaxis.set_minor_locator(NullLocator())
-        self.yaxis.set_minor_locator(NullLocator())
+        self.xaxis.minorticks_off()
+        self.yaxis.minorticks_off()
 
     def set_visible(self, b):
         """Set whether the axes is visible."""
@@ -2736,8 +2883,33 @@ class Axes:
         self._legend = True
         return leg
 
-    def grid(self, visible=True, **kwargs):
-        self._grid = visible
+    def grid(self, visible=None, which='major', axis='both', **kwargs):
+        if which == 'minor':
+            if visible is None:
+                visible = not getattr(self, '_minor_grid', False)
+            self._minor_grid = bool(visible)
+        elif which == 'both':
+            if visible is None:
+                visible = not getattr(self, '_major_grid', False)
+            self._major_grid = bool(visible)
+            self._minor_grid = bool(visible)
+        else:  # 'major'
+            if visible is None:
+                visible = not getattr(self, '_major_grid', False)
+            self._major_grid = bool(visible)
+        self._grid = self._major_grid or self._minor_grid
+
+    def get_xgridlines(self):
+        """Return x-axis grid lines (non-empty list if grid is on)."""
+        if getattr(self, '_grid', False):
+            return [object()]  # non-empty sentinel
+        return []
+
+    def get_ygridlines(self):
+        """Return y-axis grid lines (non-empty list if grid is on)."""
+        if getattr(self, '_grid', False):
+            return [object()]
+        return []
 
     # ------------------------------------------------------------------
     # Axis inversion
@@ -2764,9 +2936,9 @@ class Axes:
     # ------------------------------------------------------------------
 
     def set_xscale(self, scale, **kwargs):
-        """Set the x-axis scale ('linear', 'log', 'symlog', or a Scale object)."""
-        from matplotlib.scale import (LinearScale, LogScale,
-                                       SymmetricalLogScale, FuncScale)
+        """Set the x-axis scale ('linear', 'log', 'symlog', 'asinh', 'logit', or a Scale object)."""
+        from matplotlib.scale import (LinearScale, LogScale, SymmetricalLogScale,
+                                       FuncScale, AsinhScale, LogitScale)
         if isinstance(scale, str):
             if scale == 'linear':
                 scale_obj = LinearScale(None)
@@ -2779,10 +2951,15 @@ class Axes:
                     base=kwargs.get('base', 10.0),
                     linthresh=kwargs.get('linthresh', 2.0),
                     linscale=kwargs.get('linscale', 1.0))
+            elif scale == 'asinh':
+                scale_obj = AsinhScale(None,
+                    linear_width=kwargs.get('linear_width', 1.0))
+            elif scale == 'logit':
+                scale_obj = LogitScale(None)
             else:
                 raise ValueError(f"Unknown scale: {scale!r}")
-        elif isinstance(scale, (LinearScale, LogScale,
-                                 SymmetricalLogScale, FuncScale)):
+        elif isinstance(scale, (LinearScale, LogScale, SymmetricalLogScale,
+                                 FuncScale, AsinhScale, LogitScale)):
             scale_obj = scale
         else:
             raise TypeError(f"scale must be a string or Scale object, "
@@ -2790,11 +2967,20 @@ class Axes:
         self._xscale = scale if isinstance(scale, str) else 'custom'
         self._xscale_obj = scale_obj
         self.xaxis.set_scale(scale_obj)
+        # Update default view limits when switching to log scale (like real mpl)
+        if isinstance(scale_obj, LogScale):
+            xmin, xmax = self.get_xlim()
+            if xmin <= 0 or xmax <= 0:
+                self.set_xlim(1, 10)
+        elif isinstance(scale_obj, LogitScale):
+            xmin, xmax = self.get_xlim()
+            if xmin <= 0 or xmax >= 1:
+                self.set_xlim(0.01, 0.99)
 
     def set_yscale(self, scale, **kwargs):
-        """Set the y-axis scale ('linear', 'log', 'symlog', or a Scale object)."""
-        from matplotlib.scale import (LinearScale, LogScale,
-                                       SymmetricalLogScale, FuncScale)
+        """Set the y-axis scale ('linear', 'log', 'symlog', 'asinh', 'logit', or a Scale object)."""
+        from matplotlib.scale import (LinearScale, LogScale, SymmetricalLogScale,
+                                       FuncScale, AsinhScale, LogitScale)
         if isinstance(scale, str):
             if scale == 'linear':
                 scale_obj = LinearScale(None)
@@ -2807,10 +2993,15 @@ class Axes:
                     base=kwargs.get('base', 10.0),
                     linthresh=kwargs.get('linthresh', 2.0),
                     linscale=kwargs.get('linscale', 1.0))
+            elif scale == 'asinh':
+                scale_obj = AsinhScale(None,
+                    linear_width=kwargs.get('linear_width', 1.0))
+            elif scale == 'logit':
+                scale_obj = LogitScale(None)
             else:
                 raise ValueError(f"Unknown scale: {scale!r}")
-        elif isinstance(scale, (LinearScale, LogScale,
-                                 SymmetricalLogScale, FuncScale)):
+        elif isinstance(scale, (LinearScale, LogScale, SymmetricalLogScale,
+                                 FuncScale, AsinhScale, LogitScale)):
             scale_obj = scale
         else:
             raise TypeError(f"scale must be a string or Scale object, "
@@ -2818,6 +3009,15 @@ class Axes:
         self._yscale = scale if isinstance(scale, str) else 'custom'
         self._yscale_obj = scale_obj
         self.yaxis.set_scale(scale_obj)
+        # Update default view limits when switching to log scale (like real mpl)
+        if isinstance(scale_obj, LogScale):
+            ymin, ymax = self.get_ylim()
+            if ymin <= 0 or ymax <= 0:
+                self.set_ylim(1, 10)
+        elif isinstance(scale_obj, LogitScale):
+            ymin, ymax = self.get_ylim()
+            if ymin <= 0 or ymax >= 1:
+                self.set_ylim(0.01, 0.99)
 
     def get_xscale(self):
         """Return the x-axis scale."""
@@ -3245,6 +3445,8 @@ class Axes:
         self.xaxis = XAxis(self)
         self.yaxis = YAxis(self)
         self._grid = False
+        self._major_grid = False
+        self._minor_grid = False
         self._legend_obj = None
         self._legend = False
         self._color_idx = 0
