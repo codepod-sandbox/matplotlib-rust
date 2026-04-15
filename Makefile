@@ -23,6 +23,7 @@ PATH_OUT     := python/matplotlib/_path.$(PY_EXT)
 AGG_OUT      := python/matplotlib/backends/_backend_agg.$(PY_EXT)
 FT2FONT_OUT  := python/matplotlib/ft2font.$(PY_EXT)
 IMAGE_OUT    := python/matplotlib/_image.$(PY_EXT)
+QHULL_OUT    := python/matplotlib/_qhull.$(PY_EXT)
 
 # Pin PyO3 to the venv Python so the extension's ABI matches what
 # pytest will import. Without this, cargo picks whatever `python3` is
@@ -56,10 +57,11 @@ build:
 # Both _backend_agg.py and ft2font.py are gone after Phase 2A; the
 # .so is the only source of truth.
 build-ext:
-	cargo build -p matplotlib-agg -p matplotlib-ft2font -p matplotlib-image
+	cargo build -p matplotlib-agg -p matplotlib-ft2font -p matplotlib-image -p matplotlib-qhull
 	cp target/debug/$(DYLIB_PREFIX)matplotlib_agg.$(DYLIB_EXT) $(AGG_OUT)
 	cp target/debug/$(DYLIB_PREFIX)matplotlib_ft2font.$(DYLIB_EXT) $(FT2FONT_OUT)
 	cp target/debug/$(DYLIB_PREFIX)matplotlib_image.$(DYLIB_EXT) $(IMAGE_OUT)
+	cp target/debug/$(DYLIB_PREFIX)matplotlib_qhull.$(DYLIB_EXT) $(QHULL_OUT)
 
 # Explicit rebuild for _path.so (committed binary works, don't use
 # this unless you're tackling the numpy 2.x ABI cleanup).
