@@ -529,7 +529,6 @@ def test_figure_clear_removes_texts():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 2: tight_layout triggers ft2font via text metrics")
 def test_figure_tight_layout_noop():
     """tight_layout is a no-op but doesn't crash."""
     fig, ax = plt.subplots()
@@ -1043,7 +1042,6 @@ def test_figure_supylabel_set_get():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: tight_layout triggers ft2font via text metrics")
 def test_figure_tight_layout_runs():
     """fig.tight_layout() runs without error."""
     import matplotlib.pyplot as plt
@@ -1106,7 +1104,6 @@ def test_subplots_sharey():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: savefig SVG triggers ft2font")
 def test_figure_savefig_svg():
     """fig.savefig() to StringIO produces valid SVG."""
     import io
@@ -1235,7 +1232,6 @@ class TestFigureLayout:
         assert buf.tell() > 0
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 2: savefig SVG triggers ft2font")
     def test_figure_savefig_svg(self):
         import io
         fig, ax = plt.subplots()
@@ -1275,7 +1271,6 @@ class TestFigureLayout:
         assert isinstance(gca, Axes)
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 2: tight_layout triggers ft2font via text metrics")
     def test_figure_tight_layout_no_error(self):
         fig, axes = plt.subplots(2, 2)
         fig.tight_layout()  # Should not raise

@@ -267,7 +267,6 @@ class TestRepr:
 # ===================================================================
 
 class TestSavefig:
-    @pytest.mark.skip(reason="Phase 2: SVG rendering requires ft2font")
     def test_savefig_svg(self, tmp_path):
         """savefig creates a valid SVG file."""
         fig = plt.figure()
@@ -277,10 +276,10 @@ class TestSavefig:
         fig.savefig(str(path))
         assert path.exists()
         content = path.read_text()
-        assert content.startswith('<svg')
+        # OG SVG backend emits <?xml ... ?> declaration before <svg
+        assert '<svg' in content
         assert '</svg>' in content
 
-    @pytest.mark.skip(reason="Phase 2: SVG rendering requires ft2font")
     def test_savefig_format_detection(self, tmp_path):
         """savefig infers SVG format from .svg extension."""
         fig = plt.figure()

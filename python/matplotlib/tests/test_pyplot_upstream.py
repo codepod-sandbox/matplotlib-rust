@@ -806,7 +806,6 @@ def test_plt_tick_params():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: fig.savefig(svg) requires ft2font")
 def test_plt_savefig_stringio():
     """plt.savefig to StringIO object works for SVG."""
     import io

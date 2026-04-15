@@ -200,26 +200,35 @@ class FT2Font:
         return None
 
     def get_xys(self, antialiased=True):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        import numpy as np
+        return np.zeros((0, 2), dtype=float)
 
-    def get_glyph_name(self, index):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
-
-    def get_num_glyphs(self):
-        return 0
+    def _get_fontmap(self, string):
+        # Return mapping of each char to self (single-font fallback)
+        return {c: self for c in str(string)}
 
     def get_path(self):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        import numpy as np
+        return np.zeros((0, 2), dtype=float), np.zeros(0, dtype=np.uint8)
 
-    def get_ps_font_info(self):
-        return None
+    def get_glyph_name(self, index):
+        return f"glyph_{index}"
 
     def select_charmap(self, i):
         pass
 
-    def clear(self):
-        """Clear the current glyph set (stub)."""
+    def set_charmap(self, i):
         pass
+
+    def get_ps_font_info(self):
+        return ("Fake", "Fake-Regular", "Stub", "Stub", "Stub",
+                2048, 0, 0, 0, 0, 0, 0, 0, 0)
+
+    def get_num_glyphs(self):
+        return 0
+
+    def clear(self):
+        self._current_text = ""
 
 
 class FT2Image:

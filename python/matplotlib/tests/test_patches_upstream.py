@@ -741,9 +741,8 @@ def test_ellipse_renders_png():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 2: fig.savefig(svg) requires ft2font")
 def test_ellipse_svg():
-    """Ellipse produces <ellipse> element in SVG output."""
+    """Ellipse produces path data in SVG output."""
     import matplotlib.pyplot as plt
     from matplotlib.patches import Ellipse
     fig, ax = plt.subplots()
@@ -753,7 +752,8 @@ def test_ellipse_svg():
     buf = _io.StringIO()
     fig.savefig(buf, format='svg')
     svg = buf.getvalue()
-    assert '<ellipse' in svg, "Expected <ellipse> element in SVG"
+    # OG SVG backend uses <path> for ellipses (approximated with Bezier curves)
+    assert '<path' in svg, "Expected <path> element for ellipse in SVG"
     plt.close(fig)
 
 
@@ -817,9 +817,8 @@ def test_fancy_bbox_square_png():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 2: fig.savefig(svg) requires ft2font")
 def test_regular_polygon_svg():
-    """RegularPolygon (hexagon) produces <polygon> in SVG output."""
+    """RegularPolygon (hexagon) produces path data in SVG output."""
     import matplotlib.pyplot as plt
     from matplotlib.patches import RegularPolygon
     fig, ax = plt.subplots()
@@ -829,7 +828,8 @@ def test_regular_polygon_svg():
     buf = _io.StringIO()
     fig.savefig(buf, format='svg')
     svg = buf.getvalue()
-    assert '<polygon' in svg, "Expected <polygon> in SVG for RegularPolygon"
+    # OG SVG backend uses <path> with 'd' attribute for regular polygons
+    assert '<path' in svg, "Expected <path> in SVG for RegularPolygon"
     plt.close(fig)
 
 
@@ -853,7 +853,6 @@ def test_arrow_renders_png():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 2: fig.savefig(svg) requires ft2font")
 def test_path_patch_svg():
     """PathPatch with a triangle path produces <polygon> in SVG output."""
     import matplotlib.pyplot as plt
@@ -869,7 +868,7 @@ def test_path_patch_svg():
     buf = _io.StringIO()
     fig.savefig(buf, format='svg')
     svg = buf.getvalue()
-    assert '<polygon' in svg, "Expected <polygon> in SVG for PathPatch triangle"
+    assert '<path' in svg, "Expected <path> in SVG for PathPatch"
     plt.close(fig)
 
 # ===================================================================

@@ -72,7 +72,7 @@ def test_logit_scales():
     assert np.isfinite(bbox.y0)
 
 
-@pytest.mark.skip(reason="Phase 2: savefig requires ft2font (FaceFlags import error)")
+@pytest.mark.skip(reason="Phase 2: savefig pdf/eps requires real font embedding")
 def test_log_scatter():
     """Issue #1799"""
     fig, ax = plt.subplots(1)

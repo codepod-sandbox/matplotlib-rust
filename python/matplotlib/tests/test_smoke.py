@@ -126,7 +126,6 @@ def test_multiple_subplots():
     plt.close("all")
 
 
-@pytest.mark.skip(reason="Phase 2: savefig SVG requires ft2font")
 def test_save_svg():
     import matplotlib.pyplot as plt
     import io
