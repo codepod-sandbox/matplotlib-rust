@@ -539,14 +539,18 @@ impl FT2Font {
         let d = pyo3::types::PyDict::new(py);
         match name {
             "head" => {
-                d.set_item("version", 0x10000_i32)?;
-                d.set_item("fontRevision", 0_i32)?;
+                // _SfntHeadDict: version, fontRevision are 16.16
+                // fixed-point exposed as (major, minor) tuples. created
+                // / modified are LONGDATETIME (64-bit) split into
+                // (hi, lo) 32-bit halves per the same convention.
+                d.set_item("version", fixed_tuple_1616(0x10000))?;
+                d.set_item("fontRevision", fixed_tuple_1616(0))?;
                 d.set_item("checkSumAdjustment", 0_i32)?;
                 d.set_item("magicNumber", 0x5F0F3CF5_u32)?;
                 d.set_item("flags", 0_i32)?;
                 d.set_item("unitsPerEm", face.units_per_em() as i32)?;
-                d.set_item("created", 0_i64)?;
-                d.set_item("modified", 0_i64)?;
+                d.set_item("created", (0_i32, 0_i32))?;
+                d.set_item("modified", (0_i32, 0_i32))?;
                 let bbox = face.global_bounding_box();
                 d.set_item("xMin", bbox.x_min as i32)?;
                 d.set_item("yMin", bbox.y_min as i32)?;
@@ -568,13 +572,14 @@ impl FT2Font {
             }
             "hhea" => {
                 let h = tables.hhea;
-                d.set_item("version", 0x10000_i32)?;
+                // _SfntHheaDict: version is 16.16 fixed-point tuple.
+                d.set_item("version", fixed_tuple_1616(0x10000))?;
                 d.set_item("ascent", h.ascender as i32)?;
                 d.set_item("descent", h.descender as i32)?;
                 d.set_item("lineGap", h.line_gap as i32)?;
                 d.set_item("advanceWidthMax", 0_i32)?;
-                d.set_item("minLeftSideBearing", 0_i32)?;
-                d.set_item("minRightSideBearing", 0_i32)?;
+                d.set_item("minLeftBearing", 0_i32)?;
+                d.set_item("minRightBearing", 0_i32)?;
                 d.set_item("xMaxExtent", 0_i32)?;
                 d.set_item("caretSlopeRise", 1_i32)?;
                 d.set_item("caretSlopeRun", 0_i32)?;
@@ -588,8 +593,9 @@ impl FT2Font {
                     Some(t) => t,
                     None => return Ok(py.None()),
                 };
-                // Version 4 is a valid OS/2 version (not 0xFFFF which
-                // matplotlib treats as "missing").
+                // _SfntOs2Dict: version is an int (not a tuple!).
+                // We report version 4 (a real OS/2 version, not 0xFFFF
+                // which matplotlib treats as "missing").
                 d.set_item("version", 4_i32)?;
                 d.set_item("xAvgCharWidth", 0_i32)?;
                 d.set_item("usWeightClass", os2.weight().to_number() as i32)?;
@@ -606,8 +612,11 @@ impl FT2Font {
                 d.set_item("yStrikeoutSize", 0_i32)?;
                 d.set_item("yStrikeoutPosition", 0_i32)?;
                 d.set_item("sFamilyClass", 0_i32)?;
+                // panose is raw 10 bytes; ulCharRange is a 4-tuple of
+                // u32s (the Unicode range bits) per _SfntOs2Dict, NOT
+                // bytes. achVendID is 4 raw bytes.
                 d.set_item("panose", pyo3::types::PyBytes::new(py, &[0u8; 10]))?;
-                d.set_item("ulCharRange", pyo3::types::PyBytes::new(py, &[0u8; 16]))?;
+                d.set_item("ulCharRange", (0_u32, 0_u32, 0_u32, 0_u32))?;
                 d.set_item("achVendID", pyo3::types::PyBytes::new(py, b"UKWN"))?;
                 let mut fs_sel: u16 = 0;
                 if face.is_italic() {
@@ -630,9 +639,17 @@ impl FT2Font {
                 Ok(d.into_any().unbind())
             }
             "post" => {
-                d.set_item("format", 0x20000_i32)?;
-                let italic = face.italic_angle().unwrap_or(0.0);
-                d.set_item("italicAngle", italic as f64)?;
+                // _SfntPostDict: format AND italicAngle are both 16.16
+                // fixed-point exposed as (major, minor) tuples.
+                // backend_pdf.py:1446 does `post['italicAngle'][1]`
+                // which would TypeError on a float. matplotlib's OG C
+                // ft2font returns the Fixed value split into signed
+                // upper i16 + unsigned lower u16.
+                d.set_item("format", fixed_tuple_1616(0x30000))?; // 3.0
+                let italic_deg = face.italic_angle().unwrap_or(0.0);
+                // Convert to 16.16 fixed-point then split.
+                let fixed = (italic_deg * 65536.0) as i32;
+                d.set_item("italicAngle", fixed_tuple_1616(fixed))?;
                 d.set_item("underlinePosition", self.underline_position as i32)?;
                 d.set_item("underlineThickness", self.underline_thickness as i32)?;
                 d.set_item(
@@ -645,15 +662,23 @@ impl FT2Font {
                 d.set_item("maxMemType1", 0_i32)?;
                 Ok(d.into_any().unbind())
             }
-            "name" => {
-                d.set_item("format", 0_i32)?;
-                let count = face
-                    .tables()
-                    .name
-                    .map(|t| t.names.into_iter().count() as i32)
-                    .unwrap_or(0);
-                d.set_item("count", count)?;
-                d.set_item("stringOffset", 0_i32)?;
+            "maxp" => {
+                // _SfntMaxpDict: version is 16.16 fixed-point tuple.
+                d.set_item("version", fixed_tuple_1616(0x10000))?;
+                d.set_item("numGlyphs", face.number_of_glyphs() as i32)?;
+                d.set_item("maxPoints", 0_i32)?;
+                d.set_item("maxContours", 0_i32)?;
+                d.set_item("maxComponentPoints", 0_i32)?;
+                d.set_item("maxComponentContours", 0_i32)?;
+                d.set_item("maxZones", 0_i32)?;
+                d.set_item("maxTwilightPoints", 0_i32)?;
+                d.set_item("maxStorage", 0_i32)?;
+                d.set_item("maxFunctionDefs", 0_i32)?;
+                d.set_item("maxInstructionDefs", 0_i32)?;
+                d.set_item("maxStackElements", 0_i32)?;
+                d.set_item("maxSizeOfInstructions", 0_i32)?;
+                d.set_item("maxComponentElements", 0_i32)?;
+                d.set_item("maxComponentDepth", 0_i32)?;
                 Ok(d.into_any().unbind())
             }
             _ => Ok(py.None()),
@@ -781,6 +806,21 @@ impl FT2Font {
         let codes = ndarray::Array1::from_vec(collector.codes);
         (verts.into_pyarray(py), codes.into_pyarray(py))
     }
+}
+
+/// Split a 16.16 Fixed-point integer into the (major, minor) tuple
+/// the OG C ft2font extension exposes for SFNT version / fontRevision
+/// / italicAngle / format fields.
+///
+/// The upper 16 bits are a signed integer part; the lower 16 bits are
+/// an unsigned fractional part. matplotlib's backend_pdf.py:1446
+/// indexes italicAngle[1] (the lower u16), so returning a float here
+/// would TypeError at runtime. See _SfntPostDict, _SfntHeadDict,
+/// _SfntHheaDict, _SfntMaxpDict type stubs in ft2font.pyi.
+fn fixed_tuple_1616(fixed: i32) -> (i16, u16) {
+    let major = (fixed >> 16) as i16;
+    let minor = (fixed & 0xFFFF) as u16;
+    (major, minor)
 }
 
 /// Translate ttf-parser's PlatformId enum into the numeric value

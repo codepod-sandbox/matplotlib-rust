@@ -305,10 +305,71 @@ def test_post_table_has_italic_angle():
     font = ft2font.FT2Font(_find_dejavu_sans())
     post = font.get_sfnt_table("post")
     assert isinstance(post, dict)
-    # DejaVu Sans is upright.
-    assert post["italicAngle"] == 0.0
+    # italicAngle and format are both 16.16 fixed-point (major, minor)
+    # tuples per _SfntPostDict. backend_pdf.py:1446 does
+    #     post['italicAngle'][1]
+    # which would TypeError if this were a float.
+    ia = post["italicAngle"]
+    assert isinstance(ia, tuple), f"expected tuple, got {type(ia).__name__}"
+    assert len(ia) == 2
+    assert all(isinstance(x, int) for x in ia)
+    # DejaVu Sans is upright → (0, 0)
+    assert ia == (0, 0)
+    # backend_pdf's [1] index must not raise
+    _ = post["italicAngle"][1]
+
+    fmt = post["format"]
+    assert isinstance(fmt, tuple) and len(fmt) == 2
+    assert all(isinstance(x, int) for x in fmt)
+
     # post['underlinePosition'] used by font metadata introspection.
     assert post["underlinePosition"] < 0
+
+
+def test_head_version_and_revision_are_fixed_tuples():
+    """_SfntHeadDict specifies version and fontRevision as 16.16
+    fixed-point (major, minor) tuples.
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    head = font.get_sfnt_table("head")
+    for key in ("version", "fontRevision", "created", "modified"):
+        val = head[key]
+        assert isinstance(val, tuple), f"{key}: expected tuple, got {type(val).__name__}"
+        assert len(val) == 2
+
+
+def test_hhea_maxp_versions_are_fixed_tuples():
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    hhea = font.get_sfnt_table("hhea")
+    assert isinstance(hhea["version"], tuple) and len(hhea["version"]) == 2
+    maxp = font.get_sfnt_table("maxp")
+    assert isinstance(maxp["version"], tuple) and len(maxp["version"]) == 2
+    assert maxp["numGlyphs"] > 100
+
+
+def test_os2_ulcharrange_is_4_tuple_not_bytes():
+    """_SfntOs2Dict specifies ulCharRange as tuple[int, int, int, int]
+    (the four 32-bit Unicode-range bitmasks), NOT bytes.
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    os2 = font.get_sfnt_table("OS/2")
+    ucr = os2["ulCharRange"]
+    assert isinstance(ucr, tuple)
+    assert len(ucr) == 4
+    assert all(isinstance(x, int) for x in ucr)
+
+
+def test_backend_pdf_italic_angle_index_does_not_raise():
+    """Guards the exact line backend_pdf.py:1446 uses:
+        post['italicAngle'][1]
+    against a future regression that would return a float or
+    something else non-subscriptable.
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    post = font.get_sfnt_table("post")
+    # The exact operation from backend_pdf.py:
+    italic_minor = post['italicAngle'][1]
+    assert isinstance(italic_minor, int)
 
 
 def test_unknown_sfnt_table_returns_none():
