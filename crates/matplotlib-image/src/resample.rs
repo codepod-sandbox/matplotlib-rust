@@ -295,13 +295,20 @@ fn kernel_eval(interp: i32, x: f64, radius: f64) -> f64 {
                 (px.sin() / px) * (win.sin() / win)
             }
         }
-        // 16 = BLACKMAN
+        // 16 = BLACKMAN — windowed-sinc with a Blackman window of half-width
+        // `radius` (same category as SINC/LANCZOS; filterrad governs it per
+        // image.py:858 / axes/_axes.py:5917).
         16 => {
-            if ax >= 1.0 {
+            if ax >= radius {
                 0.0
+            } else if ax < 1e-10 {
+                1.0
             } else {
-                let t = PI * ax;
-                0.42 - 0.5 * t.cos() + 0.08 * (2.0 * t).cos()
+                // Blackman-windowed sinc: sinc(pi*x) * W_blackman(x/radius)
+                let px = PI * ax;
+                let t = PI * ax / radius;
+                let window = 0.42 - 0.5 * t.cos() + 0.08 * (2.0 * t).cos();
+                (px.sin() / px) * window
             }
         }
         _ => 0.0,
@@ -312,11 +319,11 @@ fn kernel_eval(interp: i32, x: f64, radius: f64) -> f64 {
 /// to evaluate in each axis).
 fn filter_support(interp: i32, radius: f64) -> i64 {
     match interp {
-        5 | 6 | 7 | 8 | 16 => 1,         // HANNING/HAMMING/HERMITE/KAISER/BLACKMAN
-        9 => 2,                          // QUADRIC: support 1.5 → ceil 2
-        2 | 10 | 3 | 11 | 13 => 2,       // BICUBIC/CATROM/SPLINE16/GAUSSIAN/MITCHELL
-        4 | 12 => 4,                     // SPLINE36/BESSEL: support 3+ → ceil 4
-        14 | 15 => radius.ceil() as i64, // SINC/LANCZOS
+        5 | 6 | 7 | 8 => 1,                   // HANNING/HAMMING/HERMITE/KAISER
+        9 => 2,                               // QUADRIC: support 1.5 → ceil 2
+        2 | 10 | 3 | 11 | 13 => 2,            // BICUBIC/CATROM/SPLINE16/GAUSSIAN/MITCHELL
+        4 | 12 => 4,                          // SPLINE36/BESSEL: support 3+ → ceil 4
+        14 | 15 | 16 => radius.ceil() as i64, // SINC/LANCZOS/BLACKMAN
         _ => 1,
     }
 }
@@ -434,11 +441,25 @@ pub fn resample_py(
     norm: bool,
     radius: f64,
 ) -> PyResult<()> {
-    let _ = resample;
     let _ = norm; // always normalize windowed kernels at boundaries
 
     let affine = extract_transform(transform)?;
     let inv = affine.inverse()?;
+
+    // resample=False: "only resample when the output image is larger than
+    // the input image" (image.py:864 / axes/_axes.py:5921).  Detect
+    // downsampling via the inverse-transform determinant: |det(inv)| > 1
+    // means each output pixel maps to more than one source pixel.
+    let effective_interp = if !resample {
+        let det = (inv.a * inv.d - inv.b * inv.c).abs();
+        if det > 1.0 {
+            0 // NEAREST — do not filter when downsampling
+        } else {
+            interpolation
+        }
+    } else {
+        interpolation
+    };
 
     let in_arr = input
         .downcast::<PyUntypedArray>()
@@ -456,8 +477,8 @@ pub fn resample_py(
     }
 
     match in_ndim {
-        2 => dispatch_2d(py, input, output, inv, interpolation, radius),
-        3 => dispatch_3d(py, input, output, inv, interpolation, alpha, radius),
+        2 => dispatch_2d(py, input, output, inv, effective_interp, radius),
+        3 => dispatch_3d(py, input, output, inv, effective_interp, alpha, radius),
         n => Err(PyValueError::new_err(format!(
             "resample: expected 2D or 3D array, got {n}D"
         ))),
