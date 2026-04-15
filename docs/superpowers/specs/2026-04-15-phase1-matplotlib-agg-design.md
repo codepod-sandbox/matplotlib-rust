@@ -96,38 +96,57 @@ Our crate exports exactly `RendererAgg` with the same constructor signature.
 
 ### Makefile
 
-The Makefile must detect the host platform and copy the right cdylib
-extension. No `cp lib_foo.dylib` hardcoding.
+The Makefile detects the host platform for both the source cdylib
+suffix (`.dylib`/`.so`/`.dll`) *and* the destination extension suffix
+Python expects (`.so` on Unix, `.pyd` on Windows). No hardcoded suffixes.
 
 ```make
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-  DYLIB_EXT := dylib
+  DYLIB_EXT := dylib           # cargo build output
   DYLIB_PREFIX := lib
+  PY_EXT := so                 # CPython extension loader suffix
 else ifeq ($(UNAME_S),Linux)
   DYLIB_EXT := so
   DYLIB_PREFIX := lib
+  PY_EXT := so
 else
+  # MSYS/MinGW/Git-Bash on Windows report e.g. MINGW64_NT-10.0
   DYLIB_EXT := dll
   DYLIB_PREFIX :=
+  PY_EXT := pyd
 endif
+
+PATH_EXT := python/matplotlib/_path.$(PY_EXT)
+AGG_EXT  := python/matplotlib/backends/_backend_agg.$(PY_EXT)
 
 build-ext:
 	cargo build -p matplotlib-path -p matplotlib-agg
-	cp target/debug/$(DYLIB_PREFIX)_path.$(DYLIB_EXT) python/matplotlib/_path.so
-	cp target/debug/$(DYLIB_PREFIX)matplotlib_agg.$(DYLIB_EXT) python/matplotlib/backends/_backend_agg.so
+	cp target/debug/$(DYLIB_PREFIX)_path.$(DYLIB_EXT) $(PATH_EXT)
+	cp target/debug/$(DYLIB_PREFIX)matplotlib_agg.$(DYLIB_EXT) $(AGG_EXT)
 ```
 
 `make test` depends on `build-ext`, so `pytest` runs against the freshly
-built extension. No pytest skipif gating — when the `.so` is built, it
-shadows the `.py` fallback via CPython's import priority
-(extension > source > bytecode). When the `.so` is absent (e.g. a
+built extension. No pytest skipif gating — when the extension is built,
+it shadows the `.py` fallback via CPython's import priority
+(extension > source > bytecode). When the extension is absent (e.g. a
 contributor ran `pytest` directly), the no-op `.py` stub still provides
 the API and tests that don't require real pixels still pass at the Phase
 0 baseline.
 
-`.gitignore` additions: `python/matplotlib/_path.so`,
-`python/matplotlib/backends/_backend_agg.so`, `target/`.
+`.gitignore` additions cover all three platform extensions so the same
+repo works regardless of who built it:
+
+```
+python/matplotlib/_path.so
+python/matplotlib/_path.pyd
+python/matplotlib/backends/_backend_agg.so
+python/matplotlib/backends/_backend_agg.pyd
+target/
+```
+
+(`.dylib` is the cargo-build output, never the install target, so it
+doesn't need to be in `.gitignore` as long as `target/` is.)
 
 ## Public API (pyclass surface)
 
@@ -546,8 +565,12 @@ Delivers incrementally:
   `tiny_skia::GradientStop`
 - **1B.5 Image scaling**: bilinear + gc resize quality
 - **1B.6 Path chunking**: implement `agg.path.chunksize` rcParam honoring
-- **1B.7 Arbitrary-angle text**: proper affine glyph blit
-- **1B.8 Snap-to-pixel**: `gc.get_snap()` support for crisp axis lines
+- **1B.7 Text blit quality**: snap-to-pixel for axis-aligned text, per
+  `gc.get_snap()`. Arbitrary-angle support is **not** a 1B deliverable —
+  it's already in 1A via `tiny_skia::Transform::from_rotate`; 1B only
+  improves *quality* (sharper edges on axis labels).
+- **1B.8 General snap-to-pixel**: `gc.get_snap()` for crisp axis lines
+  (paths, not just text)
 
 Each sub-milestone is a separate commit. Pass criterion: the `test_rendering*.py`
 tests that use OG `savefig(svg/png)` — not the stub-era helpers — produce
