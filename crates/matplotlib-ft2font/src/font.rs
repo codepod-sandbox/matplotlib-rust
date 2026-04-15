@@ -473,44 +473,48 @@ impl FT2Font {
         py.None()
     }
 
-    fn get_ps_font_info(&self, py: Python<'_>) -> Py<PyAny> {
-        // OG ft2font returns a 14-element tuple of font metadata; PyO3
-        // tuple conversion tops out at 12 elements, so we build a
-        // Python tuple manually.
-        let items: Vec<PyObject> = vec![
-            self.family_name
-                .clone()
-                .into_pyobject(py)
-                .unwrap()
-                .unbind()
-                .into_any(),
-            self.postscript_name
-                .clone()
-                .into_pyobject(py)
-                .unwrap()
-                .unbind()
-                .into_any(),
-            "Stub".into_pyobject(py).unwrap().unbind().into_any(),
-            "Stub".into_pyobject(py).unwrap().unbind().into_any(),
-            "Stub".into_pyobject(py).unwrap().unbind().into_any(),
-            (self.units_per_EM as u32)
-                .into_pyobject(py)
-                .unwrap()
-                .unbind()
-                .into_any(),
-            0_i32.into_pyobject(py).unwrap().unbind().into_any(),
-            0_i32.into_pyobject(py).unwrap().unbind().into_any(),
-            0_i32.into_pyobject(py).unwrap().unbind().into_any(),
-            0_i32.into_pyobject(py).unwrap().unbind().into_any(),
-            0_i32.into_pyobject(py).unwrap().unbind().into_any(),
-            0_i32.into_pyobject(py).unwrap().unbind().into_any(),
-            0_i32.into_pyobject(py).unwrap().unbind().into_any(),
-            0_i32.into_pyobject(py).unwrap().unbind().into_any(),
-        ];
-        pyo3::types::PyTuple::new(py, items)
-            .unwrap()
-            .unbind()
-            .into_any()
+    /// Return PostScript font info as a string-keyed dict.
+    ///
+    /// Despite what matplotlib's ft2font.pyi stub says (a 9-tuple), the
+    /// real C ft2font extension returns a dict — font_manager.py:418
+    /// does `font.get_ps_font_info()["weight"]`. The `.pyi` is stale.
+    ///
+    /// Keys mirror the FreeType `PS_FontInfoRec` struct. We populate
+    /// what ttf-parser exposes from the `post` and `name` tables;
+    /// unknown fields default to empty strings or zero.
+    fn get_ps_font_info<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        let face = ttf_parser::Face::parse(&self.font_data, 0).ok();
+        let italic_angle = face
+            .as_ref()
+            .and_then(|f| f.italic_angle())
+            .map(|a| a as i32)
+            .unwrap_or(0);
+        let is_fixed_pitch = face
+            .as_ref()
+            .map(|f| if f.is_monospaced() { 1 } else { 0 })
+            .unwrap_or(0);
+        let weight_name = face
+            .as_ref()
+            .and_then(|f| {
+                if f.is_bold() {
+                    Some("Bold")
+                } else {
+                    Some("Book")
+                }
+            })
+            .unwrap_or("Unknown");
+
+        let d = pyo3::types::PyDict::new(py);
+        d.set_item("version", "")?;
+        d.set_item("notice", "")?;
+        d.set_item("full_name", self.postscript_name.clone())?;
+        d.set_item("family_name", self.family_name.clone())?;
+        d.set_item("weight", weight_name)?;
+        d.set_item("italic_angle", italic_angle)?;
+        d.set_item("is_fixed_pitch", is_fixed_pitch)?;
+        d.set_item("underline_position", self.underline_position as i32)?;
+        d.set_item("underline_thickness", self.underline_thickness as i32)?;
+        Ok(d)
     }
 
     /// Load a glyph by Unicode codepoint and remember it for `get_path`.
@@ -637,8 +641,15 @@ impl FT2Font {
             height,
             horiBearingX: (bearing_px * 64.0) as i32,
             horiBearingY: by1, // top of glyph above baseline
+            // horiAdvance uses 26.6 fixed-point (matplotlib divides by
+            // 64 in backend_agg.py:222).
             horiAdvance: (advance_px * 64.0) as i32,
-            linearHoriAdvance: (advance_px * 64.0) as i32,
+            // linearHoriAdvance uses 16.16 fixed-point — matplotlib's
+            // _text_helpers.layout divides by 65536 (see
+            // _text_helpers.py:81 `x += glyph.linearHoriAdvance / 65536`).
+            // Using 26.6 here under-advances by 1024× and collapses
+            // multi-glyph text layout in text2path / SVG output.
+            linearHoriAdvance: (advance_px * 65536.0) as i32,
             vertBearingX: 0,
             vertBearingY: 0,
             vertAdvance: 0,

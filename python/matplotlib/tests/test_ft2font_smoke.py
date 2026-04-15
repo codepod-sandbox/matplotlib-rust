@@ -203,6 +203,67 @@ def test_fontmap_returns_self_per_char():
     assert isinstance(values[0], ft2font.FT2Font)
 
 
+def test_linear_hori_advance_is_16_16_fixed_point():
+    """glyph.linearHoriAdvance is 16.16 fixed-point (divide by 65536
+    for pixels), while horiAdvance is 26.6 (divide by 64).
+    matplotlib._text_helpers.layout does
+        x += glyph.linearHoriAdvance / 65536
+    so linearHoriAdvance MUST be in 16.16 units or the pen
+    under-advances by 1024× and multi-glyph text layout collapses.
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    font.set_size(12.0, 72.0)
+    g = font.load_char(ord('A'), flags=0)
+    # Both should agree on the glyph's advance in pixels.
+    advance_pxel_from_26_6 = g.horiAdvance / 64
+    advance_pxel_from_16_16 = g.linearHoriAdvance / 65536
+    assert advance_pxel_from_26_6 > 0
+    assert advance_pxel_from_16_16 > 0
+    # Within 0.5 px (the 26.6 truncation + 16.16 representation error)
+    assert abs(advance_pxel_from_26_6 - advance_pxel_from_16_16) < 0.5, (
+        f"advance mismatch: 26.6={advance_pxel_from_26_6:.3f}, "
+        f"16.16={advance_pxel_from_16_16:.3f}"
+    )
+
+
+def test_text_helpers_layout_advances_monotonically():
+    """End-to-end verification of linearHoriAdvance via the real
+    matplotlib._text_helpers.layout() routine, which is what
+    backend_svg.py's text2path pipeline uses to position glyphs.
+    """
+    from matplotlib import _text_helpers
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    font.set_size(100.0, 100.0)
+    items = list(_text_helpers.layout('ABC', font))
+    assert len(items) == 3
+    assert items[0].x == 0.0
+    assert items[1].x > items[0].x
+    assert items[2].x > items[1].x
+    # Advances should be ~roughly 1 em wide at 100pt/100dpi. Much less
+    # than that would indicate the 1024× under-advance bug.
+    assert items[1].x > 30.0, (
+        f"layout advance too small, got {items[1].x:.2f}; "
+        f"indicates linearHoriAdvance is in wrong fixed-point units"
+    )
+
+
+def test_get_ps_font_info_is_dict_with_string_keys():
+    """get_ps_font_info() must return a dict indexable by string key.
+    font_manager.py:418 does `font.get_ps_font_info()["weight"]`, so
+    the stubbed tuple form would raise TypeError.
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    info = font.get_ps_font_info()
+    assert isinstance(info, dict)
+    # The keys that font_manager.ttfFontProperty and other callers touch:
+    for key in ('weight', 'family_name', 'italic_angle', 'is_fixed_pitch',
+                'underline_position', 'underline_thickness'):
+        assert key in info, f"missing key {key!r}"
+    # weight is a string; .replace(' ', '') is called on it.
+    assert isinstance(info['weight'], str)
+    info['weight'].replace(' ', '')  # must not raise
+
+
 def test_savefig_svg_contains_path_elements():
     """End-to-end: rendering text via savefig(svg) should produce <path>
     elements from the OG backend_svg text2path pipeline.
