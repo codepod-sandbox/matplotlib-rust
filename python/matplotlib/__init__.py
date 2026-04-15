@@ -1594,4 +1594,11 @@ def _rcparams_copy(self):
     dict.update(rc, self)
     return rc
 RcParams.copy = _rcparams_copy
+
+# Figure.to_svg() compat shim — lightweight renderer that bypasses ft2font.
+try:
+    from matplotlib import _to_svg_compat as _to_svg_compat  # noqa: E402
+    _to_svg_compat.install()
+except Exception:
+    pass
 # ── end compat shims ──────────────────────────────────────────────────────────

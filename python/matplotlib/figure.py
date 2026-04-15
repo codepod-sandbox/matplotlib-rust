@@ -3735,16 +3735,4 @@ Figure.figsize = property(  # type: ignore[attr-defined]
     lambda self: self.get_size_inches()
 )
 
-# Figure.to_svg(): our stub had this method using our custom SVG backend
-def _figure_to_svg(self):
-    """Render the figure to an SVG string (stub compat method)."""
-    try:
-        from matplotlib._svg_backend import RendererSVG
-        w, h = self.get_size_inches()
-        dpi = self.dpi
-        renderer = RendererSVG(int(w * dpi), int(h * dpi), dpi)
-        self.draw(renderer)
-        return renderer.get_result()
-    except Exception:
-        return ''
-Figure.to_svg = _figure_to_svg  # type: ignore[attr-defined]
+# Figure.to_svg(): installed by matplotlib._to_svg_compat at import time

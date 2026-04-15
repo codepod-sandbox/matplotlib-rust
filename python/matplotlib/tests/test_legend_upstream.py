@@ -444,7 +444,6 @@ def test_legend_title():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: requires ft2font (SVG rendering)")
 def test_legend_renders_without_error():
     """Calling fig.savefig (or to_svg) with legend must not raise."""
     fig, ax = plt.subplots()
@@ -698,7 +697,6 @@ class TestLegendHandlesLabels:
         assert len(leg.get_texts()) >= 1
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 2: requires ft2font (SVG rendering)")
     def test_legend_in_svg(self):
         fig, ax = plt.subplots()
         ax.plot([1, 2], [3, 4], label='LEGEND_LABEL_123')

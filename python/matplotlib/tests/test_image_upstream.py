@@ -462,7 +462,6 @@ class TestAxesImageColormaps:
         assert cmap_name == cmap
         plt.close('all')
 
-    @pytest.mark.skip(reason="fig.to_svg() is stub-specific; Phase 2 SVG rendering not yet implemented")
     def test_imshow_in_svg(self):
         import numpy as np
         fig, ax = plt.subplots()

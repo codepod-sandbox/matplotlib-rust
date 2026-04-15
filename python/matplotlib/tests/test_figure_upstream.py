@@ -1218,7 +1218,6 @@ class TestFigureLayout:
         t = fig.suptitle('Super Title')
         assert t is not None
 
-    @pytest.mark.skip(reason="Phase 2: to_svg triggers ft2font; OG Figure has no to_svg()")
     def test_figure_suptitle_in_svg(self):
         fig, ax = plt.subplots()
         fig.suptitle('SUPER_TITLE_XYZ')

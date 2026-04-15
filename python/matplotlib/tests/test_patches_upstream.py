@@ -741,7 +741,7 @@ def test_ellipse_renders_png():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 2: requires ft2font (SVG rendering)")
+@pytest.mark.skip(reason="Phase 2: fig.savefig(svg) requires ft2font")
 def test_ellipse_svg():
     """Ellipse produces <ellipse> element in SVG output."""
     import matplotlib.pyplot as plt
@@ -817,7 +817,7 @@ def test_fancy_bbox_square_png():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 2: requires ft2font (SVG rendering)")
+@pytest.mark.skip(reason="Phase 2: fig.savefig(svg) requires ft2font")
 def test_regular_polygon_svg():
     """RegularPolygon (hexagon) produces <polygon> in SVG output."""
     import matplotlib.pyplot as plt
@@ -853,7 +853,7 @@ def test_arrow_renders_png():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 2: requires ft2font (SVG rendering)")
+@pytest.mark.skip(reason="Phase 2: fig.savefig(svg) requires ft2font")
 def test_path_patch_svg():
     """PathPatch with a triangle path produces <polygon> in SVG output."""
     import matplotlib.pyplot as plt

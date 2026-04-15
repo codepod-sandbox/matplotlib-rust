@@ -148,7 +148,6 @@ def test_zorder_defaults():
     assert Text(0, 0, 'x').get_zorder() == 3
 
 
-@pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific, OG uses savefig")
 def test_zorder_draw_order_in_svg():
     """Artists with lower zorder must appear earlier in SVG."""
     fig, ax = plt.subplots()
@@ -161,7 +160,6 @@ def test_zorder_draw_order_in_svg():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
 def test_alpha_in_svg():
     """A line with alpha=0.5 must store alpha on Line2D and produce opacity in SVG."""
     fig, ax = plt.subplots()
@@ -172,7 +170,6 @@ def test_alpha_in_svg():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
 def test_linestyle_tuple_format():
     """Linestyle as (offset, (on, off)) tuple must appear in SVG."""
     fig, ax = plt.subplots()
@@ -182,7 +179,6 @@ def test_linestyle_tuple_format():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
 def test_linestyle_named_solid():
     """linestyle='solid' must produce no stroke-dasharray."""
     fig, ax = plt.subplots()

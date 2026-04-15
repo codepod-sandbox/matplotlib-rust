@@ -32,7 +32,6 @@ def test_renderer_pil_draw_arrow_no_error():
     assert len(result) > 0
 
 
-@pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
 def test_annotate_default_arrow():
     """ax.annotate with arrowprops must render without error."""
     import matplotlib.pyplot as plt
@@ -44,7 +43,6 @@ def test_annotate_default_arrow():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
 def test_annotate_no_arrowprops():
     """ax.annotate without arrowprops renders only text."""
     import matplotlib.pyplot as plt
@@ -55,7 +53,6 @@ def test_annotate_no_arrowprops():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
 def test_annotate_arrowprops_styles():
     """Multiple arrowstyle strings must not raise."""
     import matplotlib.pyplot as plt
@@ -276,7 +273,6 @@ class TestAnnotationAxesInteraction:
         assert ann2 in ax.texts
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
     def test_annotation_text_content_in_svg(self):
         """Annotation text appears in SVG output."""
         fig, ax = plt.subplots()
@@ -380,7 +376,6 @@ class TestAnnotationAppearance:
 class TestAnnotationInAxes:
     """Tests for annotations inside a figure/axes context."""
 
-    @pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
     def test_svg_has_annotation_text(self):
         fig, ax = plt.subplots()
         ax.annotate('SVG_TEXT_XYZ', xy=(0.5, 0.5))
@@ -405,7 +400,6 @@ class TestAnnotationInAxes:
         assert ann in ax.texts
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
     @pytest.mark.parametrize('style', ['->', '<-', '-'])
     def test_arrowstyle_no_raise_in_svg(self, style):
         fig, ax = plt.subplots()
@@ -490,7 +484,6 @@ class TestAnnotationTextContent:
         assert abs(ann.get_alpha() - 0.5) < 1e-6
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 2: fig.to_svg() is stub-specific")
     def test_annotate_in_svg_contains_text(self):
         fig, ax = plt.subplots()
         ax.annotate('SVG_MARKER_TEXT', xy=(0.5, 0.5))
