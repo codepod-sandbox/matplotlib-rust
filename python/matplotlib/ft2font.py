@@ -3,6 +3,9 @@
 Replaced by crates/matplotlib-ft2font (fontdue) in Phase 2.
 """
 
+__freetype_version__ = "2.6.1"
+__freetype_build_type__ = "local"
+
 LOAD_DEFAULT = 0
 LOAD_NO_SCALE = 1
 

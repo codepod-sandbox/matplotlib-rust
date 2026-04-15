@@ -1,42 +1,23 @@
-"""Stub matplotlib.tri package."""
+"""
+Unstructured triangular grid functions.
+"""
+
+from ._triangulation import Triangulation
+from ._tricontour import TriContourSet, tricontour, tricontourf
+from ._trifinder import TriFinder, TrapezoidMapTriFinder
+from ._triinterpolate import (TriInterpolator, LinearTriInterpolator,
+                              CubicTriInterpolator)
+from ._tripcolor import tripcolor
+from ._triplot import triplot
+from ._trirefine import TriRefiner, UniformTriRefiner
+from ._tritools import TriAnalyzer
 
 
-class Triangulation:
-    """Stub Triangulation."""
-
-    def __init__(self, x, y, triangles=None, mask=None):
-        import numpy as np
-        self.x = np.asarray(x)
-        self.y = np.asarray(y)
-        self.triangles = triangles
-        self.mask = mask
-
-
-class TriContourSet:
-    """Stub TriContourSet."""
-    pass
-
-
-class TriangulationInterpolator:
-    """Stub TriangulationInterpolator."""
-    pass
-
-
-def tricontour(ax, *args, **kwargs):
-    """Stub tricontour."""
-    return TriContourSet()
-
-
-def tricontourf(ax, *args, **kwargs):
-    """Stub tricontourf."""
-    return TriContourSet()
-
-
-def tripcolor(ax, *args, **kwargs):
-    """Stub tripcolor."""
-    pass
-
-
-def triplot(ax, *args, **kwargs):
-    """Stub triplot."""
-    return [], []
+__all__ = ["Triangulation",
+           "TriContourSet", "tricontour", "tricontourf",
+           "TriFinder", "TrapezoidMapTriFinder",
+           "TriInterpolator", "LinearTriInterpolator", "CubicTriInterpolator",
+           "tripcolor",
+           "triplot",
+           "TriRefiner", "UniformTriRefiner",
+           "TriAnalyzer"]
