@@ -236,15 +236,22 @@ class RendererPIL(RendererBase):
         """RendererBase draw_text — called by Figure.draw() for all text."""
         rgb = gc.get_rgb()
         col = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
-        alpha = gc.get_alpha()
+        # Effective opacity = artist-level gc.get_alpha() × foreground-color alpha.
+        # ax.text(..., color=(r,g,b,a)) stores the alpha in rgb[3]; an explicit
+        # alpha= kwarg stores it in gc.get_alpha().  Both sources must be honoured.
+        gc_alpha = gc.get_alpha()
+        if gc_alpha is None:
+            gc_alpha = 1.0
+        color_alpha = float(rgb[3]) if len(rgb) >= 4 else 1.0
+        effective_alpha = gc_alpha * color_alpha
         # flip y: display y=0 at bottom; PIL y=0 at top
         pil_y = self.height - y
-        if alpha < 1.0:
+        if effective_alpha < 1.0:
             from PIL import Image, ImageDraw
             overlay = Image.new('RGBA', self._img.size, (0, 0, 0, 0))
             odraw = ImageDraw.Draw(overlay)
             odraw.text((int(x), int(pil_y)), str(s),
-                       fill=(*col, int(alpha * 255)))
+                       fill=(*col, int(effective_alpha * 255)))
             base = self._img.convert('RGBA')
             base.alpha_composite(overlay)
             self._img = base.convert('RGB')

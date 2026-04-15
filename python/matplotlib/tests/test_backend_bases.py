@@ -258,6 +258,39 @@ class TestRendererSVG:
         assert 'clip-path' not in text_tags[-1], (
             f"draw_text inherited clip from earlier draw_path: {text_tags[-1]}")
 
+    def test_draw_text_rgba_color_produces_opacity(self):
+        """ax.text(color=(r,g,b,a)) without set_alpha stores alpha in gc.get_rgb()[3].
+        Both sources must be multiplied to get effective opacity."""
+        import unittest.mock as mock
+        r = self._make_renderer()
+        gc = mock.Mock()
+        gc.get_clip_rectangle.return_value = None
+        # Color with 30% alpha, no artist-level alpha set (get_alpha returns None).
+        gc.get_rgb.return_value = (1.0, 0.0, 0.0, 0.3)
+        gc.get_alpha.return_value = None
+        prop = mock.Mock()
+        prop.get_size_in_points.return_value = 12
+        r.draw_text(gc, 50, 50, "faded", prop, 0)
+        svg = r.get_result()
+        assert 'opacity="0.300"' in svg, (
+            f"Expected opacity from rgb[3]=0.3 with gc.get_alpha()=None, got: {svg}")
+
+    def test_draw_text_combined_alpha(self):
+        """Both gc.get_alpha() and rgb[3] must be multiplied for effective opacity."""
+        import unittest.mock as mock
+        r = self._make_renderer()
+        gc = mock.Mock()
+        gc.get_clip_rectangle.return_value = None
+        gc.get_rgb.return_value = (1.0, 0.0, 0.0, 0.5)  # color alpha = 0.5
+        gc.get_alpha.return_value = 0.4                  # artist alpha = 0.4
+        prop = mock.Mock()
+        prop.get_size_in_points.return_value = 12
+        r.draw_text(gc, 50, 50, "combined", prop, 0)
+        svg = r.get_result()
+        # effective = 0.5 * 0.4 = 0.2
+        assert 'opacity="0.200"' in svg, (
+            f"Expected effective opacity 0.5*0.4=0.2, got: {svg}")
+
     def test_draw_path_fill_alpha_emits_fill_opacity(self):
         """rgbFace with alpha < 1 must produce fill-opacity attribute in SVG."""
         import unittest.mock as mock

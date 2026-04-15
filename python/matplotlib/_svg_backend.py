@@ -266,12 +266,21 @@ class RendererSVG(RendererBase):
         rgb = gc.get_rgb()
         color = '#{:02x}{:02x}{:02x}'.format(
             int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
-        alpha = gc.get_alpha()
+        # Effective opacity = artist-level alpha × foreground-color alpha.
+        # gc.get_alpha() is the value of Artist.set_alpha() — may be None.
+        # gc.get_rgb()[3] is the alpha channel of the foreground color, which
+        # is the only source of opacity when ax.text(..., color=(r,g,b,a)) is
+        # used without an explicit alpha= kwarg.
+        gc_alpha = gc.get_alpha()
+        if gc_alpha is None:
+            gc_alpha = 1.0
+        color_alpha = float(rgb[3]) if len(rgb) >= 4 else 1.0
+        effective_alpha = gc_alpha * color_alpha
         # Display coords have y=0 at bottom; SVG has y=0 at top.
         svg_y = self.height - y
         # Use gc-scoped clip — does not inherit the last path's clip.
         clip = self._gc_clip_attr(gc)
-        opacity_attr = f' opacity="{alpha:.3f}"' if alpha < 1.0 else ''
+        opacity_attr = f' opacity="{effective_alpha:.3f}"' if effective_alpha < 1.0 else ''
         rot = f' transform="rotate({-angle:.1f},{x:.2f},{svg_y:.2f})"' if angle else ''
         self._parts.append(
             f'<text x="{x:.2f}" y="{svg_y:.2f}" font-size="{sz:.1f}"'
