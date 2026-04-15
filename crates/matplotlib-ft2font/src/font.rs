@@ -454,23 +454,210 @@ impl FT2Font {
         format!("glyph_{index}")
     }
 
+    /// Return the full codepoint → glyph-id map. ttf-parser's cmap
+    /// iterator yields every mapped (codepoint, glyph_id) pair.
     fn get_charmap(&self) -> std::collections::HashMap<u32, u32> {
-        std::collections::HashMap::new()
+        let mut out = std::collections::HashMap::new();
+        if let Ok(face) = ttf_parser::Face::parse(&self.font_data, 0) {
+            if let Some(cmap) = face.tables().cmap {
+                for sub in cmap.subtables {
+                    sub.codepoints(|cp| {
+                        if let Some(gid) = sub.glyph_index(cp) {
+                            out.entry(cp).or_insert(gid.0 as u32);
+                        }
+                    });
+                }
+            }
+        }
+        out
     }
 
     fn select_charmap(&mut self, _i: u32) {}
     fn set_charmap(&mut self, _i: u32) {}
 
-    fn get_kerning(&self, _left: u32, _right: u32, _mode: i32) -> i32 {
-        0
+    /// Kerning between two glyph indices in 26.6 subpixels (mode is
+    /// ignored — we always return design-unit kerning scaled to pixels).
+    /// Uses ttf-parser's legacy `kern` table subtables. GPOS kerning
+    /// requires full shaping and is out of scope for Phase 2.
+    fn get_kerning(&self, left: u32, right: u32, _mode: i32) -> i32 {
+        let face = match ttf_parser::Face::parse(&self.font_data, 0) {
+            Ok(f) => f,
+            Err(_) => return 0,
+        };
+        let kern_table = match face.tables().kern {
+            Some(k) => k,
+            None => return 0,
+        };
+        let left_id = ttf_parser::GlyphId(left as u16);
+        let right_id = ttf_parser::GlyphId(right as u16);
+        let mut total_fu: i32 = 0;
+        for sub in kern_table.subtables {
+            if sub.horizontal && !sub.variable {
+                if let Some(v) = sub.glyphs_kerning(left_id, right_id) {
+                    total_fu += v as i32;
+                }
+            }
+        }
+        let upem = face.units_per_em() as f32;
+        if upem <= 0.0 {
+            return 0;
+        }
+        let px = total_fu as f32 * self.px_size() / upem;
+        (px * 64.0) as i32
     }
 
-    fn get_sfnt(&self) -> std::collections::HashMap<(u32, u32, u32, u32), Vec<u8>> {
-        std::collections::HashMap::new()
+    /// Return every name-table entry as
+    ///   {(platform_id, encoding_id, language_id, name_id): bytes}.
+    fn get_sfnt<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        let dict = pyo3::types::PyDict::new(py);
+        let face = match ttf_parser::Face::parse(&self.font_data, 0) {
+            Ok(f) => f,
+            Err(_) => return Ok(dict),
+        };
+        if let Some(name_table) = face.tables().name {
+            for name in name_table.names.into_iter() {
+                let pid = platform_id_u16(name.platform_id) as u32;
+                let eid = name.encoding_id as u32;
+                let lid = name.language_id as u32;
+                let nid = name.name_id as u32;
+                let key = (pid, eid, lid, nid);
+                dict.set_item(key, name.name)?;
+            }
+        }
+        Ok(dict)
     }
 
-    fn get_sfnt_table(&self, _name: &str, py: Python<'_>) -> Py<PyAny> {
-        py.None()
+    /// Return a dict representation of the named SFNT table. matplotlib
+    /// touches a small handful of keys per table; we populate those
+    /// from ttf-parser's parsed views. Unknown tables return None.
+    fn get_sfnt_table(&self, name: &str, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let face = match ttf_parser::Face::parse(&self.font_data, 0) {
+            Ok(f) => f,
+            Err(_) => return Ok(py.None()),
+        };
+        let tables = face.tables();
+        let d = pyo3::types::PyDict::new(py);
+        match name {
+            "head" => {
+                d.set_item("version", 0x10000_i32)?;
+                d.set_item("fontRevision", 0_i32)?;
+                d.set_item("checkSumAdjustment", 0_i32)?;
+                d.set_item("magicNumber", 0x5F0F3CF5_u32)?;
+                d.set_item("flags", 0_i32)?;
+                d.set_item("unitsPerEm", face.units_per_em() as i32)?;
+                d.set_item("created", 0_i64)?;
+                d.set_item("modified", 0_i64)?;
+                let bbox = face.global_bounding_box();
+                d.set_item("xMin", bbox.x_min as i32)?;
+                d.set_item("yMin", bbox.y_min as i32)?;
+                d.set_item("xMax", bbox.x_max as i32)?;
+                d.set_item("yMax", bbox.y_max as i32)?;
+                let mut mac_style: u16 = 0;
+                if face.is_bold() {
+                    mac_style |= 0x01;
+                }
+                if face.is_italic() {
+                    mac_style |= 0x02;
+                }
+                d.set_item("macStyle", mac_style as i32)?;
+                d.set_item("lowestRecPPEM", 0_i32)?;
+                d.set_item("fontDirectionHint", 2_i32)?;
+                d.set_item("indexToLocFormat", 0_i32)?;
+                d.set_item("glyphDataFormat", 0_i32)?;
+                Ok(d.into_any().unbind())
+            }
+            "hhea" => {
+                let h = tables.hhea;
+                d.set_item("version", 0x10000_i32)?;
+                d.set_item("ascent", h.ascender as i32)?;
+                d.set_item("descent", h.descender as i32)?;
+                d.set_item("lineGap", h.line_gap as i32)?;
+                d.set_item("advanceWidthMax", 0_i32)?;
+                d.set_item("minLeftSideBearing", 0_i32)?;
+                d.set_item("minRightSideBearing", 0_i32)?;
+                d.set_item("xMaxExtent", 0_i32)?;
+                d.set_item("caretSlopeRise", 1_i32)?;
+                d.set_item("caretSlopeRun", 0_i32)?;
+                d.set_item("caretOffset", 0_i32)?;
+                d.set_item("metricDataFormat", 0_i32)?;
+                d.set_item("numOfLongHorMetrics", h.number_of_metrics as i32)?;
+                Ok(d.into_any().unbind())
+            }
+            "OS/2" => {
+                let os2 = match tables.os2 {
+                    Some(t) => t,
+                    None => return Ok(py.None()),
+                };
+                // Version 4 is a valid OS/2 version (not 0xFFFF which
+                // matplotlib treats as "missing").
+                d.set_item("version", 4_i32)?;
+                d.set_item("xAvgCharWidth", 0_i32)?;
+                d.set_item("usWeightClass", os2.weight().to_number() as i32)?;
+                d.set_item("usWidthClass", os2.width().to_number() as i32)?;
+                d.set_item("fsType", 0_i32)?;
+                d.set_item("ySubscriptXSize", 0_i32)?;
+                d.set_item("ySubscriptYSize", 0_i32)?;
+                d.set_item("ySubscriptXOffset", 0_i32)?;
+                d.set_item("ySubscriptYOffset", 0_i32)?;
+                d.set_item("ySuperscriptXSize", 0_i32)?;
+                d.set_item("ySuperscriptYSize", 0_i32)?;
+                d.set_item("ySuperscriptXOffset", 0_i32)?;
+                d.set_item("ySuperscriptYOffset", 0_i32)?;
+                d.set_item("yStrikeoutSize", 0_i32)?;
+                d.set_item("yStrikeoutPosition", 0_i32)?;
+                d.set_item("sFamilyClass", 0_i32)?;
+                d.set_item("panose", pyo3::types::PyBytes::new(py, &[0u8; 10]))?;
+                d.set_item("ulCharRange", pyo3::types::PyBytes::new(py, &[0u8; 16]))?;
+                d.set_item("achVendID", pyo3::types::PyBytes::new(py, b"UKWN"))?;
+                let mut fs_sel: u16 = 0;
+                if face.is_italic() {
+                    fs_sel |= 0x01;
+                }
+                if face.is_bold() {
+                    fs_sel |= 0x20;
+                }
+                if !face.is_italic() && !face.is_bold() {
+                    fs_sel |= 0x40;
+                }
+                d.set_item("fsSelection", fs_sel as i32)?;
+                d.set_item("usFirstCharIndex", 0_i32)?;
+                d.set_item("usLastCharIndex", 0xFFFF_i32)?;
+                d.set_item("sTypoAscender", os2.typographic_ascender() as i32)?;
+                d.set_item("sTypoDescender", os2.typographic_descender() as i32)?;
+                d.set_item("sTypoLineGap", os2.typographic_line_gap() as i32)?;
+                d.set_item("usWinAscent", os2.windows_ascender() as i32)?;
+                d.set_item("usWinDescent", os2.windows_descender() as i32)?;
+                Ok(d.into_any().unbind())
+            }
+            "post" => {
+                d.set_item("format", 0x20000_i32)?;
+                let italic = face.italic_angle().unwrap_or(0.0);
+                d.set_item("italicAngle", italic as f64)?;
+                d.set_item("underlinePosition", self.underline_position as i32)?;
+                d.set_item("underlineThickness", self.underline_thickness as i32)?;
+                d.set_item(
+                    "isFixedPitch",
+                    if face.is_monospaced() { 1_i32 } else { 0_i32 },
+                )?;
+                d.set_item("minMemType42", 0_i32)?;
+                d.set_item("maxMemType42", 0_i32)?;
+                d.set_item("minMemType1", 0_i32)?;
+                d.set_item("maxMemType1", 0_i32)?;
+                Ok(d.into_any().unbind())
+            }
+            "name" => {
+                d.set_item("format", 0_i32)?;
+                let count = face
+                    .tables()
+                    .name
+                    .map(|t| t.names.into_iter().count() as i32)
+                    .unwrap_or(0);
+                d.set_item("count", count)?;
+                d.set_item("stringOffset", 0_i32)?;
+                Ok(d.into_any().unbind())
+            }
+            _ => Ok(py.None()),
+        }
     }
 
     /// Return PostScript font info as a string-keyed dict.
@@ -593,6 +780,19 @@ impl FT2Font {
         }
         let codes = ndarray::Array1::from_vec(collector.codes);
         (verts.into_pyarray(py), codes.into_pyarray(py))
+    }
+}
+
+/// Translate ttf-parser's PlatformId enum into the numeric value
+/// stored in the TTF name table header (0=Unicode, 1=Macintosh,
+/// 2=Iso, 3=Windows, 4=Custom).
+fn platform_id_u16(pid: ttf_parser::PlatformId) -> u16 {
+    match pid {
+        ttf_parser::PlatformId::Unicode => 0,
+        ttf_parser::PlatformId::Macintosh => 1,
+        ttf_parser::PlatformId::Iso => 2,
+        ttf_parser::PlatformId::Windows => 3,
+        ttf_parser::PlatformId::Custom => 4,
     }
 }
 

@@ -264,6 +264,101 @@ def test_get_ps_font_info_is_dict_with_string_keys():
     info['weight'].replace(' ', '')  # must not raise
 
 
+# ===================================================================
+# Phase 2C — SFNT metadata tables + kerning + charmap
+# ===================================================================
+
+
+def test_os2_table_matches_font_manager_contract():
+    """font_manager.ttfFontProperty reads os2['version'] and
+    os2['usWeightClass'] to pick the font weight. Both must be present
+    and usWeightClass must be in the OS/2-defined range (1..1000).
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    os2 = font.get_sfnt_table("OS/2")
+    assert isinstance(os2, dict)
+    assert os2["version"] != 0xffff, "0xffff means missing OS/2 table"
+    assert 1 <= os2["usWeightClass"] <= 1000
+    # DejaVu Sans is Regular (weight ~400).
+    assert 300 <= os2["usWeightClass"] <= 500
+    # fsSelection must be an int so bitwise ops work.
+    assert isinstance(os2["fsSelection"], int)
+
+
+def test_head_table_has_units_per_em():
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    head = font.get_sfnt_table("head")
+    assert isinstance(head, dict)
+    assert head["unitsPerEm"] == font.units_per_EM
+    assert head["unitsPerEm"] == 2048  # DejaVu Sans
+
+
+def test_hhea_table_has_vertical_metrics():
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    hhea = font.get_sfnt_table("hhea")
+    assert isinstance(hhea, dict)
+    assert hhea["ascent"] > 0
+    assert hhea["descent"] < 0
+
+
+def test_post_table_has_italic_angle():
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    post = font.get_sfnt_table("post")
+    assert isinstance(post, dict)
+    # DejaVu Sans is upright.
+    assert post["italicAngle"] == 0.0
+    # post['underlinePosition'] used by font metadata introspection.
+    assert post["underlinePosition"] < 0
+
+
+def test_unknown_sfnt_table_returns_none():
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    assert font.get_sfnt_table("not-a-real-table") is None
+
+
+def test_get_sfnt_name_table_populated():
+    """get_sfnt() should return a dict keyed by 4-tuples of the name
+    table header fields. DejaVu Sans has a real name table with the
+    family name and style at well-known name_ids.
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    names = font.get_sfnt()
+    assert isinstance(names, dict)
+    assert len(names) > 0
+    # Every key is a (platform_id, encoding_id, language_id, name_id)
+    # 4-tuple, every value is bytes.
+    k = next(iter(names.keys()))
+    assert isinstance(k, tuple) and len(k) == 4
+    assert all(isinstance(x, int) for x in k)
+    assert isinstance(names[k], bytes)
+
+
+def test_charmap_maps_ascii_letters():
+    """get_charmap() must cover at least ASCII letters for DejaVu Sans."""
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    cm = font.get_charmap()
+    assert isinstance(cm, dict)
+    assert len(cm) > 100
+    for ch in "ABCabc0123":
+        assert ord(ch) in cm, f"charmap missing {ch!r}"
+        assert cm[ord(ch)] > 0
+
+
+def test_kerning_pair_av_is_negative():
+    """A-V is a classic negative kerning pair — the pair pulls V
+    leftward so its slant tucks under A's right edge. Real Latin
+    fonts include this pair in their kern table.
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    font.set_size(12.0, 72.0)
+    cm = font.get_charmap()
+    a_gid = cm[ord('A')]
+    v_gid = cm[ord('V')]
+    kerning = font.get_kerning(a_gid, v_gid, 0)
+    # Negative means the V glyph is pulled leftward.
+    assert kerning < 0, f"expected negative A-V kerning, got {kerning}"
+
+
 def test_savefig_svg_contains_path_elements():
     """End-to-end: rendering text via savefig(svg) should produce <path>
     elements from the OG backend_svg text2path pipeline.
