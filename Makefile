@@ -14,7 +14,7 @@ build-ext:
 
 # CPython test run (primary dev loop)
 test: build-ext
-	python3 -m pytest python/matplotlib/tests/
+	$(shell git rev-parse --show-toplevel)/.venv/bin/python -m pytest python/matplotlib/tests/
 
 # RustPython test run (final compatibility check)
 test-rustpython: build

@@ -4828,3 +4828,38 @@ def _draw_rasterized(figure, artists, renderer):
                 a.draw(renderer)
 
     return _MinimalArtist(figure, artists).draw(renderer)
+
+# ── compat shims ──────────────────────────────────────────────────────────────
+# Axes._next_color: stub had this; OG uses _get_lines.get_next_color()
+_Axes = _AxesBase  # _AxesBase is the mixin; patch the proper Axes via import
+try:
+    from matplotlib.axes._axes import Axes as _AxesFull
+    _AxesFull._next_color = lambda self: self._get_lines.get_next_color()
+except ImportError:
+    pass
+
+# _AxesBase.set_prop_cycle: allow passing a plain list or stub Cycler
+_orig_set_prop_cycle = _AxesBase.set_prop_cycle
+
+def _set_prop_cycle_compat(self, *args, **kwargs):
+    # Stub compat: set_prop_cycle(['red', 'green']) → color=['red', 'green']
+    if len(args) == 1 and isinstance(args[0], list) and not kwargs:
+        args = ('color', args[0])
+    elif len(args) == 1 and not kwargs:
+        # Check if it's our stub matplotlib.cycler.Cycler (not external cycler.Cycler)
+        from cycler import Cycler as _ExtCycler
+        arg = args[0]
+        if not isinstance(arg, _ExtCycler) and hasattr(arg, 'by_key') and hasattr(arg, '_keys'):
+            # Convert stub Cycler to external Cycler
+            from cycler import cycler as _ext_cycler
+            data = arg.by_key()
+            ext_c = None
+            for key, vals in data.items():
+                nc = _ext_cycler(key, vals)
+                ext_c = nc if ext_c is None else ext_c + nc
+            if ext_c is not None:
+                args = (ext_c,)
+    _orig_set_prop_cycle(self, *args, **kwargs)
+
+_AxesBase.set_prop_cycle = _set_prop_cycle_compat
+# ── end compat shims ──────────────────────────────────────────────────────────

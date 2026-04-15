@@ -104,12 +104,18 @@ class ScaleBase:
 
 
 class LinearScale(ScaleBase):
-    """The default linear scale."""
+    """
+    The default linear scale.
+    """
 
     name = 'linear'
 
-    def __init__(self, axis=None):
-        pass
+    def __init__(self, axis):
+        # This method is present only to prevent inheritance of the base class'
+        # constructor docstring, which would otherwise end up interpolated into
+        # the docstring of Axis.set_scale.
+        """
+        """  # noqa: D419
 
     def set_default_locators_and_formatters(self, axis):
         # docstring inherited

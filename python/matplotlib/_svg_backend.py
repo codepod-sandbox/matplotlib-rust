@@ -10,7 +10,10 @@ class RendererSVG(RendererBase):
     """SVG renderer that accumulates SVG fragments in a list."""
 
     def __init__(self, width, height, dpi):
-        super().__init__(width, height, dpi)
+        super().__init__()
+        self.width = width
+        self.height = height
+        self.dpi = dpi
         self._parts = []
         self._clip_id = None
         self._clip_counter = 0

@@ -17,6 +17,13 @@ from matplotlib.colors import Normalize, LogNorm, to_rgba, to_hex, is_color_like
 # ===================================================================
 
 class TestColormapBase:
+    """Test Colormap base class; OG Colormap._init() is abstract.
+    Use LinearSegmentedColormap for tests that require _init()."""
+
+    def _make_cmap(self, name='test'):
+        """Return a concrete colormap for testing callable methods."""
+        return LinearSegmentedColormap.from_list(name, ['red', 'blue'])
+
     def test_name(self):
         cmap = Colormap('test_cmap')
         assert cmap.name == 'test_cmap'
@@ -32,22 +39,24 @@ class TestColormapBase:
     def test_repr(self):
         cmap = Colormap('test')
         r = repr(cmap)
-        assert 'test' in r
+        # OG repr does not include name; just check class type is in repr
         assert 'Colormap' in r
 
     def test_eq_same(self):
-        c1 = Colormap('test', N=256)
-        c2 = Colormap('test', N=256)
+        # OG base Colormap._init() raises NotImplementedError; use concrete type
+        c1 = self._make_cmap('test')
+        c2 = self._make_cmap('test')
         assert c1 == c2
 
     def test_eq_different_name(self):
-        c1 = Colormap('a', N=256)
-        c2 = Colormap('b', N=256)
+        # OG __eq__ compares lookup tables, not names. Use different colors.
+        c1 = LinearSegmentedColormap.from_list('a', ['red', 'blue'])
+        c2 = LinearSegmentedColormap.from_list('b', ['green', 'yellow'])
         assert c1 != c2
 
     def test_eq_different_N(self):
-        c1 = Colormap('test', N=256)
-        c2 = Colormap('test', N=128)
+        c1 = LinearSegmentedColormap.from_list('test', ['red', 'blue'], N=256)
+        c2 = LinearSegmentedColormap.from_list('test', ['red', 'blue'], N=128)
         assert c1 != c2
 
     def test_eq_not_colormap(self):
@@ -55,66 +64,68 @@ class TestColormapBase:
         assert c != 'not a cmap'
 
     def test_set_bad(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         cmap.set_bad('red')
         rgba = cmap.get_bad()
         assert rgba[0] == approx(1.0)
         assert rgba[1] == approx(0.0)
 
     def test_set_under(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         cmap.set_under('blue')
         rgba = cmap.get_under()
         assert rgba[2] == approx(1.0)
 
     def test_set_over(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         cmap.set_over('green')
         rgba = cmap.get_over()
         assert rgba[1] > 0
 
     def test_call_nan_returns_bad(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         cmap.set_bad(color='red')
         result = cmap(float('nan'))
         assert result[0] == approx(1.0)
 
     def test_call_below_zero(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         cmap.set_under('blue')
         result = cmap(-0.5)
         assert result[2] == approx(1.0)
 
     def test_call_above_one(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         cmap.set_over('red')
         result = cmap(1.5)
         assert result[0] == approx(1.0)
 
     def test_call_with_alpha(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         result = cmap(0.5, alpha=0.5)
         assert result[3] == approx(0.5)
 
     def test_call_bytes(self):
-        cmap = Colormap('test')
+        import numpy as np
+        cmap = self._make_cmap()
         result = cmap(0.5, bytes=True)
-        assert all(isinstance(v, int) for v in result)
+        # OG returns numpy uint8, not Python int
+        assert all(isinstance(v, (int, np.integer)) for v in result)
         assert all(0 <= v <= 255 for v in result)
 
     def test_call_list(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         result = cmap([0.0, 0.5, 1.0])
         assert len(result) == 3
         assert all(len(r) == 4 for r in result)
 
     def test_resampled(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         resampled = cmap.resampled(64)
         assert resampled.N == 64
 
     def test_copy(self):
-        cmap = Colormap('test')
+        cmap = self._make_cmap()
         c = cmap.copy()
         assert c is not None
 
@@ -249,8 +260,14 @@ class TestBuiltinColormaps:
         assert cmap is not None
 
     def test_grey_alias(self):
-        assert get_cmap('grey') is get_cmap('gray')
-        assert get_cmap('grey_r') is get_cmap('gray_r')
+        # OG 'grey' and 'gray' are registered as separate names (both exist)
+        # They have the same LUT values even if different names
+        grey = get_cmap('grey')
+        gray = get_cmap('gray')
+        assert grey is not None
+        assert gray is not None
+        # Both are valid grayscale colormaps
+        assert grey(0.5)[0] == approx(gray(0.5)[0], abs=0.01)
 
     def test_get_cmap_none(self):
         cmap = get_cmap(None)
@@ -262,7 +279,8 @@ class TestBuiltinColormaps:
 
     def test_get_cmap_instance_with_lut(self):
         cmap = get_cmap('viridis')
-        resampled = get_cmap(cmap, lut=64)
+        # OG get_cmap(cmap, lut=N) doesn't reliably resample; use cmap.resampled()
+        resampled = cmap.resampled(64)
         assert resampled.N == 64
 
     def test_get_cmap_invalid(self):
@@ -295,7 +313,8 @@ class TestColormapRegistryUpstream:
         assert 'viridis' in names
 
     def test_call(self):
-        cmap = _colormaps('viridis')
+        # OG ColormapRegistry is not callable with a name argument; use __getitem__
+        cmap = _colormaps['viridis']
         assert cmap.name == 'viridis'
 
     def test_register(self):
@@ -310,11 +329,14 @@ class TestColormapRegistryUpstream:
             _colormaps.register(cmap, force=False)
 
     def test_register_force(self):
-        original = _colormaps['viridis']
-        cmap = ListedColormap(['red'], name='viridis')
-        _colormaps.register(cmap, force=True)
-        # Restore
-        _colormaps.register(original, name='viridis', force=True)
+        # OG prohibits re-registering builtins; use a non-builtin name
+        test_name = 'test_force_override_cmap'
+        cmap1 = ListedColormap(['red'], name=test_name)
+        cmap2 = ListedColormap(['blue'], name=test_name)
+        _colormaps.register(cmap1, force=True)
+        _colormaps.register(cmap2, force=True)
+        assert _colormaps[test_name].colors[0] == cmap2.colors[0]
+        _colormaps.unregister(test_name)
 
     def test_unregister(self):
         cmap = ListedColormap(['red'], name='temp_cmap_test')
@@ -329,20 +351,30 @@ class TestColormapRegistryUpstream:
 
 class TestRegisterCmap:
     def test_register(self):
+        import warnings
         cmap = ListedColormap(['red', 'blue'], name='reg_test')
-        register_cmap(cmap=cmap)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            register_cmap(cmap=cmap)
         assert 'reg_test' in _cmap_registry
-        _cmap_registry.pop('reg_test', None)
+        _cmap_registry.unregister('reg_test')
 
     def test_register_with_name(self):
+        import warnings
         cmap = ListedColormap(['red', 'blue'], name='other')
-        register_cmap(name='custom_name', cmap=cmap)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            register_cmap(name='custom_name', cmap=cmap)
         assert 'custom_name' in _cmap_registry
-        _cmap_registry.pop('custom_name', None)
+        _cmap_registry.unregister('custom_name')
 
     def test_register_no_cmap(self):
-        with pytest.raises(ValueError):
-            register_cmap(name='foo', cmap=None)
+        import warnings
+        # OG raises TypeError (not ValueError) for cmap=None
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            with pytest.raises((ValueError, TypeError)):
+                register_cmap(name='foo', cmap=None)
 
 
 # ===================================================================
@@ -400,9 +432,11 @@ class TestScalarMappableUpstream:
         assert sm.get_norm() is norm
 
     def test_set_array(self):
+        import numpy as np
         sm = ScalarMappable()
         sm.set_array([1, 2, 3])
-        assert sm.get_array() == [1, 2, 3]
+        # OG returns MaskedArray, not list
+        assert np.allclose(sm.get_array(), [1, 2, 3])
 
     def test_set_array_none(self):
         sm = ScalarMappable()

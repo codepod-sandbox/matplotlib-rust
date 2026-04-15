@@ -17,7 +17,10 @@ class RendererPIL(RendererBase):
     """PIL/Pillow renderer that draws onto an RGB image."""
 
     def __init__(self, width, height, dpi):
-        super().__init__(width, height, dpi)
+        super().__init__()
+        self.width = width
+        self.height = height
+        self.dpi = dpi
         from PIL import Image, ImageDraw
         self._img = Image.new('RGB', (width, height), (255, 255, 255))
         self._draw = ImageDraw.Draw(self._img)

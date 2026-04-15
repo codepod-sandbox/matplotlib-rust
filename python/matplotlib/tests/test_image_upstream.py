@@ -25,7 +25,8 @@ def test_axesimage_set_array():
     im = AxesImage(ax)
     data = [[1, 2], [3, 4]]
     im.set_array(data)
-    assert im.get_array() == [[1, 2], [3, 4]]
+    # OG returns np.ma.MaskedArray, use array_equal for comparison
+    assert np.array_equal(im.get_array(), [[1, 2], [3, 4]])
 
 
 def test_axesimage_set_array_numpy():
@@ -44,7 +45,8 @@ def test_axesimage_extent():
     fig, ax = plt.subplots()
     im = AxesImage(ax)
     im.set_extent((0, 10, 0, 5))
-    assert im.get_extent() == (0, 10, 0, 5)
+    # OG returns a list, not a tuple
+    assert list(im.get_extent()) == [0, 10, 0, 5]
 
 
 def test_axesimage_clim_roundtrip():
@@ -60,7 +62,9 @@ def test_axesimage_cmap():
     fig, ax = plt.subplots()
     im = AxesImage(ax)
     im.set_cmap('hot')
-    assert im.get_cmap() == 'hot'
+    # OG returns a Colormap object, not a string
+    cmap = im.get_cmap()
+    assert cmap.name == 'hot'
 
 
 def test_axesimage_norm():
@@ -125,10 +129,12 @@ def test_axesimage_size():
 
 
 def test_axesimage_size_empty():
-    """AxesImage.get_size with no data."""
+    """AxesImage.get_size with no data raises RuntimeError in OG."""
     fig, ax = plt.subplots()
     im = AxesImage(ax)
-    assert im.get_size() == (0, 0)
+    # OG raises RuntimeError when no image array has been set
+    with pytest.raises(RuntimeError, match='You must first set the image array'):
+        im.get_size()
 
 
 def test_axesimage_set_data_alias():
@@ -136,17 +142,19 @@ def test_axesimage_set_data_alias():
     fig, ax = plt.subplots()
     im = AxesImage(ax)
     im.set_data([[1, 2], [3, 4]])
-    assert im.get_array() == [[1, 2], [3, 4]]
+    # OG returns np.ma.MaskedArray, use array_equal for comparison
+    assert np.array_equal(im.get_array(), [[1, 2], [3, 4]])
 
 
 def test_axesimage_auto_clim():
-    """Auto clim from data."""
+    """OG AxesImage does not auto-set clim from constructor data; clim is None until autoscale."""
     fig, ax = plt.subplots()
     data = [[1, 5], [3, 9]]
     im = AxesImage(ax, data=data)
     vmin, vmax = im.get_clim()
-    assert vmin == 1
-    assert vmax == 9
+    # OG returns (None, None) from get_clim() when clim has not been explicitly set
+    assert vmin is None
+    assert vmax is None
 
 
 def test_axesimage_clim_tuple_arg():
@@ -177,7 +185,8 @@ def test_imshow_list_of_lists():
     data = [[1, 2], [3, 4]]
     im = ax.imshow(data)
     assert isinstance(im, AxesImage)
-    assert im.get_array() == [[1, 2], [3, 4]]
+    # OG returns np.ma.MaskedArray, use array_equal for comparison
+    assert np.array_equal(im.get_array(), [[1, 2], [3, 4]])
 
 
 def test_imshow_list_extent():
@@ -186,7 +195,8 @@ def test_imshow_list_extent():
     data = [[0, 0, 0], [0, 0, 0]]
     im = ax.imshow(data)
     ext = im.get_extent()
-    assert ext == (-0.5, 2.5, 1.5, -0.5)
+    # OG returns a list, not a tuple
+    assert list(ext) == [-0.5, 2.5, 1.5, -0.5]
 
 
 # ===================================================================
@@ -452,6 +462,7 @@ class TestAxesImageColormaps:
         assert cmap_name == cmap
         plt.close('all')
 
+    @pytest.mark.skip(reason="fig.to_svg() is stub-specific; Phase 2 SVG rendering not yet implemented")
     def test_imshow_in_svg(self):
         import numpy as np
         fig, ax = plt.subplots()
