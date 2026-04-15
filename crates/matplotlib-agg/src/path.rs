@@ -57,6 +57,20 @@ impl Affine {
     }
 }
 
+/// Compose two 3×3 affines: result = left ∘ right. Equivalent to
+/// applying `right` first then `left`. Both matrices have implicit
+/// bottom row [0, 0, 1].
+pub fn compose_affines(left: Affine, right: Affine) -> Affine {
+    Affine {
+        a: left.a * right.a + left.b * right.d,
+        b: left.a * right.b + left.b * right.e,
+        c: left.a * right.c + left.b * right.f + left.c,
+        d: left.d * right.a + left.e * right.d,
+        e: left.d * right.b + left.e * right.e,
+        f: left.d * right.c + left.e * right.f + left.f,
+    }
+}
+
 /// Read an affine transform from a Python object. Expects the object
 /// to have a `get_matrix()` method returning a (3, 3) ndarray.
 /// Falls back to identity if extraction fails.

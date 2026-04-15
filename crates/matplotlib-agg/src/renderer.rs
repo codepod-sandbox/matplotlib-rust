@@ -15,7 +15,7 @@ use pyo3::types::PyBytes;
 use tiny_skia::{FillRule, Pixmap, Transform};
 
 use crate::gc::{extract_rgba_face, GcInfo};
-use crate::path::{extract_affine, path_to_tiny_skia};
+use crate::path::{compose_affines, extract_affine, path_to_tiny_skia, Affine};
 
 #[pyclass(unsendable)]
 pub struct RendererAgg {
@@ -146,16 +146,54 @@ impl RendererAgg {
         Ok(())
     }
 
-    #[pyo3(signature = (_gc, _marker_path, _marker_trans, _path, _trans, _rgb_face=None))]
+    #[pyo3(signature = (gc, marker_path, marker_trans, path, trans, rgb_face=None))]
     fn draw_markers(
         &mut self,
-        _gc: &Bound<'_, PyAny>,
-        _marker_path: &Bound<'_, PyAny>,
-        _marker_trans: &Bound<'_, PyAny>,
-        _path: &Bound<'_, PyAny>,
-        _trans: &Bound<'_, PyAny>,
-        _rgb_face: Option<&Bound<'_, PyAny>>,
+        gc: &Bound<'_, PyAny>,
+        marker_path: &Bound<'_, PyAny>,
+        marker_trans: &Bound<'_, PyAny>,
+        path: &Bound<'_, PyAny>,
+        trans: &Bound<'_, PyAny>,
+        rgb_face: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
+        // Build the marker shape once in "display-local" coords centered
+        // at the origin. We use canvas_height=0 in path_to_tiny_skia so
+        // the y axis is flipped (y → -y), giving us a shape already in
+        // pixmap-local orientation.
+        let marker_affine = extract_affine(marker_trans);
+        let marker_tsk = match path_to_tiny_skia(marker_path, marker_affine, 0.0)? {
+            Some(p) => p,
+            None => return Ok(()),
+        };
+
+        // Walk the data path's vertices, apply the data→display affine,
+        // and translate the marker to the resulting pixmap position.
+        let data_trans = extract_affine(trans);
+        let (verts_arr, _codes) = crate::path::extract_path_verts_codes(path)?;
+        let verts = verts_arr.as_array();
+
+        let info = GcInfo::from_py(gc, self.dpi);
+        let face = rgb_face.and_then(extract_rgba_face);
+        let h = self.height as f64;
+
+        for i in 0..verts.nrows() {
+            let (dx, dy) = data_trans.apply(verts[[i, 0]], verts[[i, 1]]);
+            // Display → pixmap y-flip
+            let pix = Transform::from_translate(dx as f32, (h - dy) as f32);
+
+            if let Some(face_rgba) = face {
+                let paint = info.make_fill_paint(face_rgba);
+                self.pixmap
+                    .fill_path(&marker_tsk, &paint, FillRule::EvenOdd, pix, None);
+            }
+            if info.linewidth > 0.0 && info.foreground[3] > 0.0 {
+                let paint = info.make_stroke_paint();
+                let stroke = info.make_stroke();
+                self.pixmap
+                    .stroke_path(&marker_tsk, &paint, &stroke, pix, None);
+            }
+        }
+
         self.dirty = true;
         Ok(())
     }
@@ -163,20 +201,176 @@ impl RendererAgg {
     #[allow(clippy::too_many_arguments)]
     fn draw_path_collection(
         &mut self,
-        _gc: &Bound<'_, PyAny>,
-        _master_transform: &Bound<'_, PyAny>,
-        _paths: &Bound<'_, PyAny>,
-        _all_transforms: &Bound<'_, PyAny>,
-        _offsets: &Bound<'_, PyAny>,
-        _offset_trans: &Bound<'_, PyAny>,
-        _facecolors: &Bound<'_, PyAny>,
-        _edgecolors: &Bound<'_, PyAny>,
-        _linewidths: &Bound<'_, PyAny>,
+        gc: &Bound<'_, PyAny>,
+        master_transform: &Bound<'_, PyAny>,
+        paths: &Bound<'_, PyAny>,
+        all_transforms: &Bound<'_, PyAny>,
+        offsets: &Bound<'_, PyAny>,
+        offset_trans: &Bound<'_, PyAny>,
+        facecolors: &Bound<'_, PyAny>,
+        edgecolors: &Bound<'_, PyAny>,
+        linewidths: &Bound<'_, PyAny>,
         _linestyles: &Bound<'_, PyAny>,
         _antialiaseds: &Bound<'_, PyAny>,
         _urls: &Bound<'_, PyAny>,
         _offset_position: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
+        use numpy::PyReadonlyArray2;
+
+        // Sequence lengths. Each of paths / facecolors / edgecolors /
+        // linewidths can be empty or shorter than the number of offsets;
+        // we cycle with modulo. Offsets drives the loop count.
+        let n_paths: usize = paths.len().unwrap_or(0);
+        if n_paths == 0 {
+            return Ok(());
+        }
+
+        // Extract offsets as (N, 2) float64.
+        let py = paths.py();
+        let np = py.import("numpy")?;
+        let offsets_obj = np
+            .call_method1("ascontiguousarray", (offsets,))?
+            .call_method1("astype", ("float64",))?;
+        let offsets_arr: PyReadonlyArray2<f64> = match offsets_obj.extract() {
+            Ok(a) => a,
+            Err(_) => return Ok(()), // empty offsets
+        };
+        let offsets_view = offsets_arr.as_array();
+        let n_offsets = offsets_view.nrows();
+        if n_offsets == 0 {
+            return Ok(());
+        }
+
+        // Facecolors and edgecolors as (N, 4) float64. Either may be empty.
+        let face_arr: Option<PyReadonlyArray2<f64>> = np
+            .call_method1("ascontiguousarray", (facecolors,))
+            .and_then(|a| a.call_method1("astype", ("float64",)))
+            .and_then(|a| a.extract())
+            .ok();
+        let edge_arr: Option<PyReadonlyArray2<f64>> = np
+            .call_method1("ascontiguousarray", (edgecolors,))
+            .and_then(|a| a.call_method1("astype", ("float64",)))
+            .and_then(|a| a.extract())
+            .ok();
+
+        // Linewidths as 1D float64.
+        let lw_arr: Option<numpy::PyReadonlyArray1<f64>> = np
+            .call_method1("ascontiguousarray", (linewidths,))
+            .and_then(|a| a.call_method1("astype", ("float64",)))
+            .and_then(|a| a.extract())
+            .ok();
+
+        let master = extract_affine(master_transform);
+        let offset_affine = extract_affine(offset_trans);
+
+        // Pre-extract paths and per-path transforms.
+        let n_transforms: usize = all_transforms.len().unwrap_or(0);
+        let mut path_cache: Vec<Option<tiny_skia::Path>> = Vec::with_capacity(n_paths);
+        for i in 0..n_paths {
+            let p = paths.get_item(i)?;
+            // Combine master_transform with the per-path transform (if any).
+            let per_path = if n_transforms > 0 {
+                let t = all_transforms.get_item(i % n_transforms)?;
+                let a = t.extract::<PyReadonlyArray2<f64>>().ok();
+                match a {
+                    Some(arr) => {
+                        let v = arr.as_array();
+                        if v.shape() == [3, 3] {
+                            compose_affines(
+                                master,
+                                Affine {
+                                    a: v[[0, 0]],
+                                    b: v[[0, 1]],
+                                    c: v[[0, 2]],
+                                    d: v[[1, 0]],
+                                    e: v[[1, 1]],
+                                    f: v[[1, 2]],
+                                },
+                            )
+                        } else {
+                            master
+                        }
+                    }
+                    None => master,
+                }
+            } else {
+                master
+            };
+            // Build the path in "display local" orientation (y-flipped at
+            // origin), so we can translate it per offset with a tiny_skia
+            // Transform::from_translate.
+            let tsk = path_to_tiny_skia(&p, per_path, 0.0)?;
+            path_cache.push(tsk);
+        }
+
+        let info = GcInfo::from_py(gc, self.dpi);
+        let h = self.height as f64;
+
+        for i in 0..n_offsets {
+            let ox = offsets_view[[i, 0]];
+            let oy = offsets_view[[i, 1]];
+            let (tx, ty) = offset_affine.apply(ox, oy);
+            let tf = Transform::from_translate(tx as f32, (h - ty) as f32);
+
+            let path_idx = i % n_paths;
+            let Some(tsk_path) = path_cache[path_idx].as_ref() else {
+                continue;
+            };
+
+            // Per-index face color.
+            let face_rgba = face_arr.as_ref().and_then(|arr| {
+                let v = arr.as_array();
+                if v.nrows() == 0 {
+                    return None;
+                }
+                let row = v.row(i % v.nrows());
+                if row.len() < 4 {
+                    return None;
+                }
+                Some([row[0] as f32, row[1] as f32, row[2] as f32, row[3] as f32])
+            });
+
+            let edge_rgba = edge_arr.as_ref().and_then(|arr| {
+                let v = arr.as_array();
+                if v.nrows() == 0 {
+                    return None;
+                }
+                let row = v.row(i % v.nrows());
+                if row.len() < 4 {
+                    return None;
+                }
+                Some([row[0] as f32, row[1] as f32, row[2] as f32, row[3] as f32])
+            });
+
+            // Per-index linewidth (pts → px).
+            let lw_px = lw_arr.as_ref().and_then(|arr| {
+                let v = arr.as_array();
+                if v.len() == 0 {
+                    return None;
+                }
+                Some((v[i % v.len()] * self.dpi / 72.0) as f32)
+            });
+
+            if let Some(face) = face_rgba {
+                if face[3] > 0.0 {
+                    let paint = info.make_fill_paint(face);
+                    self.pixmap
+                        .fill_path(tsk_path, &paint, FillRule::EvenOdd, tf, None);
+                }
+            }
+
+            if let (Some(edge), Some(lw)) = (edge_rgba, lw_px) {
+                if edge[3] > 0.0 && lw > 0.0 {
+                    let paint = info.make_fill_paint(edge);
+                    let stroke = tiny_skia::Stroke {
+                        width: lw,
+                        ..info.make_stroke()
+                    };
+                    self.pixmap.stroke_path(tsk_path, &paint, &stroke, tf, None);
+                }
+            }
+        }
+
         self.dirty = true;
         Ok(())
     }
@@ -201,11 +395,83 @@ impl RendererAgg {
 
     fn draw_image(
         &mut self,
-        _gc: &Bound<'_, PyAny>,
-        _x: f64,
-        _y: f64,
-        _im: &Bound<'_, PyAny>,
+        gc: &Bound<'_, PyAny>,
+        x: f64,
+        y: f64,
+        im: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
+        use numpy::PyReadonlyArray3;
+
+        // `im` is an (H, W, 4) uint8 RGBA ndarray (already premultiplied by
+        // matplotlib's image machinery before reaching the backend in most
+        // paths; we assume unpremultiplied and let tiny-skia handle it).
+        let arr: PyReadonlyArray3<u8> = match im.extract() {
+            Ok(a) => a,
+            Err(_) => return Ok(()),
+        };
+        let view = arr.as_array();
+        let shape = view.shape();
+        if shape.len() != 3 || shape[2] != 4 {
+            return Ok(());
+        }
+        let h = shape[0] as u32;
+        let w = shape[1] as u32;
+        if h == 0 || w == 0 {
+            return Ok(());
+        }
+
+        // Build a tiny-skia Pixmap from the ndarray. The data must be
+        // contiguous; `ascontiguousarray` in numpy land guarantees it.
+        let mut buf = Vec::with_capacity((w as usize) * (h as usize) * 4);
+        // matplotlib image origin is top-left, same as tiny-skia. No flip.
+        for row in 0..h as usize {
+            for col in 0..w as usize {
+                let r = view[[row, col, 0]];
+                let g = view[[row, col, 1]];
+                let b = view[[row, col, 2]];
+                let a = view[[row, col, 3]];
+                // tiny-skia expects premultiplied.
+                let af = a as u32;
+                buf.push(((r as u32 * af + 127) / 255) as u8);
+                buf.push(((g as u32 * af + 127) / 255) as u8);
+                buf.push(((b as u32 * af + 127) / 255) as u8);
+                buf.push(a);
+            }
+        }
+        let Some(src) =
+            tiny_skia::Pixmap::from_vec(buf, tiny_skia::IntSize::from_wh(w, h).unwrap())
+        else {
+            return Ok(());
+        };
+
+        // matplotlib's (x, y) is the bottom-left corner in display coords.
+        // tiny-skia wants top-left. With draw_image, the image extends
+        // upward from (x, y) in display space.
+        let canvas_h = self.height as f64;
+        let dest_x = x as f32;
+        let dest_y = (canvas_h - y - h as f64) as f32;
+
+        // Apply gc alpha if present.
+        let gc_alpha = gc
+            .call_method0("get_alpha")
+            .ok()
+            .and_then(|a| a.extract::<f64>().ok())
+            .unwrap_or(1.0) as f32;
+
+        let paint = tiny_skia::PixmapPaint {
+            opacity: gc_alpha.clamp(0.0, 1.0),
+            blend_mode: tiny_skia::BlendMode::SourceOver,
+            quality: tiny_skia::FilterQuality::Nearest,
+        };
+        self.pixmap.draw_pixmap(
+            dest_x as i32,
+            dest_y as i32,
+            src.as_ref(),
+            &paint,
+            Transform::identity(),
+            None,
+        );
+
         self.dirty = true;
         Ok(())
     }
@@ -223,12 +489,90 @@ impl RendererAgg {
 
     fn draw_text_image(
         &mut self,
-        _obj: &Bound<'_, PyAny>,
-        _x: i32,
-        _y: i32,
-        _angle: f64,
-        _gc: &Bound<'_, PyAny>,
+        obj: &Bound<'_, PyAny>,
+        x: i32,
+        y: i32,
+        angle: f64,
+        gc: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
+        use numpy::PyReadonlyArray2;
+
+        // `obj` is either an FT2Font instance (with .get_image() → ndarray)
+        // or a 2D uint8 ndarray directly (TeX code path).
+        let bitmap_obj = if let Ok(img) = obj.call_method0("get_image") {
+            img.into_any()
+        } else {
+            obj.clone().into_any()
+        };
+
+        let arr: PyReadonlyArray2<u8> = match bitmap_obj.extract() {
+            Ok(a) => a,
+            Err(_) => {
+                // ft2font stub may return something that's not a proper
+                // ndarray; skip silently (text is invisible in Phase 1).
+                self.dirty = true;
+                return Ok(());
+            }
+        };
+        let view = arr.as_array();
+        let shape = view.shape();
+        if shape.len() != 2 {
+            return Ok(());
+        }
+        let bh = shape[0] as u32;
+        let bw = shape[1] as u32;
+        if bh == 0 || bw == 0 {
+            return Ok(());
+        }
+
+        // Read gc foreground color for glyph tinting.
+        let info = GcInfo::from_py(gc, self.dpi);
+        let [r, g, b, _a] = info.foreground;
+        let gc_alpha = info.alpha;
+
+        // Build an RGBA pixmap from the grayscale mask: tinted color *
+        // mask value as alpha. Premultiplied.
+        let mut buf = Vec::with_capacity((bw as usize) * (bh as usize) * 4);
+        for row in 0..bh as usize {
+            for col in 0..bw as usize {
+                let m = view[[row, col]];
+                if m == 0 {
+                    buf.extend_from_slice(&[0, 0, 0, 0]);
+                    continue;
+                }
+                let alpha = (m as f32 / 255.0) * gc_alpha;
+                let ra = (r * alpha * 255.0).clamp(0.0, 255.0) as u8;
+                let ga = (g * alpha * 255.0).clamp(0.0, 255.0) as u8;
+                let ba = (b * alpha * 255.0).clamp(0.0, 255.0) as u8;
+                let aa = (alpha * 255.0).clamp(0.0, 255.0) as u8;
+                buf.extend_from_slice(&[ra, ga, ba, aa]);
+            }
+        }
+        let Some(src) =
+            tiny_skia::Pixmap::from_vec(buf, tiny_skia::IntSize::from_wh(bw, bh).unwrap())
+        else {
+            return Ok(());
+        };
+
+        let paint = tiny_skia::PixmapPaint {
+            opacity: 1.0,
+            blend_mode: tiny_skia::BlendMode::SourceOver,
+            quality: tiny_skia::FilterQuality::Nearest,
+        };
+
+        // (x, y) is the baseline origin in pixmap coords per the wrapper
+        // (backend_agg.py:181-183 already handles descent and passes
+        // display coords). Apply rotation around that origin.
+        if angle.abs() < 1e-6 {
+            self.pixmap
+                .draw_pixmap(x, y, src.as_ref(), &paint, Transform::identity(), None);
+        } else {
+            let tf = Transform::from_rotate_at(angle as f32, x as f32, y as f32)
+                .pre_translate(x as f32, y as f32);
+            self.pixmap
+                .draw_pixmap(0, 0, src.as_ref(), &paint, tf, None);
+        }
+
         self.dirty = true;
         Ok(())
     }
@@ -248,12 +592,14 @@ impl RendererAgg {
         arr.into_pyarray(py)
     }
 
+    #[pyo3(signature = (dtype=None, copy=None))]
     fn __array__<'py>(
         &mut self,
         py: Python<'py>,
-        _dtype: Option<&Bound<'_, PyAny>>,
-        _copy: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        copy: Option<&Bound<'_, PyAny>>,
     ) -> Bound<'py, PyArray3<u8>> {
+        let _ = (dtype, copy);
         self.buffer_rgba(py)
     }
 
