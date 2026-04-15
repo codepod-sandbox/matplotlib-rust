@@ -34,8 +34,16 @@ class RendererAgg(RendererBase):
         self.dpi = dpi
         self.width = int(width)
         self.height = int(height)
-        self._renderer = self  # OG code uses self._renderer
+        # Blank white rgba buffer; OG code does memoryview(self._renderer)
+        self._buffer = np.full((self.height, self.width, 4), 255, dtype=np.uint8)
         self._filter_renderers = []
+
+    def __buffer__(self, flags):
+        # Expose the buffer so OG code can do memoryview(self) / asarray(self)
+        return memoryview(self._buffer)
+
+    def __array__(self, dtype=None, copy=None):
+        return self._buffer if dtype is None else self._buffer.astype(dtype)
 
     # -- drawing (no-ops) ----------------------------------------------------
     def draw_path(self, gc, path, transform, rgbFace=None):
@@ -113,13 +121,13 @@ class RendererAgg(RendererBase):
         pass
 
     def tostring_rgb(self):
-        return bytes(self.width * self.height * 3)
+        return self._buffer[..., :3].tobytes()
 
     def tostring_argb(self):
-        return bytes(self.width * self.height * 4)
+        return self._buffer[..., [3, 0, 1, 2]].tobytes()
 
     def buffer_rgba(self):
-        return np.zeros((self.height, self.width, 4), dtype=np.uint8)
+        return self._buffer
 
     def copy_from_bbox(self, bbox):
         return None

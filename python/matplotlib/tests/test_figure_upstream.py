@@ -1117,7 +1117,6 @@ def test_figure_savefig_svg():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 1: savefig PNG requires _backend_agg")
 def test_figure_savefig_png():
     """fig.savefig() to BytesIO produces PNG bytes."""
     import io
@@ -1222,7 +1221,6 @@ class TestFigureLayout:
         assert 'SUPER_TITLE_XYZ' in svg
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 1: savefig PNG requires _backend_agg")
     def test_figure_savefig_png(self):
         import io
         fig, ax = plt.subplots()

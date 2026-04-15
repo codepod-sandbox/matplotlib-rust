@@ -906,7 +906,6 @@ def test_rgb_hsv_round_trip():
             tt, mcolors.rgb_to_hsv(mcolors.hsv_to_rgb(tt)))
 
 
-@pytest.mark.skip(reason="Phase 1: plt.draw() requires _backend_agg")
 def test_autoscale_masked():
     # Test for #2336. Previously fully masked data would trigger a ValueError.
     data = np.ma.masked_all((12, 20))
@@ -1412,7 +1411,6 @@ def test_tableau_order():
     assert list(mcolors.TABLEAU_COLORS.values()) == dflt_cycle
 
 
-@pytest.mark.skip(reason="Phase 1: fig.canvas.draw() requires _backend_agg")
 def test_ndarray_subclass_norm():
     # Emulate an ndarray subclass that handles units
     # which objects when adding or subtracting with other

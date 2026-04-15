@@ -138,7 +138,6 @@ def test_save_svg():
     plt.close("all")
 
 
-@pytest.mark.skip(reason="Phase 1: savefig PNG requires _backend_agg")
 def test_save_png():
     import matplotlib.pyplot as plt
     import io
