@@ -260,10 +260,16 @@ class RendererAgg(RendererBase):
         return points * self.dpi / 72
 
     def buffer_rgba(self):
-        return memoryview(self._renderer)
+        # matplotlib-rust: the Rust _RendererAgg exposes the rgba buffer
+        # via a buffer_rgba() method returning an (H, W, 4) uint8 ndarray
+        # rather than via the raw Python buffer protocol. A memoryview
+        # around that ndarray is equivalent for print_raw / _print_pil.
+        return memoryview(self._renderer.buffer_rgba())
 
     def tostring_argb(self):
-        return np.asarray(self._renderer).take([3, 0, 1, 2], axis=2).tobytes()
+        # matplotlib-rust: delegate to the Rust-side tostring_argb which
+        # reorders rgba -> argb and returns bytes directly.
+        return self._renderer.tostring_argb()
 
     def clear(self):
         self._renderer.clear()
