@@ -18,6 +18,22 @@ use crate::buffer_region::BufferRegion;
 use crate::gc::{extract_rgba_face, GcInfo};
 use crate::path::{compose_affines, extract_affine, path_to_tiny_skia, Affine};
 
+/// Read `gc.get_clip_path()` if present. matplotlib returns
+/// `(Path, Affine)` or `(None, None)`. When a path is present, we
+/// extract the affine from the second element and return both, ready
+/// for `path_to_tiny_skia`.
+fn read_clip_path<'py>(gc: &Bound<'py, PyAny>) -> Option<(Bound<'py, PyAny>, Affine)> {
+    let tup = gc.call_method0("get_clip_path").ok()?;
+    // Tuple unpacking: (path, affine)
+    let path_obj = tup.get_item(0).ok()?;
+    let affine_obj = tup.get_item(1).ok()?;
+    if path_obj.is_none() {
+        return None;
+    }
+    let affine = extract_affine(&affine_obj);
+    Some((path_obj, affine))
+}
+
 #[pyclass(unsendable)]
 pub struct RendererAgg {
     #[pyo3(get)]
@@ -39,24 +55,60 @@ pub struct RendererAgg {
 }
 
 impl RendererAgg {
-    /// Build a `tiny_skia::Mask` that represents the gc's clip
-    /// rectangle for the current pixmap, or `None` if no clip is set.
+    /// Build a `tiny_skia::Mask` that represents the gc's clip for the
+    /// current pixmap, or `None` if no clip is set.
     ///
-    /// matplotlib clip_rect is in display coords (y-up, bottom-left
-    /// origin). tiny-skia uses y-down top-left. We convert the rect and
-    /// rasterize it into a monochrome mask that then gates every
-    /// fill_path / stroke_path / draw_pixmap call.
-    fn build_clip_mask(&self, info: &GcInfo) -> Option<Mask> {
-        let [cx, cy, cw, ch] = info.clip_rect?;
-        if cw <= 0.0 || ch <= 0.0 {
+    /// The mask is built from two sources, intersected:
+    /// 1. `gc.get_clip_rectangle()` — a display-coords bbox (y-up).
+    /// 2. `gc.get_clip_path()` — an arbitrary `(Path, Affine)` pair,
+    ///    used for polar plots, pie wedges, non-rectangular axes.
+    ///
+    /// If both are set, the mask contains the INTERSECTION of the two
+    /// shapes (standard matplotlib semantics).
+    fn build_clip_mask(&self, info: &GcInfo, gc: &Bound<'_, PyAny>) -> Option<Mask> {
+        let has_rect = info.clip_rect.is_some();
+        let clip_path_info = read_clip_path(gc);
+        let has_path = clip_path_info.is_some();
+        if !has_rect && !has_path {
             return None;
         }
+
         let mut mask = Mask::new(self.width, self.height)?;
+
+        // Start by filling the whole canvas with the rect (or the full
+        // canvas if no rect is set). Mask values outside this rect are
+        // implicitly 0. Mask::fill_path overwrites, so we need to compose
+        // with a second pass for the clip path.
         let canvas_h = self.height as f32;
-        let pix_y = canvas_h - cy - ch;
-        let rect = tiny_skia::Rect::from_xywh(cx, pix_y, cw, ch)?;
-        let path = tiny_skia::PathBuilder::from_rect(rect);
-        mask.fill_path(&path, FillRule::Winding, true, Transform::identity());
+
+        let rect_path = if let Some([cx, cy, cw, ch]) = info.clip_rect {
+            if cw <= 0.0 || ch <= 0.0 {
+                return None;
+            }
+            let pix_y = canvas_h - cy - ch;
+            let rect = tiny_skia::Rect::from_xywh(cx, pix_y, cw, ch)?;
+            Some(tiny_skia::PathBuilder::from_rect(rect))
+        } else {
+            // No rect → start from a mask covering the whole canvas.
+            let rect = tiny_skia::Rect::from_xywh(0.0, 0.0, self.width as f32, canvas_h)?;
+            Some(tiny_skia::PathBuilder::from_rect(rect))
+        };
+
+        if let Some(p) = rect_path {
+            mask.fill_path(&p, FillRule::Winding, true, Transform::identity());
+        }
+
+        if let Some((clip_path_obj, clip_affine)) = clip_path_info {
+            // Rasterize the clip path against the existing rect mask
+            // using intersect_path, which multiplies the new path alpha
+            // into the existing mask bits.
+            if let Ok(Some(tsk_path)) =
+                path_to_tiny_skia(&clip_path_obj, clip_affine, self.height as f64)
+            {
+                mask.intersect_path(&tsk_path, FillRule::Winding, true, Transform::identity());
+            }
+        }
+
         Some(mask)
     }
 
@@ -144,7 +196,7 @@ impl RendererAgg {
 
         let info = GcInfo::from_py(gc, self.dpi);
         let face = rgb_face.and_then(extract_rgba_face);
-        let clip = self.build_clip_mask(&info);
+        let clip = self.build_clip_mask(&info, gc);
 
         // Fill first (if face is set), then stroke the outline.
         if let Some(face_rgba) = face {
@@ -202,7 +254,7 @@ impl RendererAgg {
 
         let info = GcInfo::from_py(gc, self.dpi);
         let face = rgb_face.and_then(extract_rgba_face);
-        let clip = self.build_clip_mask(&info);
+        let clip = self.build_clip_mask(&info, gc);
         let h = self.height as f64;
 
         for i in 0..verts.nrows() {
@@ -333,7 +385,7 @@ impl RendererAgg {
         }
 
         let info = GcInfo::from_py(gc, self.dpi);
-        let clip = self.build_clip_mask(&info);
+        let clip = self.build_clip_mask(&info, gc);
         let h = self.height as f64;
 
         for i in 0..n_offsets {
@@ -489,16 +541,22 @@ impl RendererAgg {
             .and_then(|a| a.extract::<f64>().ok())
             .unwrap_or(1.0) as f32;
 
+        // 1B.5: Bilinear filter for upscaling. matplotlib does its own
+        // resampling in Python before handing pixels to us (see
+        // image.py _make_image), so at the draw_image call pixel size
+        // is usually already correct. But DPI scaling (fig.savefig
+        // dpi > fig.dpi) can still trigger up/downscale at blit time;
+        // bilinear is the sensible default.
         let paint = tiny_skia::PixmapPaint {
             opacity: gc_alpha.clamp(0.0, 1.0),
             blend_mode: tiny_skia::BlendMode::SourceOver,
-            quality: tiny_skia::FilterQuality::Nearest,
+            quality: tiny_skia::FilterQuality::Bilinear,
         };
         // Build a clip mask from the gc if present so the blit respects
         // the axes rectangle. draw_pixmap does not take a mask directly,
         // so use the GcInfo path instead.
         let info = GcInfo::from_py(gc, self.dpi);
-        let clip = self.build_clip_mask(&info);
+        let clip = self.build_clip_mask(&info, gc);
         self.pixmap.draw_pixmap(
             dest_x as i32,
             dest_y as i32,
@@ -596,7 +654,7 @@ impl RendererAgg {
             quality: tiny_skia::FilterQuality::Nearest,
         };
 
-        let clip = self.build_clip_mask(&info);
+        let clip = self.build_clip_mask(&info, gc);
         // (x, y) is the baseline origin in pixmap coords per the wrapper
         // (backend_agg.py:181-183 already handles descent and passes
         // display coords). Apply rotation around that origin.

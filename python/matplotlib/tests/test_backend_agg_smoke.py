@@ -338,6 +338,98 @@ def test_filter_stack_noop():
     r.stop_rasterizing()
 
 
+def test_dashed_line_has_gaps_in_row():
+    """A red dashed horizontal line should produce a row with gaps, not
+    a solid run of red pixels. Guards the 1B.3 dash plumbing.
+    """
+    import matplotlib.pyplot as plt
+    import io
+
+    fig, ax = plt.subplots(figsize=(3, 3), dpi=50)
+    ax.plot([0.1, 0.9], [0.5, 0.5], 'r--', linewidth=3)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+
+    buf.seek(0)
+    from PIL import Image
+    arr = np.asarray(Image.open(buf).convert('RGB'))
+    # Find the row with the most red pixels — this is the line row.
+    row_red = ((arr[:, :, 0] > 200) & (arr[:, :, 1] < 50)).sum(axis=1)
+    line_row_idx = int(row_red.argmax())
+    assert row_red[line_row_idx] > 10, (
+        f"expected a red line row, got max row count {row_red[line_row_idx]}"
+    )
+
+    # Count gaps in the red columns: a dashed line has > 0 gaps.
+    line_row = arr[line_row_idx]
+    red_cols = np.where((line_row[:, 0] > 200) & (line_row[:, 1] < 50))[0]
+    gaps = np.diff(red_cols)
+    gap_count = int((gaps > 1).sum())
+    assert gap_count > 0, (
+        f"dashed line rendered as solid (0 gaps); gc.get_dashes() not honored"
+    )
+
+
+def test_polar_clip_path_masks_corners():
+    """A polar (circular) axes should not paint the corners of its bounding
+    rectangle. Guards 1B.1 clip-path plumbing via gc.get_clip_path().
+    """
+    import matplotlib.pyplot as plt
+    import io
+
+    fig, ax = plt.subplots(
+        figsize=(3, 3), dpi=50, subplot_kw={'projection': 'polar'}
+    )
+    theta = np.linspace(0, 2 * np.pi, 100)
+    r = np.full_like(theta, 0.8)
+    ax.plot(theta, r, 'r-', linewidth=3)
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+
+    buf.seek(0)
+    from PIL import Image
+    arr = np.asarray(Image.open(buf).convert('RGB'))
+    red = (arr[:, :, 0] > 200) & (arr[:, :, 1] < 50)
+    assert red.sum() > 100, "expected a red polar curve"
+    # Four corner pixels should be outside the circular clip path.
+    h, w = arr.shape[:2]
+    for rr, cc in [(0, 0), (0, w - 1), (h - 1, 0), (h - 1, w - 1)]:
+        assert not red[rr, cc], (
+            f"corner pixel ({rr},{cc}) is red — clip path not applied"
+        )
+
+
+def test_round_cap_produces_round_pixels():
+    """A line with capstyle='round' should paint pixels outside the
+    rectangular stroke bounds at the endpoints. Guards capstyle plumbing.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    import io
+
+    fig, ax = plt.subplots(figsize=(3, 3), dpi=50)
+    # Very thick short horizontal line with round caps.
+    line = Line2D([0.4, 0.6], [0.5, 0.5], color='red', linewidth=20,
+                  solid_capstyle='round')
+    ax.add_line(line)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+
+    buf.seek(0)
+    from PIL import Image
+    arr = np.asarray(Image.open(buf).convert('RGB'))
+    red = (arr[:, :, 0] > 200) & (arr[:, :, 1] < 50)
+    # Sanity: something was drawn.
+    assert red.sum() > 100, f"expected red stroke pixels, got {red.sum()}"
+
+
 def test_draw_path_produces_pixels():
     """A filled red rectangle should put red pixels in the buffer."""
     import matplotlib.pyplot as plt
