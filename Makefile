@@ -19,8 +19,9 @@ else
   PY_EXT := pyd
 endif
 
-PATH_OUT := python/matplotlib/_path.$(PY_EXT)
-AGG_OUT  := python/matplotlib/backends/_backend_agg.$(PY_EXT)
+PATH_OUT     := python/matplotlib/_path.$(PY_EXT)
+AGG_OUT      := python/matplotlib/backends/_backend_agg.$(PY_EXT)
+FT2FONT_OUT  := python/matplotlib/ft2font.$(PY_EXT)
 
 # Pin PyO3 to the venv Python so the extension's ABI matches what
 # pytest will import. Without this, cargo picks whatever `python3` is
@@ -47,10 +48,16 @@ build:
 #     a wave of "ndarray cannot be converted to PyArray<T, D>" failures
 #     because the source in lib.rs hasn't been ported to the stricter
 #     extraction rules. Tracked as a follow-up; see `build-path`.
-#   - matplotlib-agg: fresh build on every `make test`.
+#   - matplotlib-agg: fresh build (Phase 1).
+#   - matplotlib-ft2font: fresh build (Phase 2).
+#
+# Stub policy: once an extension ships, its Python stub is deleted.
+# Both _backend_agg.py and ft2font.py are gone after Phase 2A; the
+# .so is the only source of truth.
 build-ext:
-	cargo build -p matplotlib-agg
+	cargo build -p matplotlib-agg -p matplotlib-ft2font
 	cp target/debug/$(DYLIB_PREFIX)matplotlib_agg.$(DYLIB_EXT) $(AGG_OUT)
+	cp target/debug/$(DYLIB_PREFIX)matplotlib_ft2font.$(DYLIB_EXT) $(FT2FONT_OUT)
 
 # Explicit rebuild for _path.so (committed binary works, don't use
 # this unless you're tackling the numpy 2.x ABI cleanup).

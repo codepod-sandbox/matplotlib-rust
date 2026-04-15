@@ -1,0 +1,15 @@
+[package]
+name = "matplotlib-ft2font"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "matplotlib_ft2font"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.25", features = ["extension-module"] }
+numpy = "0.25"
+ndarray = "0.16"
+fontdue = "0.9"
+ttf-parser = "0.24"

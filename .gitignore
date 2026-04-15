@@ -10,3 +10,5 @@ python/matplotlib/_path.so
 python/matplotlib/_path.pyd
 python/matplotlib/backends/_backend_agg.so
 python/matplotlib/backends/_backend_agg.pyd
+python/matplotlib/ft2font.so
+python/matplotlib/ft2font.pyd
