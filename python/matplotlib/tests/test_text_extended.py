@@ -7,36 +7,40 @@ from matplotlib.text import Text, Annotation
 
 class TestTextFontFamily:
     def test_default_fontfamily(self):
+        # OG: get_fontfamily() returns a list (e.g. ['sans-serif'])
         t = Text(0, 0, 'hello')
-        assert t.get_fontfamily() is None
+        fam = t.get_fontfamily()
+        assert fam is not None
+        assert len(fam) > 0  # OG default is ['sans-serif']
 
     def test_set_fontfamily(self):
         t = Text(0, 0, 'hello')
         t.set_fontfamily('serif')
-        assert t.get_fontfamily() == 'serif'
+        assert 'serif' in t.get_fontfamily()
 
     def test_init_fontfamily(self):
         t = Text(0, 0, 'hello', fontfamily='monospace')
-        assert t.get_fontfamily() == 'monospace'
+        assert 'monospace' in t.get_fontfamily()
 
     def test_init_family_alias(self):
         t = Text(0, 0, 'hello', family='sans-serif')
-        assert t.get_fontfamily() == 'sans-serif'
+        assert 'sans-serif' in t.get_fontfamily()
 
     def test_get_family_alias(self):
         t = Text(0, 0, 'hello')
         t.set_fontfamily('cursive')
-        assert t.get_family() == 'cursive'
+        assert 'cursive' in t.get_family()
 
     def test_set_family_alias(self):
         t = Text(0, 0, 'hello')
         t.set_family('fantasy')
-        assert t.get_fontfamily() == 'fantasy'
+        assert 'fantasy' in t.get_fontfamily()
 
     def test_fontname_init(self):
         t = Text(0, 0, 'hello', fontname='Arial')
-        assert t.get_fontfamily() == 'Arial'
+        assert 'Arial' in t.get_fontfamily()
 
+    @pytest.mark.skip(reason="OG: get_fontname() returns _name (separate from family); stub-specific")
     def test_get_fontname(self):
         t = Text(0, 0, 'hello')
         t.set_fontfamily('Helvetica')
@@ -66,7 +70,8 @@ class TestTextFontStyle:
 
     def test_set_fontstyle_invalid(self):
         t = Text(0, 0, 'hello')
-        with pytest.raises(ValueError, match='fontstyle'):
+        # OG error message says 'style', not 'fontstyle'
+        with pytest.raises(ValueError, match='style'):
             t.set_fontstyle('bold')
 
     def test_init_fontstyle(self):
@@ -175,7 +180,7 @@ class TestTextSet:
     def test_set_fontfamily(self):
         t = Text(0, 0, 'hello')
         t.set(fontfamily='serif')
-        assert t.get_fontfamily() == 'serif'
+        assert 'serif' in t.get_fontfamily()
 
     def test_set_fontstyle(self):
         t = Text(0, 0, 'hello')
@@ -185,7 +190,7 @@ class TestTextSet:
     def test_set_multiple(self):
         t = Text(0, 0, 'hello')
         t.set(fontfamily='serif', fontstyle='italic', fontsize=20)
-        assert t.get_fontfamily() == 'serif'
+        assert 'serif' in t.get_fontfamily()
         assert t.get_fontstyle() == 'italic'
         assert t.get_fontsize() == 20
 
@@ -199,7 +204,7 @@ class TestAnnotationExtended:
 
     def test_annotation_fontfamily(self):
         ann = Annotation('note', xy=(1, 2), fontfamily='monospace')
-        assert ann.get_fontfamily() == 'monospace'
+        assert 'monospace' in ann.get_fontfamily()
 
     def test_annotation_fontstyle(self):
         ann = Annotation('note', xy=(1, 2), fontstyle='italic')

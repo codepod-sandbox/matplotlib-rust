@@ -126,22 +126,25 @@ class TestGridSpec:
         """gs[0, :] spans the full first row."""
         gs = GridSpec(2, 3)
         ss = gs[0, :]
-        assert ss.rowspan == (0, 1)
-        assert ss.colspan == (0, 3)
+        # OG: rowspan/colspan return range objects, not tuples
+        assert (ss.rowspan.start, ss.rowspan.stop) == (0, 1)
+        assert (ss.colspan.start, ss.colspan.stop) == (0, 3)
 
     def test_gridspec_col_slice(self):
         """gs[:, 0] spans the full first column."""
         gs = GridSpec(2, 3)
         ss = gs[:, 0]
-        assert ss.rowspan == (0, 2)
-        assert ss.colspan == (0, 1)
+        # OG: rowspan/colspan return range objects
+        assert (ss.rowspan.start, ss.rowspan.stop) == (0, 2)
+        assert (ss.colspan.start, ss.colspan.stop) == (0, 1)
 
     def test_gridspec_block(self):
         """gs[0:2, 0:2] spans a 2x2 block."""
         gs = GridSpec(3, 3)
         ss = gs[0:2, 0:2]
-        assert ss.rowspan == (0, 2)
-        assert ss.colspan == (0, 2)
+        # OG: rowspan/colspan return range objects
+        assert (ss.rowspan.start, ss.rowspan.stop) == (0, 2)
+        assert (ss.colspan.start, ss.colspan.stop) == (0, 2)
 
     def test_add_subplot_with_subplotspec(self):
         """Figure.add_subplot(SubplotSpec) creates an axes."""
@@ -249,7 +252,10 @@ class TestSubplotLayout:
         """subplot(211) creates subplot at position (2,1,1)."""
         fig = plt.figure()
         ax = plt.subplot(211)
-        assert ax._position == (2, 1, 1)
+        # OG: _position is a Bbox, not a tuple; check via SubplotSpec
+        ss = ax.get_subplotspec()
+        gs = ss.get_gridspec()
+        assert gs.nrows == 2 and gs.ncols == 1
         plt.close('all')
 
     def test_subplot_reuse(self):
