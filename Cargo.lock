@@ -1236,6 +1236,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "matplotlib-image"
+version = "0.1.0"
+dependencies = [
+ "ndarray",
+ "numpy",
+ "pyo3",
+]
+
+[[package]]
 name = "matplotlib-path"
 version = "0.1.0"
 dependencies = [
