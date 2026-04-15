@@ -175,6 +175,36 @@ def test_resample_false_downsampling_uses_nearest():
     )
 
 
+def test_filternorm_false_integer_no_normalize():
+    # filternorm=False (norm=False) must NOT normalize the windowed kernel
+    # accumulator for integer (u8) inputs. The AGG contract: filternorm
+    # adjusts boundary behaviour for integers, no-op for floats.
+    #
+    # For a uniform-100 u8 input through a windowed filter (HAMMING):
+    #   norm=True  → acc / wsum = (100 * wsum) / wsum = 100 always
+    #   norm=False → acc = 100 * wsum (varies with fractional position)
+    # HAMMING's kernel is NOT a partition of unity at fractional offsets
+    # (wsum ≈ 1.17 at a 0.4-pixel offset), so norm=False output ≠ 100.
+    inp = np.full((6, 6), 100, dtype=np.uint8)
+    out_norm = np.zeros((6, 6), dtype=np.uint8)
+    out_nonorm = np.zeros((6, 6), dtype=np.uint8)
+    # Small translate creates a uniform fractional offset everywhere.
+    trans = Affine2D().translate(0.4, 0.4)
+    _image.resample(inp, out_norm,   trans, _image.HAMMING, norm=True)
+    _image.resample(inp, out_nonorm, trans, _image.HAMMING, norm=False)
+    # norm=True must restore the input value for all in-bounds pixels.
+    np.testing.assert_array_equal(
+        out_norm[1:5, 1:5], 100,
+        err_msg="norm=True must normalize HAMMING output back to input value",
+    )
+    # norm=False must produce a different result (wsum ≠ 1 for HAMMING at
+    # fractional offsets, so the raw accumulator differs from the input).
+    assert not np.array_equal(out_norm, out_nonorm), (
+        "norm=True and norm=False produced identical output — "
+        "filternorm flag is likely still being ignored"
+    )
+
+
 def test_resample_blackman_uses_radius():
     # BLACKMAN is in the same category as SINC/LANCZOS: filterrad governs
     # its support (image.py:858).  A radius=1.0 Blackman-sinc is tighter

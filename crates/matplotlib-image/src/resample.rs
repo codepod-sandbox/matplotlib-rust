@@ -328,7 +328,14 @@ fn filter_support(interp: i32, radius: f64) -> i64 {
     }
 }
 
-/// Windowed sample from a 2-D f64 view, normalized by the sum of weights.
+/// Windowed sample from a 2-D f64 view.
+///
+/// `normalize` — when `true` the accumulator is divided by the weight sum
+/// (the AGG filternorm=True path, and always for float inputs).  When
+/// `false` the raw weighted sum is returned (filternorm=False, integer
+/// inputs only: the Python image pipeline expects un-normalized weights so
+/// that integer boundary effects are preserved as-is).
+///
 /// `sx`, `sy` are the pixel-center coordinates in the source image.
 fn sample_windowed(
     input: ArrayView2<'_, f64>,
@@ -339,6 +346,7 @@ fn sample_windowed(
     interp: i32,
     support: i64,
     radius: f64,
+    normalize: bool,
 ) -> f64 {
     let cx = sx.floor() as i64;
     let cy = sy.floor() as i64;
@@ -364,12 +372,15 @@ fn sample_windowed(
     }
     if wsum == 0.0 {
         0.0
-    } else {
+    } else if normalize {
         acc / wsum
+    } else {
+        acc
     }
 }
 
 /// Windowed sample from a 3-D u8 view for a single channel.
+/// `normalize` behaves identically to `sample_windowed` — see that doc.
 fn sample_windowed_channel(
     input: ArrayView3<'_, u8>,
     sx: f64,
@@ -380,6 +391,7 @@ fn sample_windowed_channel(
     support: i64,
     radius: f64,
     ch: usize,
+    normalize: bool,
 ) -> f64 {
     let cx = sx.floor() as i64;
     let cy = sy.floor() as i64;
@@ -405,8 +417,10 @@ fn sample_windowed_channel(
     }
     if wsum == 0.0 {
         0.0
-    } else {
+    } else if normalize {
         acc / wsum
+    } else {
+        acc
     }
 }
 
@@ -441,8 +455,6 @@ pub fn resample_py(
     norm: bool,
     radius: f64,
 ) -> PyResult<()> {
-    let _ = norm; // always normalize windowed kernels at boundaries
-
     let affine = extract_transform(transform)?;
     let inv = affine.inverse()?;
 
@@ -477,8 +489,17 @@ pub fn resample_py(
     }
 
     match in_ndim {
-        2 => dispatch_2d(py, input, output, inv, effective_interp, radius),
-        3 => dispatch_3d(py, input, output, inv, effective_interp, alpha, radius),
+        2 => dispatch_2d(py, input, output, inv, effective_interp, norm, radius),
+        3 => dispatch_3d(
+            py,
+            input,
+            output,
+            inv,
+            effective_interp,
+            alpha,
+            norm,
+            radius,
+        ),
         n => Err(PyValueError::new_err(format!(
             "resample: expected 2D or 3D array, got {n}D"
         ))),
@@ -489,12 +510,17 @@ pub fn resample_py(
 
 /// 2D greyscale sampler. Does NOT apply `alpha` — 2D alpha composition
 /// is done by the Python caller after this call returns.
+///
+/// `norm` is the filternorm flag: for float dtypes it is always ignored
+/// (float pipelines always normalize); for u8 it is forwarded so that
+/// `filternorm=False` skips weight normalization in the windowed path.
 fn dispatch_2d(
     py: Python<'_>,
     input: &Bound<'_, PyAny>,
     output: &Bound<'_, PyAny>,
     inv: Affine,
     interp: i32,
+    norm: bool,
     radius: f64,
 ) -> PyResult<()> {
     if let Ok(i) = input.downcast::<numpy::PyArray2<f64>>() {
@@ -503,7 +529,8 @@ fn dispatch_2d(
             .map_err(|_| PyValueError::new_err("resample: dtype mismatch (expected f64 output)"))?;
         let ir = i.readonly();
         let mut ow = o.readwrite();
-        resample_2d_f64(ir.as_array(), ow.as_array_mut(), inv, interp, radius);
+        // filternorm is a no-op for floats — always normalize.
+        resample_2d_f64(ir.as_array(), ow.as_array_mut(), inv, interp, true, radius);
         return Ok(());
     }
     if let Ok(i) = input.downcast::<numpy::PyArray2<f32>>() {
@@ -514,7 +541,8 @@ fn dispatch_2d(
         let mut ow = o.readwrite();
         let in_f64 = ir.as_array().mapv(|v| v as f64);
         let mut out_f64 = Array2::<f64>::zeros(ow.as_array().raw_dim());
-        resample_2d_f64(in_f64.view(), out_f64.view_mut(), inv, interp, radius);
+        // filternorm is a no-op for floats — always normalize.
+        resample_2d_f64(in_f64.view(), out_f64.view_mut(), inv, interp, true, radius);
         ow.as_array_mut().assign(&out_f64.mapv(|v| v as f32));
         return Ok(());
     }
@@ -526,7 +554,8 @@ fn dispatch_2d(
         let mut ow = o.readwrite();
         let in_f64 = ir.as_array().mapv(|v| v as f64);
         let mut out_f64 = Array2::<f64>::zeros(ow.as_array().raw_dim());
-        resample_2d_f64(in_f64.view(), out_f64.view_mut(), inv, interp, radius);
+        // filternorm matters for integer inputs — pass norm through.
+        resample_2d_f64(in_f64.view(), out_f64.view_mut(), inv, interp, norm, radius);
         ow.as_array_mut()
             .assign(&out_f64.mapv(|v| v.clamp(0.0, 255.0).round() as u8));
         return Ok(());
@@ -538,6 +567,7 @@ fn dispatch_2d(
 }
 
 /// 3D RGBA sampler. Applies `alpha` to the alpha channel only.
+/// `norm` is forwarded to the windowed sampler (filternorm for u8 inputs).
 fn dispatch_3d(
     py: Python<'_>,
     input: &Bound<'_, PyAny>,
@@ -545,6 +575,7 @@ fn dispatch_3d(
     inv: Affine,
     interp: i32,
     alpha: f64,
+    norm: bool,
     radius: f64,
 ) -> PyResult<()> {
     let _ = py;
@@ -556,7 +587,15 @@ fn dispatch_3d(
         .map_err(|_| PyTypeError::new_err("resample: 3D output must be uint8 (RGBA)"))?;
     let ir = i.readonly();
     let mut ow = o.readwrite();
-    resample_3d_u8(ir.as_array(), ow.as_array_mut(), inv, interp, alpha, radius);
+    resample_3d_u8(
+        ir.as_array(),
+        ow.as_array_mut(),
+        inv,
+        interp,
+        alpha,
+        norm,
+        radius,
+    );
     Ok(())
 }
 
@@ -567,6 +606,7 @@ fn resample_2d_f64(
     mut output: ArrayViewMut2<'_, f64>,
     inv: Affine,
     interp: i32,
+    normalize: bool,
     radius: f64,
 ) {
     let (in_rows, in_cols) = (input.shape()[0] as i64, input.shape()[1] as i64);
@@ -583,7 +623,9 @@ fn resample_2d_f64(
             let s = match interp {
                 0 => sample_nearest(input, ix, iy, in_rows, in_cols),
                 1 => sample_bilinear(input, sx, sy, in_rows, in_cols),
-                _ => sample_windowed(input, sx, sy, in_rows, in_cols, interp, support, radius),
+                _ => sample_windowed(
+                    input, sx, sy, in_rows, in_cols, interp, support, radius, normalize,
+                ),
             };
             // No alpha scaling for 2D — the Python image pipeline performs
             // alpha composition outside this function.
@@ -598,6 +640,7 @@ fn resample_3d_u8(
     inv: Affine,
     interp: i32,
     alpha: f64,
+    normalize: bool,
     radius: f64,
 ) {
     let in_rows = input.shape()[0] as i64;
@@ -616,7 +659,7 @@ fn resample_3d_u8(
                     0 => sample_nearest_channel(input, ix, iy, in_rows, in_cols, ch),
                     1 => sample_bilinear_channel(input, sx, sy, in_rows, in_cols, ch),
                     _ => sample_windowed_channel(
-                        input, sx, sy, in_rows, in_cols, interp, support, radius, ch,
+                        input, sx, sy, in_rows, in_cols, interp, support, radius, ch, normalize,
                     ),
                 };
                 // Apply alpha only to the alpha channel (channel 3 in RGBA).
