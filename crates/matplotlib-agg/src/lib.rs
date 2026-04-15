@@ -13,10 +13,12 @@
 
 use pyo3::prelude::*;
 
+mod buffer_region;
 mod gc;
 mod path;
 mod renderer;
 
+use buffer_region::BufferRegion;
 use renderer::RendererAgg;
 
 /// `get_hinting_flag()` — module-level function called by
@@ -34,6 +36,7 @@ fn get_hinting_flag() -> i32 {
 #[pymodule]
 fn _backend_agg(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RendererAgg>()?;
+    m.add_class::<BufferRegion>()?;
     m.add_function(wrap_pyfunction!(get_hinting_flag, m)?)?;
     Ok(())
 }

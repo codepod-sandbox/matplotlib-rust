@@ -12,8 +12,9 @@
 use numpy::{IntoPyArray, PyArray3};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use tiny_skia::{FillRule, Pixmap, Transform};
+use tiny_skia::{FillRule, Mask, Pixmap, Transform};
 
+use crate::buffer_region::BufferRegion;
 use crate::gc::{extract_rgba_face, GcInfo};
 use crate::path::{compose_affines, extract_affine, path_to_tiny_skia, Affine};
 
@@ -38,6 +39,27 @@ pub struct RendererAgg {
 }
 
 impl RendererAgg {
+    /// Build a `tiny_skia::Mask` that represents the gc's clip
+    /// rectangle for the current pixmap, or `None` if no clip is set.
+    ///
+    /// matplotlib clip_rect is in display coords (y-up, bottom-left
+    /// origin). tiny-skia uses y-down top-left. We convert the rect and
+    /// rasterize it into a monochrome mask that then gates every
+    /// fill_path / stroke_path / draw_pixmap call.
+    fn build_clip_mask(&self, info: &GcInfo) -> Option<Mask> {
+        let [cx, cy, cw, ch] = info.clip_rect?;
+        if cw <= 0.0 || ch <= 0.0 {
+            return None;
+        }
+        let mut mask = Mask::new(self.width, self.height)?;
+        let canvas_h = self.height as f32;
+        let pix_y = canvas_h - cy - ch;
+        let rect = tiny_skia::Rect::from_xywh(cx, pix_y, cw, ch)?;
+        let path = tiny_skia::PathBuilder::from_rect(rect);
+        mask.fill_path(&path, FillRule::Winding, true, Transform::identity());
+        Some(mask)
+    }
+
     /// Refresh `unpremul_cache` from `pixmap` if `dirty`. Call this
     /// before any buffer-exposing method.
     fn refresh_buffer(&mut self) {
@@ -122,6 +144,7 @@ impl RendererAgg {
 
         let info = GcInfo::from_py(gc, self.dpi);
         let face = rgb_face.and_then(extract_rgba_face);
+        let clip = self.build_clip_mask(&info);
 
         // Fill first (if face is set), then stroke the outline.
         if let Some(face_rgba) = face {
@@ -131,15 +154,20 @@ impl RendererAgg {
                 &paint,
                 FillRule::EvenOdd,
                 Transform::identity(),
-                None,
+                clip.as_ref(),
             );
         }
 
         if info.linewidth > 0.0 && info.foreground[3] > 0.0 {
             let paint = info.make_stroke_paint();
             let stroke = info.make_stroke();
-            self.pixmap
-                .stroke_path(&tsk_path, &paint, &stroke, Transform::identity(), None);
+            self.pixmap.stroke_path(
+                &tsk_path,
+                &paint,
+                &stroke,
+                Transform::identity(),
+                clip.as_ref(),
+            );
         }
 
         self.dirty = true;
@@ -174,6 +202,7 @@ impl RendererAgg {
 
         let info = GcInfo::from_py(gc, self.dpi);
         let face = rgb_face.and_then(extract_rgba_face);
+        let clip = self.build_clip_mask(&info);
         let h = self.height as f64;
 
         for i in 0..verts.nrows() {
@@ -184,13 +213,13 @@ impl RendererAgg {
             if let Some(face_rgba) = face {
                 let paint = info.make_fill_paint(face_rgba);
                 self.pixmap
-                    .fill_path(&marker_tsk, &paint, FillRule::EvenOdd, pix, None);
+                    .fill_path(&marker_tsk, &paint, FillRule::EvenOdd, pix, clip.as_ref());
             }
             if info.linewidth > 0.0 && info.foreground[3] > 0.0 {
                 let paint = info.make_stroke_paint();
                 let stroke = info.make_stroke();
                 self.pixmap
-                    .stroke_path(&marker_tsk, &paint, &stroke, pix, None);
+                    .stroke_path(&marker_tsk, &paint, &stroke, pix, clip.as_ref());
             }
         }
 
@@ -304,6 +333,7 @@ impl RendererAgg {
         }
 
         let info = GcInfo::from_py(gc, self.dpi);
+        let clip = self.build_clip_mask(&info);
         let h = self.height as f64;
 
         for i in 0..n_offsets {
@@ -355,7 +385,7 @@ impl RendererAgg {
                 if face[3] > 0.0 {
                     let paint = info.make_fill_paint(face);
                     self.pixmap
-                        .fill_path(tsk_path, &paint, FillRule::EvenOdd, tf, None);
+                        .fill_path(tsk_path, &paint, FillRule::EvenOdd, tf, clip.as_ref());
                 }
             }
 
@@ -366,7 +396,8 @@ impl RendererAgg {
                         width: lw,
                         ..info.make_stroke()
                     };
-                    self.pixmap.stroke_path(tsk_path, &paint, &stroke, tf, None);
+                    self.pixmap
+                        .stroke_path(tsk_path, &paint, &stroke, tf, clip.as_ref());
                 }
             }
         }
@@ -463,13 +494,18 @@ impl RendererAgg {
             blend_mode: tiny_skia::BlendMode::SourceOver,
             quality: tiny_skia::FilterQuality::Nearest,
         };
+        // Build a clip mask from the gc if present so the blit respects
+        // the axes rectangle. draw_pixmap does not take a mask directly,
+        // so use the GcInfo path instead.
+        let info = GcInfo::from_py(gc, self.dpi);
+        let clip = self.build_clip_mask(&info);
         self.pixmap.draw_pixmap(
             dest_x as i32,
             dest_y as i32,
             src.as_ref(),
             &paint,
             Transform::identity(),
-            None,
+            clip.as_ref(),
         );
 
         self.dirty = true;
@@ -560,17 +596,24 @@ impl RendererAgg {
             quality: tiny_skia::FilterQuality::Nearest,
         };
 
+        let clip = self.build_clip_mask(&info);
         // (x, y) is the baseline origin in pixmap coords per the wrapper
         // (backend_agg.py:181-183 already handles descent and passes
         // display coords). Apply rotation around that origin.
         if angle.abs() < 1e-6 {
-            self.pixmap
-                .draw_pixmap(x, y, src.as_ref(), &paint, Transform::identity(), None);
+            self.pixmap.draw_pixmap(
+                x,
+                y,
+                src.as_ref(),
+                &paint,
+                Transform::identity(),
+                clip.as_ref(),
+            );
         } else {
             let tf = Transform::from_rotate_at(angle as f32, x as f32, y as f32)
                 .pre_translate(x as f32, y as f32);
             self.pixmap
-                .draw_pixmap(0, 0, src.as_ref(), &paint, tf, None);
+                .draw_pixmap(0, 0, src.as_ref(), &paint, tf, clip.as_ref());
         }
 
         self.dirty = true;
@@ -632,30 +675,96 @@ impl RendererAgg {
 
     // ----- region lifecycle -----
     //
-    // Wrapper calls:
-    //   renderer.copy_from_bbox(bbox) -> region
-    //   renderer.restore_region(region)  OR
+    // Wrapper calls (see backend_agg.py:283-316):
+    //   renderer.copy_from_bbox(bbox) -> BufferRegion
+    //   renderer.restore_region(region)
     //   renderer.restore_region(region, x1, y1, x2, y2, ox, oy)
     //
-    // For Milestone 1A these are no-ops returning None / sentinels. The
-    // Python wrapper doesn't touch the region object directly in the
-    // common savefig path.
+    // These are used by Qt blit (backends/backend_qtagg.py), animation
+    // background restore (animation.py:1200), and widget background
+    // caching (widgets.py:1090). They must be real, not no-ops.
 
-    fn copy_from_bbox(&self, _bbox: &Bound<'_, PyAny>, py: Python<'_>) -> Py<PyAny> {
-        py.None()
+    /// Capture a rectangular region of the current pixmap as a
+    /// `BufferRegion`. `bbox` is a matplotlib Bbox-like whose `extents`
+    /// tuple gives (x0, y0, x1, y1) in display coords (y-up).
+    fn copy_from_bbox(&self, bbox: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        // extract (x0, y0, x1, y1) — try .extents then .bounds
+        let (x0, y0, x1, y1): (f64, f64, f64, f64) = if let Ok(ext) = bbox.getattr("extents") {
+            ext.extract()?
+        } else if let Ok(b) = bbox.getattr("bounds") {
+            let (x, y, w, h): (f64, f64, f64, f64) = b.extract()?;
+            (x, y, x + w, y + h)
+        } else {
+            // Fall back to identity-sized region if bbox shape unknown.
+            return Ok(py.None());
+        };
+
+        // Display (y-up) → pixmap (y-down).
+        let canvas_h = self.height as f64;
+        let px = x0.floor() as i32;
+        let py_top = (canvas_h - y1).floor() as i32;
+        let pw = (x1.ceil() - x0.floor()).max(0.0) as u32;
+        let ph = (y1.ceil() - y0.floor()).max(0.0) as u32;
+
+        let region = BufferRegion::from_pixmap(&self.pixmap, px, py_top, pw, ph);
+        Ok(Py::new(py, region)?.into_any())
     }
 
-    #[pyo3(signature = (_region, _x1=None, _y1=None, _x2=None, _y2=None, _ox=None, _oy=None))]
+    /// Restore a previously captured BufferRegion back into the pixmap.
+    /// Two calling shapes:
+    ///   - restore_region(region): blit the whole region at its original
+    ///     position
+    ///   - restore_region(region, x1, y1, x2, y2, ox, oy): blit the
+    ///     sub-rectangle (x1, y1)..(x2, y2) of the region (expressed in
+    ///     pixmap coords relative to the whole canvas) to destination
+    ///     (ox, oy) in pixmap coords.
+    ///
+    /// The wrapper at backend_agg.py:312 converts its Python-level bbox
+    /// coords to integers before calling the 7-arg form; it always
+    /// passes integers in pixmap (y-down) coords.
+    #[pyo3(signature = (region, x1=None, y1=None, x2=None, y2=None, ox=None, oy=None))]
     fn restore_region(
         &mut self,
-        _region: &Bound<'_, PyAny>,
-        _x1: Option<i32>,
-        _y1: Option<i32>,
-        _x2: Option<i32>,
-        _y2: Option<i32>,
-        _ox: Option<i32>,
-        _oy: Option<i32>,
+        region: &Bound<'_, PyAny>,
+        x1: Option<i32>,
+        y1: Option<i32>,
+        x2: Option<i32>,
+        y2: Option<i32>,
+        ox: Option<i32>,
+        oy: Option<i32>,
     ) -> PyResult<()> {
+        if region.is_none() {
+            return Ok(());
+        }
+        let region_ref = match region.extract::<PyRef<BufferRegion>>() {
+            Ok(r) => r,
+            Err(_) => return Ok(()), // non-BufferRegion: silent no-op
+        };
+
+        match (x1, y1, x2, y2, ox, oy) {
+            (Some(px1), Some(py1), Some(px2), Some(py2), Some(pox), Some(poy)) => {
+                // Sub-rect restore. (px1, py1)..(px2, py2) are canvas-
+                // space pixmap coords, so translate to region-local
+                // coords by subtracting the region's stored origin.
+                let sx = px1 - region_ref.x;
+                let sy = py1 - region_ref.y;
+                let sw = (px2 - px1).max(0) as u32;
+                let sh = (py2 - py1).max(0) as u32;
+                region_ref.blit_to(&mut self.pixmap, (sx, sy, sw, sh), (pox, poy));
+            }
+            _ => {
+                // Full-region restore at original position.
+                let sw = region_ref.width;
+                let sh = region_ref.height;
+                region_ref.blit_to(
+                    &mut self.pixmap,
+                    (0, 0, sw, sh),
+                    (region_ref.x, region_ref.y),
+                );
+            }
+        }
+
+        self.dirty = true;
         Ok(())
     }
 
