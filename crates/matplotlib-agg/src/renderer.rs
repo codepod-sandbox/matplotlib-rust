@@ -112,6 +112,103 @@ impl RendererAgg {
         Some(mask)
     }
 
+    /// Build a tiling pattern pixmap for the gc's hatch, if any.
+    ///
+    /// matplotlib exposes hatches via `gc.get_hatch_path(density)` which
+    /// returns a matplotlib Path in unit coords [0, 1]^2, and
+    /// `gc.get_hatch_color()` / `gc.get_hatch_linewidth()`. The backend
+    /// is responsible for rasterizing one tile and tiling it across the
+    /// fill region with `SpreadMode::Repeat`.
+    ///
+    /// Returns `(tile_pixmap, tile_size_px)` or `None` if the gc has no
+    /// hatch set.
+    fn build_hatch_tile(&self, gc: &Bound<'_, PyAny>) -> Option<(Pixmap, f32)> {
+        // Density = tile size in points (matplotlib default).
+        const DENSITY_PTS: f64 = 6.0;
+        let density_px = (DENSITY_PTS * self.dpi / 72.0) as f32;
+        let tile_size = density_px.max(2.0).ceil() as u32;
+
+        // get_hatch_path(density) → Path or None
+        let hatch_obj = gc.call_method1("get_hatch_path", (DENSITY_PTS,)).ok()?;
+        if hatch_obj.is_none() {
+            return None;
+        }
+
+        // Hatch color (RGBA). matplotlib defaults the hatch color to
+        // the *edge* color of the patch — which can be (0, 0, 0, 0)
+        // (transparent) when edgecolor='none'. In that case we fall
+        // back to opaque black so the hatch is actually visible.
+        let mut hatch_rgba = gc
+            .call_method0("get_hatch_color")
+            .ok()
+            .and_then(|c| c.extract::<(f64, f64, f64, f64)>().ok())
+            .map(|(r, g, b, a)| {
+                [
+                    (r * 255.0).clamp(0.0, 255.0) as u8,
+                    (g * 255.0).clamp(0.0, 255.0) as u8,
+                    (b * 255.0).clamp(0.0, 255.0) as u8,
+                    (a * 255.0).clamp(0.0, 255.0) as u8,
+                ]
+            })
+            .unwrap_or([0, 0, 0, 255]);
+        if hatch_rgba[3] == 0 {
+            hatch_rgba = [0, 0, 0, 255];
+        }
+
+        // Hatch linewidth in points → pixels. Default 1pt.
+        let hatch_lw = gc
+            .call_method0("get_hatch_linewidth")
+            .ok()
+            .and_then(|v| v.extract::<f64>().ok())
+            .map(|pts| (pts * self.dpi / 72.0) as f32)
+            .unwrap_or((self.dpi / 72.0) as f32)
+            .max(1.0);
+
+        // Build a tile_size x tile_size pixmap. The unit hatch path
+        // (vertices in [0, 1] with overshoot to [-0.5, 1.5] for diagonal
+        // patterns) gets scaled to fit the tile.
+        let mut tile = Pixmap::new(tile_size, tile_size)?;
+
+        let scale_affine = Affine {
+            a: tile_size as f64,
+            b: 0.0,
+            c: 0.0,
+            d: tile_size as f64,
+            e: 0.0,
+            f: 0.0,
+        };
+
+        // canvas_height=tile_size so path_to_tiny_skia's y-flip puts
+        // the unit-square in the right pixmap orientation.
+        let tsk_path = path_to_tiny_skia(&hatch_obj, scale_affine, tile_size as f64).ok()??;
+
+        // Build paint via set_color_rgba8 — the f32 set_color path was
+        // observed to produce 0 visible pixels in this codebase, while
+        // the u8 path renders correctly. set_color_rgba8 is also what
+        // matplotlib's reference Agg uses internally.
+        let mut paint = tiny_skia::Paint::default();
+        paint.set_color_rgba8(hatch_rgba[0], hatch_rgba[1], hatch_rgba[2], hatch_rgba[3]);
+        paint.anti_alias = true;
+
+        let stroke = tiny_skia::Stroke {
+            width: hatch_lw,
+            ..Default::default()
+        };
+
+        tile.stroke_path(&tsk_path, &paint, &stroke, Transform::identity(), None);
+        // Some hatch characters ('o', 'O', '*') include filled regions;
+        // fill the path on top with winding rule so solid sections show.
+        tile.fill_path(
+            &tsk_path,
+            &paint,
+            FillRule::Winding,
+            Transform::identity(),
+            None,
+        );
+
+        Some((tile, density_px))
+    }
+
     /// Refresh `unpremul_cache` from `pixmap` if `dirty`. Call this
     /// before any buffer-exposing method.
     fn refresh_buffer(&mut self) {
@@ -201,6 +298,33 @@ impl RendererAgg {
         // Fill first (if face is set), then stroke the outline.
         if let Some(face_rgba) = face {
             let paint = info.make_fill_paint(face_rgba);
+            self.pixmap.fill_path(
+                &tsk_path,
+                &paint,
+                FillRule::EvenOdd,
+                Transform::identity(),
+                clip.as_ref(),
+            );
+        }
+
+        // 1B.2: hatching. If the gc has a hatch, build a tile pixmap
+        // and fill the path with a tiled Pattern shader. This overlays
+        // the hatch on top of the face, clipped to the path via the
+        // fill operation (tiny-skia only renders the pattern where the
+        // path is covered).
+        if let Some((tile, _density)) = self.build_hatch_tile(gc) {
+            let shader = tiny_skia::Pattern::new(
+                tile.as_ref(),
+                tiny_skia::SpreadMode::Repeat,
+                tiny_skia::FilterQuality::Nearest,
+                1.0,
+                Transform::identity(),
+            );
+            let paint = tiny_skia::Paint {
+                shader,
+                anti_alias: true,
+                ..Default::default()
+            };
             self.pixmap.fill_path(
                 &tsk_path,
                 &paint,

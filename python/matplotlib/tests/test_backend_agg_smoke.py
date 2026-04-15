@@ -373,6 +373,64 @@ def test_dashed_line_has_gaps_in_row():
     )
 
 
+def test_hatched_rect_has_dark_lines_inside_blue_fill():
+    """A blue rectangle with hatch='///' should have dark hatch lines
+    visible inside the fill. Guards 1B.2 hatching plumbing.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+    import io
+
+    fig, ax = plt.subplots(figsize=(3, 3), dpi=200)
+    # edgecolor='none' so any dark pixels in the interior must come
+    # from the hatch (matplotlib defaults the hatch color to black
+    # when edgecolor is none).
+    ax.add_patch(Rectangle((0.2, 0.2), 0.6, 0.6, facecolor='blue',
+                           hatch='///', edgecolor='none'))
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+
+    buf.seek(0)
+    from PIL import Image
+    arr = np.asarray(Image.open(buf).convert('RGB'))
+    h, w = arr.shape[:2]
+    inner = arr[int(h * 0.30):int(h * 0.70), int(w * 0.30):int(w * 0.70)]
+    blue = ((inner[:, :, 2] > 200) & (inner[:, :, 0] < 80) & (inner[:, :, 1] < 80)).sum()
+    dark = ((inner[:, :, 0] < 40) & (inner[:, :, 1] < 40) & (inner[:, :, 2] < 40)).sum()
+    assert blue > 1000, f"expected blue fill, got {blue} blue pixels"
+    assert dark > 100, (
+        f"expected dark hatch lines inside the blue fill, got {dark}"
+    )
+
+
+def test_unhatched_rect_has_no_dark_lines():
+    """A blue rectangle WITHOUT hatch should have zero dark interior
+    pixels. Catches regressions where hatch leaks into unhatched paths.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+    import io
+
+    fig, ax = plt.subplots(figsize=(3, 3), dpi=200)
+    ax.add_patch(Rectangle((0.2, 0.2), 0.6, 0.6, facecolor='blue', edgecolor='none'))
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+
+    buf.seek(0)
+    from PIL import Image
+    arr = np.asarray(Image.open(buf).convert('RGB'))
+    h, w = arr.shape[:2]
+    inner = arr[int(h * 0.30):int(h * 0.70), int(w * 0.30):int(w * 0.70)]
+    dark = ((inner[:, :, 0] < 40) & (inner[:, :, 1] < 40) & (inner[:, :, 2] < 40)).sum()
+    assert dark == 0, f"unhatched rect should have 0 dark pixels, got {dark}"
+
+
 def test_polar_clip_path_masks_corners():
     """A polar (circular) axes should not paint the corners of its bounding
     rectangle. Guards 1B.1 clip-path plumbing via gc.get_clip_path().
