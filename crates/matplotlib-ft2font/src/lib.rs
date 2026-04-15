@@ -13,6 +13,7 @@
 use pyo3::prelude::*;
 
 mod font;
+mod outline;
 
 use font::FT2Font;
 

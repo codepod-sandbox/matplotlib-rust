@@ -47,6 +47,12 @@ pub struct FT2Font {
     height_26_6: f32,
     descent_26_6: f32,
 
+    /// Active glyph index for `get_path()`. Updated by `load_char` /
+    /// `load_glyph`. matplotlib's text2path pipeline calls
+    /// `font.load_char(ccode); font.get_path()` per character, expecting
+    /// get_path() to return the outline of the most recently loaded glyph.
+    current_glyph_index: u16,
+
     // ----- Public attributes ------
     #[pyo3(get)]
     fname: String,
@@ -187,6 +193,7 @@ impl FT2Font {
             width_26_6: 0.0,
             height_26_6: 0.0,
             descent_26_6: 0.0,
+            current_glyph_index: 0,
 
             fname: filename.to_string(),
             family_name,
@@ -506,37 +513,81 @@ impl FT2Font {
             .into_any()
     }
 
+    /// Load a glyph by Unicode codepoint and remember it for `get_path`.
+    /// Returns a Glyph with horizontal advance metrics in 26.6 subpixels.
+    /// matplotlib's text2path pipeline calls
+    ///     font.load_char(ord(ch), flags=...)
+    ///     font.get_path()
+    /// per character, so this method's primary job is to set the active
+    /// glyph index that get_path will read.
     #[pyo3(signature = (codepoint, flags=0))]
-    fn load_char(&self, codepoint: u32, flags: i32) -> Glyph {
-        let _ = (codepoint, flags);
-        Glyph::default()
+    fn load_char(&mut self, codepoint: u32, flags: i32) -> Glyph {
+        let _ = flags;
+        let ch = char::from_u32(codepoint).unwrap_or('\0');
+        let gid = self.fontdue.lookup_glyph_index(ch);
+        self.current_glyph_index = gid;
+        self.glyph_at(gid)
     }
 
+    /// Load a glyph by index and remember it for `get_path`.
     #[pyo3(signature = (glyph_index, flags=0))]
-    fn load_glyph(&self, glyph_index: u32, flags: i32) -> Glyph {
-        let _ = (glyph_index, flags);
-        Glyph::default()
+    fn load_glyph(&mut self, glyph_index: u32, flags: i32) -> Glyph {
+        let _ = flags;
+        let gid = glyph_index as u16;
+        self.current_glyph_index = gid;
+        self.glyph_at(gid)
     }
 
-    // ----- SVG path support (stub for 2B) -----
+    // ----- SVG path support (2B) -----
 
+    /// Return a {char: FT2Font} mapping for the chars in `s`. matplotlib
+    /// uses this to support per-character font fallback; for now we map
+    /// every char to `self` (single-font fallback). Real fallback chains
+    /// are 2C / Phase 3 territory.
     fn _get_fontmap<'py>(
-        &self,
+        slf: PyRef<'py, Self>,
         s: &str,
-        py: Python<'py>,
-    ) -> std::collections::HashMap<String, Py<PyAny>> {
-        // Stub: empty map. 2B replaces this with a real one keyed on char.
-        let _ = (s, py);
-        std::collections::HashMap::new()
+    ) -> PyResult<std::collections::HashMap<String, Py<PyAny>>> {
+        let py = slf.py();
+        let self_obj: Py<PyAny> = slf.into_pyobject(py)?.into_any().unbind();
+        let mut map = std::collections::HashMap::new();
+        for ch in s.chars() {
+            let key = ch.to_string();
+            if !map.contains_key(&key) {
+                map.insert(key, self_obj.clone_ref(py));
+            }
+        }
+        Ok(map)
     }
 
+    /// Return the outline of the most recently loaded glyph as a
+    /// (vertices, codes) tuple ready for matplotlib.path.Path. matplotlib
+    /// text2path calls this immediately after `load_char` per character.
+    ///
+    /// Coordinates are in font units (y-up baseline). matplotlib's text2path
+    /// layer applies its own scale based on pt size at render time.
     fn get_path<'py>(
         &self,
         py: Python<'py>,
     ) -> (Bound<'py, PyArray2<f64>>, Bound<'py, numpy::PyArray1<u8>>) {
-        // Stub: empty path. 2B replaces this with real outline extraction.
-        let verts = ndarray::Array2::<f64>::zeros((0, 2));
-        let codes = ndarray::Array1::<u8>::zeros(0);
+        let mut collector = crate::outline::OutlineCollector::new();
+
+        // Re-parse the face on demand. ttf-parser's Face borrows the
+        // font_data buffer, but only for the duration of this call.
+        if let Ok(face) = ttf_parser::Face::parse(&self.font_data, 0) {
+            let _ = face.outline_glyph(
+                ttf_parser::GlyphId(self.current_glyph_index),
+                &mut collector,
+            );
+        }
+
+        let n = collector.vertices.len();
+        let mut verts = ndarray::Array2::<f64>::zeros((n, 2));
+        for (i, (x, y)) in collector.vertices.iter().enumerate() {
+            verts[(i, 0)] = *x;
+            verts[(i, 1)] = *y;
+        }
+        let codes = ndarray::Array1::from_vec(collector.codes);
         (verts.into_pyarray(py), codes.into_pyarray(py))
     }
 }
@@ -546,6 +597,53 @@ impl FT2Font {
     #[inline]
     fn px_size(&self) -> f32 {
         self.ptsize * self.dpi / 72.0
+    }
+
+    /// Build a `Glyph` for the given glyph index, populating horizontal
+    /// metrics from ttf-parser. All metrics are in 26.6 subpixels per
+    /// matplotlib's ft2font convention.
+    fn glyph_at(&self, gid: u16) -> Glyph {
+        let face = match ttf_parser::Face::parse(&self.font_data, 0) {
+            Ok(f) => f,
+            Err(_) => return Glyph::default(),
+        };
+        let glyph_id = ttf_parser::GlyphId(gid);
+        // horizontal_advance is in font units; convert to pixels then 26.6.
+        let units_per_em = face.units_per_em() as f32;
+        let px_per_unit = self.px_size() / units_per_em.max(1.0);
+        let advance_px = face
+            .glyph_hor_advance(glyph_id)
+            .map(|a| a as f32 * px_per_unit)
+            .unwrap_or(0.0);
+        let bearing_px = face
+            .glyph_hor_side_bearing(glyph_id)
+            .map(|b| b as f32 * px_per_unit)
+            .unwrap_or(0.0);
+        let bbox = face.glyph_bounding_box(glyph_id);
+        let (bx0, by0, bx1, by1) = if let Some(r) = bbox {
+            (
+                (r.x_min as f32 * px_per_unit * 64.0) as i32,
+                (r.y_min as f32 * px_per_unit * 64.0) as i32,
+                (r.x_max as f32 * px_per_unit * 64.0) as i32,
+                (r.y_max as f32 * px_per_unit * 64.0) as i32,
+            )
+        } else {
+            (0, 0, 0, 0)
+        };
+        let width = (bx1 - bx0).max(0);
+        let height = (by1 - by0).max(0);
+        Glyph {
+            width,
+            height,
+            horiBearingX: (bearing_px * 64.0) as i32,
+            horiBearingY: by1, // top of glyph above baseline
+            horiAdvance: (advance_px * 64.0) as i32,
+            linearHoriAdvance: (advance_px * 64.0) as i32,
+            vertBearingX: 0,
+            vertBearingY: 0,
+            vertAdvance: 0,
+            bbox: (bx0, by0, bx1, by1),
+        }
     }
 }
 

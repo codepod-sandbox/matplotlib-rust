@@ -136,3 +136,88 @@ def test_get_char_index_known_ascii():
     font = ft2font.FT2Font(_find_dejavu_sans())
     idx = font.get_char_index(ord('A'))
     assert idx > 0, f"expected non-zero glyph index for 'A', got {idx}"
+
+
+# ===================================================================
+# Phase 2B — get_path via ttf-parser OutlineBuilder
+# ===================================================================
+
+
+def test_load_char_then_get_path_returns_outline():
+    """The text2path pipeline calls load_char() then get_path() per
+    character. The returned outline should have valid matplotlib codes.
+    """
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    font.set_size(12.0, 72.0)
+    font.load_char(ord('A'), flags=0)
+
+    verts, codes = font.get_path()
+    assert verts.ndim == 2
+    assert verts.shape[1] == 2
+    assert verts.dtype == np.float64
+    assert codes.ndim == 1
+    assert codes.dtype == np.uint8
+    assert verts.shape[0] == codes.shape[0]
+    assert verts.shape[0] > 0, "expected non-empty outline for 'A'"
+
+    # 'A' must contain at least one MOVETO and one LINETO.
+    code_set = set(codes.tolist())
+    assert 1 in code_set, f"missing MOVETO; codes seen: {code_set}"
+    assert 2 in code_set, f"missing LINETO; codes seen: {code_set}"
+
+
+def test_get_path_changes_per_character():
+    """load_char(A) and load_char(B) should yield different outlines."""
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    font.set_size(12.0, 72.0)
+
+    font.load_char(ord('A'), flags=0)
+    a_verts, a_codes = font.get_path()
+
+    font.load_char(ord('B'), flags=0)
+    b_verts, b_codes = font.get_path()
+
+    assert a_verts.shape != b_verts.shape or not np.array_equal(a_verts, b_verts), (
+        "A and B should produce different outlines"
+    )
+
+
+def test_get_path_for_space_is_empty():
+    """Whitespace glyphs have no outline."""
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    font.set_size(12.0, 72.0)
+    font.load_char(ord(' '), flags=0)
+    verts, codes = font.get_path()
+    assert verts.shape[0] == 0
+    assert codes.shape[0] == 0
+
+
+def test_fontmap_returns_self_per_char():
+    """_get_fontmap('Hi') should return {'H': self, 'i': self}."""
+    font = ft2font.FT2Font(_find_dejavu_sans())
+    fm = font._get_fontmap('Hi!')
+    assert set(fm.keys()) == {'H', 'i', '!'}
+    # All values should be the same FT2Font instance (single-font fallback).
+    values = list(fm.values())
+    assert all(v is values[0] for v in values)
+    assert isinstance(values[0], ft2font.FT2Font)
+
+
+def test_savefig_svg_contains_path_elements():
+    """End-to-end: rendering text via savefig(svg) should produce <path>
+    elements from the OG backend_svg text2path pipeline.
+    """
+    import matplotlib.pyplot as plt
+    import io
+
+    fig, ax = plt.subplots()
+    ax.set_title('SVGTITLE')
+    ax.plot([1, 2, 3], [4, 5, 6])
+    buf = io.BytesIO()
+    fig.savefig(buf, format='svg')
+    svg = buf.getvalue().decode('utf-8')
+    assert '<svg' in svg
+    # text2path emits each glyph as a <path d="..."> element. With a
+    # title, axis labels, and tick labels, expect many paths.
+    path_count = svg.count('<path')
+    assert path_count > 5, f"expected many <path> elements, got {path_count}"
