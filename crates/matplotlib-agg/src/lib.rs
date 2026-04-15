@@ -13,6 +13,8 @@
 
 use pyo3::prelude::*;
 
+mod gc;
+mod path;
 mod renderer;
 
 use renderer::RendererAgg;

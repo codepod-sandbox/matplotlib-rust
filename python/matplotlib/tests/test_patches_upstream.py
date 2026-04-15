@@ -721,7 +721,6 @@ def test_patch_remove():
 import io as _io
 
 
-@pytest.mark.skip(reason="Phase 1: no-op renderer produces blank PNG")
 def test_ellipse_renders_png():
     """Ellipse produces non-background pixels at its center."""
     import matplotlib.pyplot as plt
@@ -757,7 +756,6 @@ def test_ellipse_svg():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 1: no-op renderer produces blank PNG")
 def test_arc_renders_png():
     """Arc (0-180 degrees) produces pixels on the upper half."""
     import matplotlib.pyplot as plt
@@ -777,7 +775,6 @@ def test_arc_renders_png():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 1: no-op renderer produces blank PNG")
 def test_fancy_bbox_round_png():
     """FancyBboxPatch with 'round' boxstyle fills interior pixels."""
     import matplotlib.pyplot as plt
@@ -797,7 +794,6 @@ def test_fancy_bbox_round_png():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 1: no-op renderer produces blank PNG")
 def test_fancy_bbox_square_png():
     """FancyBboxPatch with 'square' boxstyle fills interior pixels."""
     import matplotlib.pyplot as plt
@@ -833,7 +829,6 @@ def test_regular_polygon_svg():
     plt.close(fig)
 
 
-@pytest.mark.skip(reason="Phase 1: no-op renderer produces blank PNG")
 def test_arrow_renders_png():
     """Arrow produces filled pixels along its direction."""
     import matplotlib.pyplot as plt

@@ -12,7 +12,10 @@
 use numpy::{IntoPyArray, PyArray3};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use tiny_skia::Pixmap;
+use tiny_skia::{FillRule, Pixmap, Transform};
+
+use crate::gc::{extract_rgba_face, GcInfo};
+use crate::path::{extract_affine, path_to_tiny_skia};
 
 #[pyclass(unsendable)]
 pub struct RendererAgg {
@@ -103,14 +106,42 @@ impl RendererAgg {
 
     // ----- drawing primitives (no-ops for now; real impls land per-task) -----
 
-    #[pyo3(signature = (_gc, _path, _transform, _rgb_face=None))]
+    #[pyo3(signature = (gc, path, transform, rgb_face=None))]
     fn draw_path(
         &mut self,
-        _gc: &Bound<'_, PyAny>,
-        _path: &Bound<'_, PyAny>,
-        _transform: &Bound<'_, PyAny>,
-        _rgb_face: Option<&Bound<'_, PyAny>>,
+        gc: &Bound<'_, PyAny>,
+        path: &Bound<'_, PyAny>,
+        transform: &Bound<'_, PyAny>,
+        rgb_face: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
+        let affine = extract_affine(transform);
+        let tsk_path = match path_to_tiny_skia(path, affine, self.height as f64)? {
+            Some(p) => p,
+            None => return Ok(()), // empty path
+        };
+
+        let info = GcInfo::from_py(gc, self.dpi);
+        let face = rgb_face.and_then(extract_rgba_face);
+
+        // Fill first (if face is set), then stroke the outline.
+        if let Some(face_rgba) = face {
+            let paint = info.make_fill_paint(face_rgba);
+            self.pixmap.fill_path(
+                &tsk_path,
+                &paint,
+                FillRule::EvenOdd,
+                Transform::identity(),
+                None,
+            );
+        }
+
+        if info.linewidth > 0.0 && info.foreground[3] > 0.0 {
+            let paint = info.make_stroke_paint();
+            let stroke = info.make_stroke();
+            self.pixmap
+                .stroke_path(&tsk_path, &paint, &stroke, Transform::identity(), None);
+        }
+
         self.dirty = true;
         Ok(())
     }
