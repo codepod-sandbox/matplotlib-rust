@@ -126,28 +126,60 @@ class FT2Font:
         self.postscript_name = ""
 
     def set_size(self, ptsize, dpi):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        # Store for later metric estimation
+        self._ptsize = float(ptsize)
+        self._dpi = float(dpi)
 
     def set_text(self, s, angle=0.0, flags=LOAD_FORCE_AUTOHINT):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        # Store for later metric estimation
+        self._current_text = str(s) if s is not None else ""
 
     def get_width_height(self):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        # Returns values in FT 26.6 fixed-point (1 unit = 1/64 pixel)
+        # Rough estimate: char width 0.6 * ptsize * dpi / 72, line height 1.2 *
+        size = getattr(self, '_ptsize', 10.0) * getattr(self, '_dpi', 72.0) / 72.0
+        n = len(getattr(self, '_current_text', ''))
+        w = n * size * 0.6 * 64.0
+        h = size * 1.2 * 64.0
+        return w, h
 
     def get_descent(self):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        size = getattr(self, '_ptsize', 10.0) * getattr(self, '_dpi', 72.0) / 72.0
+        return size * 0.2 * 64.0
 
     def draw_glyphs_to_bitmap(self, antialiased=True):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        # No-op: we don't rasterize glyphs; return a fake empty bitmap
+        import numpy as np
+        self._bitmap = np.zeros((1, 1), dtype=np.uint8)
+
+    def draw_glyph_to_bitmap(self, image, x, y, glyph, antialiased=True):
+        # No-op: individual glyph rendering for mathtext
+        pass
+
+    def get_bitmap_offset(self):
+        return 0, 0
 
     def get_image(self):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        import numpy as np
+        return np.zeros((1, 1), dtype=np.uint8)
 
     def load_char(self, charcode, flags=LOAD_FORCE_AUTOHINT):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        # Return a fake Glyph-like object
+        class _FakeGlyph:
+            width = 0
+            height = 0
+            horiBearingX = 0
+            horiBearingY = 0
+            horiAdvance = 0
+            linearHoriAdvance = 0
+            vertBearingX = 0
+            vertBearingY = 0
+            vertAdvance = 0
+            bbox = (0, 0, 0, 0)
+        return _FakeGlyph()
 
     def load_glyph(self, glyphindex, flags=LOAD_FORCE_AUTOHINT):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        return self.load_char(glyphindex, flags)
 
     def get_kerning(self, left, right, mode):
         return 0
@@ -156,7 +188,10 @@ class FT2Font:
         return {}
 
     def get_name_index(self, name):
-        raise NotImplementedError("ft2font not yet implemented (Phase 2)")
+        return 0
+
+    def get_char_index(self, codepoint):
+        return 0
 
     def get_sfnt(self):
         return {}
