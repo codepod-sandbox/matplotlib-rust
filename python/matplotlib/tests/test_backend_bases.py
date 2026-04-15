@@ -136,7 +136,7 @@ class TestRendererSVG:
 
     def test_draw_markers_produces_circles(self):
         r = self._make_renderer()
-        r.draw_markers([10, 20, 30], [40, 50, 60], "#00ff00", 4)
+        r._draw_markers_simple([10, 20, 30], [40, 50, 60], "#00ff00", 4)
         svg = r.get_result()
         assert svg.count('<circle') == 3
 
@@ -171,7 +171,7 @@ class TestRendererSVG:
 
     def test_draw_text_produces_text(self):
         r = self._make_renderer()
-        r.draw_text(100, 200, "Hello World", 14, "#000", "left")
+        r._draw_text_simple(100, 200, "Hello World", 14, "#000", "left")
         svg = r.get_result()
         assert '<text' in svg
         assert 'Hello World' in svg
@@ -179,19 +179,19 @@ class TestRendererSVG:
 
     def test_draw_text_center_anchor(self):
         r = self._make_renderer()
-        r.draw_text(100, 200, "Centered", 14, "#000", "center")
+        r._draw_text_simple(100, 200, "Centered", 14, "#000", "center")
         svg = r.get_result()
         assert 'text-anchor="middle"' in svg
 
     def test_draw_text_right_anchor(self):
         r = self._make_renderer()
-        r.draw_text(100, 200, "Right", 14, "#000", "right")
+        r._draw_text_simple(100, 200, "Right", 14, "#000", "right")
         svg = r.get_result()
         assert 'text-anchor="end"' in svg
 
     def test_draw_text_escapes_html(self):
         r = self._make_renderer()
-        r.draw_text(100, 200, "<b>bold</b>", 14, "#000", "left")
+        r._draw_text_simple(100, 200, "<b>bold</b>", 14, "#000", "left")
         svg = r.get_result()
         assert '&lt;b&gt;bold&lt;/b&gt;' in svg
 
@@ -220,7 +220,7 @@ class TestRendererSVG:
         r = self._make_renderer()
         r.draw_line([0, 1], [0, 1], "#000", 1, "-")
         r.draw_line([2, 3], [2, 3], "#f00", 1, "-")
-        r.draw_markers([10], [10], "#0f0", 3)
+        r._draw_markers_simple([10], [10], "#0f0", 3)
         svg = r.get_result()
         assert svg.count('<polyline') == 2
         assert svg.count('<circle') == 1
@@ -256,7 +256,7 @@ class TestRendererPIL:
 
     def test_draw_markers_no_crash(self):
         r = self._make_renderer()
-        r.draw_markers([10, 50, 90], [10, 80, 40], "#00ff00", 4)
+        r._draw_markers_simple([10, 50, 90], [10, 80, 40], "#00ff00", 4)
         result = r.get_result()
         assert result[:4] == b'\x89PNG'
 
@@ -286,14 +286,14 @@ class TestRendererPIL:
 
     def test_draw_text_no_crash(self):
         r = self._make_renderer()
-        r.draw_text(50, 75, "Hello", 12, "#000", "left")
+        r._draw_text_simple(50, 75, "Hello", 12, "#000", "left")
         result = r.get_result()
         assert result[:4] == b'\x89PNG'
 
     def test_multiple_draws(self):
         r = self._make_renderer()
         r.draw_line([10, 100], [10, 100], "#f00", 2, "-")
-        r.draw_markers([50], [50], "#0f0", 5)
+        r._draw_markers_simple([50], [50], "#0f0", 5)
         r.draw_rect(10, 10, 50, 50, "#00f", "#00f")
         result = r.get_result()
         assert result[:4] == b'\x89PNG'

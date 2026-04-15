@@ -581,6 +581,8 @@ class BboxBase(TransformNode):
         ----------
         bboxes : sequence of `.BboxBase`
         """
+        if not len(bboxes):
+            return 0
         return count_bboxes_overlapping_bbox(
             self, np.atleast_3d([np.array(x) for x in bboxes]))
 

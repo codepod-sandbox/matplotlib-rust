@@ -30,7 +30,7 @@ class RendererSVG(RendererBase):
             f'stroke="{color}" stroke-width="{linewidth}"{dash}{opacity_attr}{clip}/>'
         )
 
-    def draw_markers(self, xdata, ydata, color, size, marker='o'):
+    def _draw_markers_simple(self, xdata, ydata, color, size, marker='o'):
         clip = self._clip_attr()
         r = size
         for i in range(len(xdata)):
@@ -172,7 +172,115 @@ class RendererSVG(RendererBase):
             f'fill-opacity="{alpha}" stroke="none"{clip}/>'
         )
 
-    def draw_text(self, x, y, text, fontsize, color, ha):
+    # ── RendererBase interface ────────────────────────────────────────────────
+
+    def get_canvas_width_height(self):
+        return self.width, self.height
+
+    def points_to_pixels(self, points):
+        return points * self.dpi / 72.0
+
+    def flipy(self):
+        # We flip y manually in draw_path/draw_text so matplotlib should NOT
+        # apply any additional flip.
+        return False
+
+    def get_text_width_height_descent(self, s, prop, ismath):
+        """Rough estimate for text layout; tests check structure not exact sizing."""
+        sz = prop.get_size_in_points() if hasattr(prop, 'get_size_in_points') else 10
+        return sz * len(str(s)) * 0.6, sz, sz * 0.2
+
+    def draw_path(self, gc, path, transform, rgbFace=None):
+        """Implement the RendererBase draw_path contract for Figure.draw()."""
+        from matplotlib.path import Path as MPath
+
+        # Apply clip rectangle from gc if present
+        clip_rect = gc.get_clip_rectangle()
+        if clip_rect is not None:
+            x0, y0, w, h0 = clip_rect.bounds
+            # SVG y is flipped: y0 in display coords is bottom of rect
+            svg_y = self.height - y0 - h0
+            self.set_clip_rect(x0, svg_y, w, h0)
+        else:
+            self.clear_clip()
+
+        d_parts = []
+        h = self.height
+        for verts, code in path.iter_segments(transform=transform, remove_nans=True):
+            if code == MPath.MOVETO:
+                x, y = verts[0], verts[1]
+                d_parts.append(f'M{x:.2f},{h - y:.2f}')
+            elif code == MPath.LINETO:
+                x, y = verts[0], verts[1]
+                d_parts.append(f'L{x:.2f},{h - y:.2f}')
+            elif code == MPath.CURVE3:
+                cx, cy, ex, ey = verts[0], verts[1], verts[2], verts[3]
+                d_parts.append(
+                    f'Q{cx:.2f},{h - cy:.2f} {ex:.2f},{h - ey:.2f}')
+            elif code == MPath.CURVE4:
+                cx1, cy1 = verts[0], verts[1]
+                cx2, cy2 = verts[2], verts[3]
+                ex, ey = verts[4], verts[5]
+                d_parts.append(
+                    f'C{cx1:.2f},{h - cy1:.2f} {cx2:.2f},{h - cy2:.2f}'
+                    f' {ex:.2f},{h - ey:.2f}')
+            elif code == MPath.CLOSEPOLY:
+                d_parts.append('Z')
+
+        if not d_parts:
+            return
+
+        d = ' '.join(d_parts)
+
+        # Stroke
+        rgb = gc.get_rgb()
+        stroke = '#{:02x}{:02x}{:02x}'.format(
+            int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+        lw = gc.get_linewidth() * self.dpi / 72.0
+        alpha = gc.get_alpha()
+
+        # Fill
+        if rgbFace is not None:
+            fill = '#{:02x}{:02x}{:02x}'.format(
+                int(rgbFace[0] * 255), int(rgbFace[1] * 255),
+                int(rgbFace[2] * 255))
+        else:
+            fill = 'none'
+
+        # Dashes
+        dash_attr = ''
+        dashes = gc.get_dashes()
+        if dashes and dashes[1] is not None:
+            px_seq = [d * self.dpi / 72.0 for d in dashes[1]]
+            dash_attr = ' stroke-dasharray="{}"'.format(
+                ','.join(f'{v:.1f}' for v in px_seq))
+
+        opacity_attr = f' opacity="{alpha:.3f}"' if alpha < 1.0 else ''
+        clip = self._clip_attr()
+        self._parts.append(
+            f'<path d="{d}" fill="{fill}" stroke="{stroke}"'
+            f' stroke-width="{lw:.1f}"{dash_attr}{opacity_attr}{clip}/>')
+
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+        """RendererBase draw_text — called by Figure.draw() for all text."""
+        try:
+            sz = prop.get_size_in_points()
+        except Exception:
+            sz = 10
+        rgb = gc.get_rgb()
+        color = '#{:02x}{:02x}{:02x}'.format(
+            int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+        # Display coords have y=0 at bottom; SVG has y=0 at top.
+        svg_y = self.height - y
+        clip = self._clip_attr()
+        rot = f' transform="rotate({-angle:.1f},{x:.2f},{svg_y:.2f})"' if angle else ''
+        self._parts.append(
+            f'<text x="{x:.2f}" y="{svg_y:.2f}" font-size="{sz:.1f}"'
+            f' fill="{color}"{rot}{clip}>{_esc(str(s))}</text>')
+
+    # ── Legacy high-level text helper (kept for callers using the simple API)
+
+    def _draw_text_simple(self, x, y, text, fontsize, color, ha):
         anchor_map = {"left": "start", "center": "middle", "right": "end"}
         anchor = anchor_map.get(ha, "start")
         clip = self._clip_attr()
@@ -217,7 +325,7 @@ class RendererSVG(RendererBase):
             f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}" {attrs}/>'
         )
 
-    def draw_image(self, x, y, width, height, rgba_array):
+    def _draw_image_simple(self, x, y, width, height, rgba_array):
         """Embed image as base64 PNG data URL."""
         import base64
         import struct
