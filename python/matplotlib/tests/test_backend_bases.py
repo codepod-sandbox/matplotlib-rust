@@ -247,6 +247,7 @@ class TestRendererSVG:
         gc_no_clip = mock.Mock()
         gc_no_clip.get_clip_rectangle.return_value = None
         gc_no_clip.get_rgb.return_value = (0, 0, 0, 1)
+        gc_no_clip.get_alpha.return_value = 1.0
         prop = mock.Mock()
         prop.get_size_in_points.return_value = 12
         r.draw_text(gc_no_clip, 10, 10, "hello", prop, 0)

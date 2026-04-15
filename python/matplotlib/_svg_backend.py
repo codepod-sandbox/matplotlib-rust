@@ -266,14 +266,16 @@ class RendererSVG(RendererBase):
         rgb = gc.get_rgb()
         color = '#{:02x}{:02x}{:02x}'.format(
             int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+        alpha = gc.get_alpha()
         # Display coords have y=0 at bottom; SVG has y=0 at top.
         svg_y = self.height - y
         # Use gc-scoped clip — does not inherit the last path's clip.
         clip = self._gc_clip_attr(gc)
+        opacity_attr = f' opacity="{alpha:.3f}"' if alpha < 1.0 else ''
         rot = f' transform="rotate({-angle:.1f},{x:.2f},{svg_y:.2f})"' if angle else ''
         self._parts.append(
             f'<text x="{x:.2f}" y="{svg_y:.2f}" font-size="{sz:.1f}"'
-            f' fill="{color}"{rot}{clip}>{_esc(str(s))}</text>')
+            f' fill="{color}"{opacity_attr}{rot}{clip}>{_esc(str(s))}</text>')
 
     # ── Legacy high-level text helper (kept for callers using the simple API)
 

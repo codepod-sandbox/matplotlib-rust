@@ -169,21 +169,14 @@ class RendererPIL(RendererBase):
         lw = max(1, int(gc.get_linewidth() * self.dpi / 72.0))
 
         if rgbFace is not None:
-            # Honour rgbFace[3] as fill alpha by blending onto white (PIL uses RGB canvas).
             face_alpha = float(rgbFace[3]) if len(rgbFace) >= 4 else 1.0
-            if face_alpha < 1.0:
-                fill_col = (
-                    int(rgbFace[0] * 255 * face_alpha + 255 * (1.0 - face_alpha)),
-                    int(rgbFace[1] * 255 * face_alpha + 255 * (1.0 - face_alpha)),
-                    int(rgbFace[2] * 255 * face_alpha + 255 * (1.0 - face_alpha)),
-                )
-            else:
-                fill_col = (
-                    int(rgbFace[0] * 255),
-                    int(rgbFace[1] * 255),
-                    int(rgbFace[2] * 255),
-                )
+            fill_col = (
+                int(rgbFace[0] * 255),
+                int(rgbFace[1] * 255),
+                int(rgbFace[2] * 255),
+            )
         else:
+            face_alpha = 1.0
             fill_col = None
 
         # Decompose the path into polylines (ignore bezier curves — approximate
@@ -211,19 +204,53 @@ class RendererPIL(RendererBase):
             if len(pts) < 2:
                 continue
             if fill_col is not None and len(pts) >= 3:
-                self._draw.polygon(pts, fill=fill_col, outline=stroke_col)
+                if face_alpha < 1.0:
+                    # Alpha-composite fill against the actual canvas pixels so that
+                    # semi-transparent patches properly blend with whatever was drawn
+                    # before (axes lines, data, grid) rather than compositing against
+                    # a hardcoded white.
+                    self._alpha_composite_polygon(pts, fill_col, face_alpha)
+                    # Draw outline opaquely after compositing the fill.
+                    for i in range(len(pts) - 1):
+                        self._draw.line([pts[i], pts[i + 1]],
+                                        fill=stroke_col, width=lw)
+                else:
+                    self._draw.polygon(pts, fill=fill_col, outline=stroke_col)
             else:
                 for i in range(len(pts) - 1):
                     self._draw.line([pts[i], pts[i + 1]],
                                     fill=stroke_col, width=lw)
 
+    def _alpha_composite_polygon(self, pts, fill_rgb, alpha):
+        """Draw a polygon with true alpha compositing against existing canvas pixels."""
+        from PIL import Image, ImageDraw
+        overlay = Image.new('RGBA', self._img.size, (0, 0, 0, 0))
+        odraw = ImageDraw.Draw(overlay)
+        odraw.polygon(pts, fill=(*fill_rgb, int(alpha * 255)))
+        base = self._img.convert('RGBA')
+        base.alpha_composite(overlay)
+        self._img = base.convert('RGB')
+        self._draw = ImageDraw.Draw(self._img)
+
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         """RendererBase draw_text — called by Figure.draw() for all text."""
         rgb = gc.get_rgb()
         col = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+        alpha = gc.get_alpha()
         # flip y: display y=0 at bottom; PIL y=0 at top
         pil_y = self.height - y
-        self._draw.text((int(x), int(pil_y)), str(s), fill=col)
+        if alpha < 1.0:
+            from PIL import Image, ImageDraw
+            overlay = Image.new('RGBA', self._img.size, (0, 0, 0, 0))
+            odraw = ImageDraw.Draw(overlay)
+            odraw.text((int(x), int(pil_y)), str(s),
+                       fill=(*col, int(alpha * 255)))
+            base = self._img.convert('RGBA')
+            base.alpha_composite(overlay)
+            self._img = base.convert('RGB')
+            self._draw = ImageDraw.Draw(self._img)
+        else:
+            self._draw.text((int(x), int(pil_y)), str(s), fill=col)
 
     # ── Legacy high-level text helper (kept for callers using the simple API)
 
