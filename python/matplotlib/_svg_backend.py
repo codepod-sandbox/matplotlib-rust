@@ -15,8 +15,9 @@ class RendererSVG(RendererBase):
         self.height = height
         self.dpi = dpi
         self._parts = []
-        self._clip_id = None
+        self._clip_id = None       # used by legacy simple API (set_clip_rect / clear_clip)
         self._clip_counter = 0
+        self._clip_defs = {}       # (x0, y0, w, h) → clip_id for gc-based clip dedup
 
     def draw_line(self, xdata, ydata, color, linewidth, linestyle, opacity=1.0):
         dash = _svg_dash(linestyle)
@@ -194,16 +195,6 @@ class RendererSVG(RendererBase):
         """Implement the RendererBase draw_path contract for Figure.draw()."""
         from matplotlib.path import Path as MPath
 
-        # Apply clip rectangle from gc if present
-        clip_rect = gc.get_clip_rectangle()
-        if clip_rect is not None:
-            x0, y0, w, h0 = clip_rect.bounds
-            # SVG y is flipped: y0 in display coords is bottom of rect
-            svg_y = self.height - y0 - h0
-            self.set_clip_rect(x0, svg_y, w, h0)
-        else:
-            self.clear_clip()
-
         d_parts = []
         h = self.height
         for verts, code in path.iter_segments(transform=transform, remove_nans=True):
@@ -239,26 +230,31 @@ class RendererSVG(RendererBase):
         lw = gc.get_linewidth() * self.dpi / 72.0
         alpha = gc.get_alpha()
 
-        # Fill
+        # Fill — honour rgbFace[3] as fill alpha independently of stroke alpha
         if rgbFace is not None:
             fill = '#{:02x}{:02x}{:02x}'.format(
                 int(rgbFace[0] * 255), int(rgbFace[1] * 255),
                 int(rgbFace[2] * 255))
+            face_alpha = float(rgbFace[3]) if len(rgbFace) >= 4 else 1.0
+            fill_opacity = (f' fill-opacity="{face_alpha:.3f}"'
+                            if face_alpha < 1.0 else '')
         else:
             fill = 'none'
+            fill_opacity = ''
 
         # Dashes
         dash_attr = ''
         dashes = gc.get_dashes()
         if dashes and dashes[1] is not None:
-            px_seq = [d * self.dpi / 72.0 for d in dashes[1]]
+            px_seq = [v * self.dpi / 72.0 for v in dashes[1]]
             dash_attr = ' stroke-dasharray="{}"'.format(
                 ','.join(f'{v:.1f}' for v in px_seq))
 
         opacity_attr = f' opacity="{alpha:.3f}"' if alpha < 1.0 else ''
-        clip = self._clip_attr()
+        # Clip is scoped to this element only — does not mutate _clip_id.
+        clip = self._gc_clip_attr(gc)
         self._parts.append(
-            f'<path d="{d}" fill="{fill}" stroke="{stroke}"'
+            f'<path d="{d}" fill="{fill}"{fill_opacity} stroke="{stroke}"'
             f' stroke-width="{lw:.1f}"{dash_attr}{opacity_attr}{clip}/>')
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
@@ -272,7 +268,8 @@ class RendererSVG(RendererBase):
             int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
         # Display coords have y=0 at bottom; SVG has y=0 at top.
         svg_y = self.height - y
-        clip = self._clip_attr()
+        # Use gc-scoped clip — does not inherit the last path's clip.
+        clip = self._gc_clip_attr(gc)
         rot = f' transform="rotate({-angle:.1f},{x:.2f},{svg_y:.2f})"' if angle else ''
         self._parts.append(
             f'<text x="{x:.2f}" y="{svg_y:.2f}" font-size="{sz:.1f}"'
@@ -387,9 +384,36 @@ class RendererSVG(RendererBase):
         return '\n'.join([header] + self._parts + ['</svg>'])
 
     def _clip_attr(self):
+        """Clip attribute for legacy simple-API callers (set_clip_rect / clear_clip)."""
         if self._clip_id:
             return f' clip-path="url(#{self._clip_id})"'
         return ''
+
+    def _gc_clip_attr(self, gc):
+        """Clip attribute derived from a graphics context, without mutating _clip_id.
+
+        Each unique clip rectangle gets one <clipPath> definition in <defs> (deduplicated
+        by rounded coordinates).  Subsequent draw calls with the same rect reuse it.
+        This keeps per-element clip scoped to that element only — it does not bleed into
+        later draw calls that happen to share renderer state.
+        """
+        clip_rect = gc.get_clip_rectangle()
+        if clip_rect is None:
+            return ''
+        x0, y0, w, h0 = clip_rect.bounds
+        svg_y = self.height - y0 - h0
+        key = (round(x0, 1), round(svg_y, 1), round(w, 1), round(h0, 1))
+        if key not in self._clip_defs:
+            self._clip_counter += 1
+            clip_id = f'clip-{self._clip_counter}'
+            self._clip_defs[key] = clip_id
+            self._parts.append(
+                f'<defs><clipPath id="{clip_id}">'
+                f'<rect x="{x0:.2f}" y="{svg_y:.2f}"'
+                f' width="{w:.2f}" height="{h0:.2f}"/>'
+                f'</clipPath></defs>'
+            )
+        return f' clip-path="url(#{self._clip_defs[key]})"'
 
 
 # Named style → (on, off, ...) dash sequences

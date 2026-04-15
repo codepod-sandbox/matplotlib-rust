@@ -225,6 +225,60 @@ class TestRendererSVG:
         assert svg.count('<polyline') == 2
         assert svg.count('<circle') == 1
 
+    def test_draw_path_clip_does_not_leak_to_draw_text(self):
+        """draw_path with a gc clip must not bleed into the next draw_text call."""
+        import unittest.mock as mock
+        from matplotlib.path import Path as MPath
+        import numpy as np
+        r = self._make_renderer()
+        # Build a trivial clipped gc
+        gc_with_clip = mock.Mock()
+        from matplotlib.transforms import Bbox
+        gc_with_clip.get_clip_rectangle.return_value = Bbox([[10, 20], [110, 100]])
+        gc_with_clip.get_rgb.return_value = (0, 0, 0, 1)
+        gc_with_clip.get_linewidth.return_value = 1.0
+        gc_with_clip.get_alpha.return_value = 1.0
+        gc_with_clip.get_dashes.return_value = (0, None)
+        path = MPath(np.array([[50, 50], [100, 50]]),
+                     np.array([MPath.MOVETO, MPath.LINETO]))
+        from matplotlib.transforms import IdentityTransform
+        r.draw_path(gc_with_clip, path, IdentityTransform())
+        # Now draw_text with a gc that has NO clip rectangle.
+        gc_no_clip = mock.Mock()
+        gc_no_clip.get_clip_rectangle.return_value = None
+        gc_no_clip.get_rgb.return_value = (0, 0, 0, 1)
+        prop = mock.Mock()
+        prop.get_size_in_points.return_value = 12
+        r.draw_text(gc_no_clip, 10, 10, "hello", prop, 0)
+        svg = r.get_result()
+        # The <text> element must NOT carry a clip-path attribute.
+        text_tags = re.findall(r'<text[^>]*>', svg)
+        assert text_tags, "Expected at least one <text> tag"
+        assert 'clip-path' not in text_tags[-1], (
+            f"draw_text inherited clip from earlier draw_path: {text_tags[-1]}")
+
+    def test_draw_path_fill_alpha_emits_fill_opacity(self):
+        """rgbFace with alpha < 1 must produce fill-opacity attribute in SVG."""
+        import unittest.mock as mock
+        from matplotlib.path import Path as MPath
+        import numpy as np
+        r = self._make_renderer()
+        gc = mock.Mock()
+        gc.get_clip_rectangle.return_value = None
+        gc.get_rgb.return_value = (0, 0, 0, 1)
+        gc.get_linewidth.return_value = 1.0
+        gc.get_alpha.return_value = 1.0
+        gc.get_dashes.return_value = (0, None)
+        path = MPath(np.array([[10, 10], [50, 10], [30, 50], [10, 10]]),
+                     np.array([MPath.MOVETO, MPath.LINETO,
+                                MPath.LINETO, MPath.CLOSEPOLY]))
+        from matplotlib.transforms import IdentityTransform
+        # Face with 50 % alpha
+        r.draw_path(gc, path, IdentityTransform(), rgbFace=(1.0, 0.0, 0.0, 0.5))
+        svg = r.get_result()
+        assert 'fill-opacity="0.500"' in svg, (
+            f"Expected fill-opacity for semi-transparent face, got: {svg}")
+
 
 # ===================================================================
 # TestRendererPIL

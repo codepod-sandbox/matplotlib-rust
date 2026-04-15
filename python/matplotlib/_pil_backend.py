@@ -169,11 +169,20 @@ class RendererPIL(RendererBase):
         lw = max(1, int(gc.get_linewidth() * self.dpi / 72.0))
 
         if rgbFace is not None:
-            fill_col = (
-                int(rgbFace[0] * 255),
-                int(rgbFace[1] * 255),
-                int(rgbFace[2] * 255),
-            )
+            # Honour rgbFace[3] as fill alpha by blending onto white (PIL uses RGB canvas).
+            face_alpha = float(rgbFace[3]) if len(rgbFace) >= 4 else 1.0
+            if face_alpha < 1.0:
+                fill_col = (
+                    int(rgbFace[0] * 255 * face_alpha + 255 * (1.0 - face_alpha)),
+                    int(rgbFace[1] * 255 * face_alpha + 255 * (1.0 - face_alpha)),
+                    int(rgbFace[2] * 255 * face_alpha + 255 * (1.0 - face_alpha)),
+                )
+            else:
+                fill_col = (
+                    int(rgbFace[0] * 255),
+                    int(rgbFace[1] * 255),
+                    int(rgbFace[2] * 255),
+                )
         else:
             fill_col = None
 
