@@ -5,12 +5,27 @@
 //! Matches the OG `matplotlib._backend_agg.BufferRegion` contract:
 //! `copy_from_bbox(bbox)` returns one of these, and
 //! `restore_region(region[, x1, y1, x2, y2, ox, oy])` blits it back.
+//!
+//! Exposes:
+//! - `get_extents() -> (x0, y0, x1, y1)`
+//! - `.width`, `.height`
+//! - `__array__(dtype=None, copy=None) -> numpy ndarray` (H, W, 4) uint8
+//! - `__getbuffer__` / `__releasebuffer__` — real Python buffer
+//!   protocol, so `memoryview(region)` produces a (H, W, 4) view with
+//!   format 'B'. This is what `backend_qtagg.py:50` and
+//!   `backend_gtk3agg.py:42` rely on.
 
+use numpy::{IntoPyArray, PyArray3};
+use pyo3::exceptions::PyBufferError;
+use pyo3::ffi;
 use pyo3::prelude::*;
+use std::ffi::c_void;
+use std::os::raw::c_int;
 
 #[pyclass(unsendable, module = "matplotlib.backends._backend_agg")]
 pub struct BufferRegion {
-    /// Premultiplied rgba8 pixel data for the captured region.
+    /// Premultiplied rgba8 pixel data for the captured region. Flat
+    /// (height * width * 4) bytes, row-major.
     pub data: Vec<u8>,
     /// Pixmap-coord x origin of the region (top-left).
     pub x: i32,
@@ -18,6 +33,13 @@ pub struct BufferRegion {
     pub y: i32,
     pub width: u32,
     pub height: u32,
+
+    // Shape and strides are stored as struct fields so their addresses
+    // are stable for the lifetime of the BufferRegion object. The
+    // Py_buffer machinery holds raw pointers into these arrays; they
+    // must not be on the stack or in a temporary.
+    shape: [ffi::Py_ssize_t; 3],
+    strides: [ffi::Py_ssize_t; 3],
 }
 
 #[pymethods]
@@ -42,6 +64,96 @@ impl BufferRegion {
     fn height(&self) -> u32 {
         self.height
     }
+
+    /// numpy array protocol: `np.asarray(region)` → (H, W, 4) uint8 view.
+    /// The returned array is an owned copy of the region's data so it
+    /// remains valid after the BufferRegion is collected. Callers can
+    /// still mutate the array; it does not aliase the region's buffer.
+    #[pyo3(signature = (dtype=None, copy=None))]
+    fn __array__<'py>(
+        &self,
+        py: Python<'py>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        copy: Option<&Bound<'_, PyAny>>,
+    ) -> Bound<'py, PyArray3<u8>> {
+        let _ = (dtype, copy);
+        let h = self.height as usize;
+        let w = self.width as usize;
+        let total = h * w * 4;
+        // Build a fresh (H, W, 4) ndarray. If the region is empty fall
+        // back to a zero-size array with the expected trailing dim.
+        if total == 0 {
+            return ndarray::Array3::<u8>::zeros((h.max(0), w.max(0), 4)).into_pyarray(py);
+        }
+        let arr =
+            ndarray::Array3::from_shape_vec((h, w, 4), self.data.clone()).expect("shape mismatch");
+        arr.into_pyarray(py)
+    }
+
+    /// Python buffer protocol: `memoryview(region)` → 3-D B-format view
+    /// of shape (H, W, 4), strides (W*4, 4, 1), readonly.
+    ///
+    /// Safety: view's buf, shape, and strides point into `slf`'s heap-
+    /// owned fields. The view holds a reference to `slf` via `(*view).obj`
+    /// (incremented here, decremented automatically by pyo3 after
+    /// __releasebuffer__), so the backing storage outlives the view.
+    unsafe fn __getbuffer__(
+        slf: PyRefMut<'_, Self>,
+        view: *mut ffi::Py_buffer,
+        flags: c_int,
+    ) -> PyResult<()> {
+        if view.is_null() {
+            return Err(PyBufferError::new_err("null Py_buffer view"));
+        }
+        if (flags & ffi::PyBUF_WRITABLE) == ffi::PyBUF_WRITABLE {
+            return Err(PyBufferError::new_err(
+                "BufferRegion is read-only; writable buffer requested",
+            ));
+        }
+
+        let total = (slf.width as ffi::Py_ssize_t) * (slf.height as ffi::Py_ssize_t) * 4;
+
+        unsafe {
+            // Zero out the view first (C API best practice).
+            (*view).buf = if slf.data.is_empty() {
+                // Empty region: provide a non-null but 0-length pointer.
+                // Using the address of `slf.width` as a stand-in is safe
+                // because len=0 means nothing is read.
+                (&slf.width as *const u32) as *mut c_void
+            } else {
+                slf.data.as_ptr() as *mut c_void
+            };
+
+            // Reference the BufferRegion so Python keeps it alive until
+            // the memoryview is dropped.
+            let obj_ptr = slf.as_ptr();
+            ffi::Py_INCREF(obj_ptr);
+            (*view).obj = obj_ptr;
+
+            (*view).len = total;
+            (*view).readonly = 1;
+            (*view).itemsize = 1;
+
+            // Format string 'B' = unsigned byte. Static null-terminated.
+            static FORMAT: &[u8] = b"B\0";
+            (*view).format = FORMAT.as_ptr() as *mut _;
+
+            (*view).ndim = 3;
+            // Point into the struct-owned arrays; they outlive the view
+            // because (*view).obj keeps slf alive.
+            (*view).shape = slf.shape.as_ptr() as *mut ffi::Py_ssize_t;
+            (*view).strides = slf.strides.as_ptr() as *mut ffi::Py_ssize_t;
+            (*view).suboffsets = std::ptr::null_mut();
+            (*view).internal = std::ptr::null_mut();
+        }
+        Ok(())
+    }
+
+    /// Release hook. pyo3 automatically decrements `(*view).obj`'s
+    /// refcount after this function returns, so there is nothing to
+    /// do here — the shape/strides arrays are owned by `slf` and
+    /// freed when the BufferRegion is collected.
+    unsafe fn __releasebuffer__(&self, _view: *mut ffi::Py_buffer) {}
 }
 
 impl BufferRegion {
@@ -60,13 +172,7 @@ impl BufferRegion {
         let ch = (y1 - y0).max(0) as u32;
 
         if cw == 0 || ch == 0 {
-            return Self {
-                data: Vec::new(),
-                x: x0,
-                y: y0,
-                width: 0,
-                height: 0,
-            };
+            return Self::empty(x0, y0);
         }
 
         let stride = (src_w as usize) * 4;
@@ -79,18 +185,30 @@ impl BufferRegion {
             data.extend_from_slice(&src_bytes[start..end]);
         }
 
+        Self::with_data(data, x0, y0, cw, ch)
+    }
+
+    fn with_data(data: Vec<u8>, x: i32, y: i32, w: u32, h: u32) -> Self {
+        let ws = w as ffi::Py_ssize_t;
+        let hs = h as ffi::Py_ssize_t;
         Self {
             data,
-            x: x0,
-            y: y0,
-            width: cw,
-            height: ch,
+            x,
+            y,
+            width: w,
+            height: h,
+            shape: [hs, ws, 4],
+            strides: [ws * 4, 4, 1],
         }
+    }
+
+    fn empty(x: i32, y: i32) -> Self {
+        Self::with_data(Vec::new(), x, y, 0, 0)
     }
 
     /// Blit a sub-rectangle of this region back into a destination pixmap.
     /// `sub` is (sub_x, sub_y, sub_w, sub_h) in region-local coords;
-    /// `dst` is the pixmap destination top-left corner in pixmap coords.
+    /// `dst_pos` is the pixmap destination top-left corner in pixmap coords.
     pub fn blit_to(
         &self,
         dst: &mut tiny_skia::Pixmap,

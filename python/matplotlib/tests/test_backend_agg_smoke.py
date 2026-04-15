@@ -209,6 +209,90 @@ def test_clip_rectangle_is_honored():
     assert bottom_right == 0, f"clip leak into bottom-right: {bottom_right}"
 
 
+def test_buffer_region_asarray_shape_and_dtype():
+    """np.asarray(region) must yield a (H, W, 4) uint8 ndarray.
+
+    Matches the backend_gtk3agg.py:42 contract.
+    """
+    r = _backend_agg.RendererAgg(100, 80, 72.0)
+    region = r.copy_from_bbox(_Bbox(10.0, 20.0, 60.0, 70.0))
+    arr = np.asarray(region)
+    assert arr.shape == (50, 50, 4)
+    assert arr.dtype == np.uint8
+
+
+def test_buffer_region_memoryview_shape_and_format():
+    """memoryview(region) must yield a 3-D B-format view with shape.
+
+    Matches the backend_qtagg.py:50 contract: the Qt backend does
+    `buf = memoryview(self.copy_from_bbox(bbox))` and then reads
+    `buf.shape[0]` and `buf.shape[1]` for the QImage dimensions.
+    """
+    r = _backend_agg.RendererAgg(100, 80, 72.0)
+    region = r.copy_from_bbox(_Bbox(10.0, 20.0, 60.0, 70.0))
+    mv = memoryview(region)
+    assert mv.shape == (50, 50, 4)
+    assert mv.format == "B"
+    assert mv.itemsize == 1
+    assert mv.nbytes == 50 * 50 * 4
+    assert mv.readonly is True
+
+
+def test_buffer_region_memoryview_pixels_match_asarray():
+    """The memoryview and np.asarray views must expose the same bytes.
+
+    Guards against a class of bugs where the two buffer-exposure paths
+    drift apart (e.g. stale cache on one of them).
+    """
+    r = _backend_agg.RendererAgg(50, 50, 72.0)
+    data = np.zeros((10, 10, 4), dtype=np.uint8)
+    data[:, :, 1] = 255  # green
+    data[:, :, 3] = 255
+    r.draw_image(_MinimalGC(), 5, 5, data)
+    region = r.copy_from_bbox(_Bbox(0.0, 0.0, 50.0, 50.0))
+
+    arr = np.asarray(region)
+    mv = memoryview(region)
+
+    # Same shape
+    assert arr.shape == mv.shape
+    # Same byte content (memoryview → bytes → compare to ndarray tobytes)
+    assert bytes(mv) == arr.tobytes()
+
+
+def test_copy_from_bbox_with_real_matplotlib_bbox():
+    """copy_from_bbox must accept a real matplotlib.transforms.Bbox.
+
+    Bbox.extents returns an ndarray, not a tuple, so this catches
+    regressions in the bbox-extraction path that only show up with
+    the real class (not the _Bbox shim used elsewhere in this file).
+
+    Simulates the exact upstream backend_qtagg.py:50 /
+    backend_gtk3agg.py:42 sequences.
+    """
+    from matplotlib.transforms import Bbox
+
+    r = _backend_agg.RendererAgg(200, 150, 72.0)
+    data = np.zeros((30, 30, 4), dtype=np.uint8)
+    data[:, :, 2] = 255  # blue
+    data[:, :, 3] = 255
+    r.draw_image(_MinimalGC(), 50, 50, data)
+
+    bbox = Bbox([[0, 0], [200, 150]])
+
+    # Qt path: memoryview then read .shape[0] / .shape[1]
+    buf = memoryview(r.copy_from_bbox(bbox))
+    assert buf.shape == (150, 200, 4)
+    assert buf.format == "B"
+
+    # GTK path: np.asarray then .ravel()
+    arr = np.asarray(r.copy_from_bbox(bbox))
+    assert arr.shape == (150, 200, 4)
+    assert arr.dtype == np.uint8
+    # Ravel should not crash (exercised by gtk3agg cbook helper).
+    _ = arr.ravel()
+
+
 def test_restore_region_subrect_shape():
     """The 7-arg restore_region form should place a sub-rect at a new location."""
     r = _backend_agg.RendererAgg(100, 100, 72.0)

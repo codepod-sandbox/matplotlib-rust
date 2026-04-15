@@ -686,16 +686,35 @@ impl RendererAgg {
 
     /// Capture a rectangular region of the current pixmap as a
     /// `BufferRegion`. `bbox` is a matplotlib Bbox-like whose `extents`
-    /// tuple gives (x0, y0, x1, y1) in display coords (y-up).
+    /// attribute gives (x0, y0, x1, y1) in display coords (y-up). The
+    /// real Bbox returns an ndarray from `.extents`, not a tuple, so
+    /// we coerce via a tuple conversion.
     fn copy_from_bbox(&self, bbox: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        // extract (x0, y0, x1, y1) — try .extents then .bounds
+        let extract_4 = |obj: &Bound<'_, PyAny>| -> PyResult<(f64, f64, f64, f64)> {
+            // Prefer direct tuple extraction for plain objects.
+            if let Ok(t) = obj.extract::<(f64, f64, f64, f64)>() {
+                return Ok(t);
+            }
+            // Fall back to iterating (handles ndarray, list, tuple, etc.)
+            let list: Vec<f64> = obj
+                .try_iter()?
+                .map(|it| it?.extract::<f64>())
+                .collect::<PyResult<_>>()?;
+            if list.len() >= 4 {
+                Ok((list[0], list[1], list[2], list[3]))
+            } else {
+                Err(pyo3::exceptions::PyValueError::new_err(
+                    "bbox extents must have 4 elements",
+                ))
+            }
+        };
+
         let (x0, y0, x1, y1): (f64, f64, f64, f64) = if let Ok(ext) = bbox.getattr("extents") {
-            ext.extract()?
+            extract_4(&ext)?
         } else if let Ok(b) = bbox.getattr("bounds") {
-            let (x, y, w, h): (f64, f64, f64, f64) = b.extract()?;
+            let (x, y, w, h) = extract_4(&b)?;
             (x, y, x + w, y + h)
         } else {
-            // Fall back to identity-sized region if bbox shape unknown.
             return Ok(py.None());
         };
 
