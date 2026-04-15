@@ -5,8 +5,11 @@
 //!
 //! `triangles` is an (ntri, 3) int32 array of point indices (CCW order).
 //! `neighbors` is an (ntri, 3) int32 array where `neighbors[t, j]` is the
-//! index of the triangle adjacent to triangle `t` across the edge opposite
-//! vertex `j`, or -1 if there is no such triangle (boundary edge).
+//! index of the triangle across the edge from `triangles[t, j]` to
+//! `triangles[t, (j+1)%3]`, or -1 if that edge is on the boundary.
+//!
+//! This matches the Matplotlib contract documented in
+//! `tri/_triangulation.py:212-214` and relied on by `TriRefiner`.
 //!
 //! Implementation uses the `delaunator` crate.
 
@@ -23,8 +26,9 @@ use pyo3::types::PyTuple;
 ///
 /// Returns a 2-tuple of (ntri, 3) int32 numpy arrays:
 ///   - `triangles[t, :]`  — CCW point indices of triangle t
-///   - `neighbors[t, j]`  — index of the triangle adjacent to t across the
-///                          edge opposite vertex j, or -1 at boundary edges
+///   - `neighbors[t, j]`  — index of the triangle across the edge from
+///                          triangles[t,j] to triangles[t,(j+1)%3],
+///                          or -1 if that edge is on the convex hull
 ///
 /// `verbose` is accepted for API compatibility; it has no effect.
 #[pyfunction]
@@ -80,14 +84,17 @@ fn delaunay_py<'py>(
         tri_data[(t, 2)] = result.triangles[3 * t + 2] as i32;
 
         // Delaunator halfedge layout for triangle t:
-        //   3t+0: v0→v1  (edge opposite v2)
-        //   3t+1: v1→v2  (edge opposite v0)
-        //   3t+2: v2→v0  (edge opposite v1)
+        //   3t+0: v0→v1  (from triangles[3t+0] to triangles[3t+1])
+        //   3t+1: v1→v2  (from triangles[3t+1] to triangles[3t+2])
+        //   3t+2: v2→v0  (from triangles[3t+2] to triangles[3t+0])
         //
-        // Neighbor opposite vertex j is the triangle of twin halfedge
-        // 3t + (j+1)%3, or -1 if that halfedge has no twin (boundary).
+        // Matplotlib contract: neighbors[t, j] = triangle across the edge
+        // from triangles[t, j] to triangles[t, (j+1)%3].
+        //
+        // That is exactly the edge represented by halfedge 3t+j, so
+        // neighbors[t, j] = halfedges[3t+j] / 3  (or -1 at boundary).
         for j in 0..3 {
-            let h = 3 * t + (j + 1) % 3;
+            let h = 3 * t + j;
             let twin = result.halfedges[h];
             nbr_data[(t, j)] = if twin == EMPTY { -1 } else { (twin / 3) as i32 };
         }

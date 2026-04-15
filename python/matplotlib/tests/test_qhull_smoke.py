@@ -84,6 +84,38 @@ def test_delaunay_neighbor_symmetry():
             )
 
 
+def test_delaunay_neighbor_edge_convention():
+    # Pin the exact Matplotlib contract (_triangulation.py:212-214):
+    #   neighbors[t, j] = triangle across edge from triangles[t, j]
+    #                     to triangles[t, (j+1)%3]
+    #
+    # For each neighbor pair (t, j) → s, the shared edge must be the
+    # edge {triangles[t, j], triangles[t, (j+1)%3]}.  The neighbor s
+    # must contain both of those vertex indices (possibly in reverse order).
+    # This test would fail with the "opposite vertex" slot mapping because
+    # that maps slot j to the edge opposite vertex j (a different edge).
+    rng = np.random.default_rng(17)
+    x = rng.uniform(0, 3, 14)
+    y = rng.uniform(0, 3, 14)
+    tri, nbr = _qhull.delaunay(x, y)
+    ntri = tri.shape[0]
+    for t in range(ntri):
+        for j in range(3):
+            s = int(nbr[t, j])
+            if s == -1:
+                continue
+            # Edge on triangle t that should be shared with s.
+            va = int(tri[t, j])
+            vb = int(tri[t, (j + 1) % 3])
+            shared = {va, vb}
+            neighbor_verts = set(tri[s].tolist())
+            assert shared.issubset(neighbor_verts), (
+                f"neighbors[{t}, {j}]={s}: expected shared edge "
+                f"{{{va}, {vb}}} but triangle {s} has vertices "
+                f"{neighbor_verts}"
+            )
+
+
 def test_delaunay_triangle_single():
     # Exactly 3 points → exactly 1 triangle.
     x = np.array([0.0, 1.0, 0.5])
