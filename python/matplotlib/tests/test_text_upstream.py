@@ -766,7 +766,6 @@ class TestTextInAxes:
         assert t in ax.texts
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 2: SVG rendering requires ft2font")
     def test_ax_text_content_in_svg(self):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
@@ -775,7 +774,6 @@ class TestTextInAxes:
         assert 'UNIQUE_SVG_TEXT_ABC' in svg
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 2: SVG rendering requires ft2font")
     def test_ax_title_in_svg(self):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
