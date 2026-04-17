@@ -6,6 +6,7 @@ DPI, clear/clf, repr, and savefig.
 
 import os
 
+import numpy as np
 import pytest
 
 import matplotlib
@@ -33,12 +34,12 @@ class TestFigureCreation:
     def test_figure_default_size(self):
         """Default figsize is (6.4, 4.8)."""
         fig = plt.figure()
-        assert fig.get_size_inches() == (6.4, 4.8)
+        assert np.allclose(fig.get_size_inches(), (6.4, 4.8))
 
     def test_figure_custom_size(self):
         """figure(figsize=(10, 8)) sets correct size."""
         fig = plt.figure(figsize=(10, 8))
-        assert fig.get_size_inches() == (10.0, 8.0)
+        assert np.allclose(fig.get_size_inches(), (10.0, 8.0))
 
     def test_figure_dpi(self):
         """figure(dpi=200) sets correct dpi."""
@@ -130,13 +131,13 @@ class TestSizing:
         """set_size_inches(12, 6) sets both width and height."""
         fig = plt.figure()
         fig.set_size_inches(12, 6)
-        assert fig.get_size_inches() == (12.0, 6.0)
+        assert np.allclose(fig.get_size_inches(), (12.0, 6.0))
 
     def test_set_size_inches_tuple(self):
         """set_size_inches((5, 4)) accepts a tuple."""
         fig = plt.figure()
         fig.set_size_inches((5, 4))
-        assert fig.get_size_inches() == (5.0, 4.0)
+        assert np.allclose(fig.get_size_inches(), (5.0, 4.0))
 
 
 # ===================================================================
@@ -275,7 +276,8 @@ class TestSavefig:
         fig.savefig(str(path))
         assert path.exists()
         content = path.read_text()
-        assert content.startswith('<svg')
+        # OG SVG backend emits <?xml ... ?> declaration before <svg
+        assert '<svg' in content
         assert '</svg>' in content
 
     def test_savefig_format_detection(self, tmp_path):

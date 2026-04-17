@@ -171,7 +171,8 @@ class TestClear:
         ax.plot([1, 2, 3], [4, 5, 6])
         assert len(ax.lines) > 0 or len(ax.patches) > 0 or len(ax.collections) > 0
         plt.cla()
-        assert ax.lines == [] and ax.patches == [] and ax.collections == [] and ax.texts == []
+        # OG: ArtistList != [] directly; check len instead
+        assert len(ax.lines) == 0 and len(ax.patches) == 0 and len(ax.collections) == 0 and len(ax.texts) == 0
         assert ax.get_title() == ''
         assert ax.get_xlabel() == ''
         assert ax.get_ylabel() == ''
@@ -190,13 +191,14 @@ class TestFigureProperties:
         assert fig.get_figwidth() == 10.0
         fig.set_figheight(8)
         assert fig.get_figheight() == 8.0
-        assert fig.get_size_inches() == (10.0, 8.0)
+        import numpy as np
+        assert np.allclose(fig.get_size_inches(), (10.0, 8.0))
         # set_size_inches with two args
         fig.set_size_inches(5, 4)
-        assert fig.get_size_inches() == (5.0, 4.0)
+        assert np.allclose(fig.get_size_inches(), (5.0, 4.0))
         # set_size_inches with tuple
         fig.set_size_inches((7, 3))
-        assert fig.get_size_inches() == (7.0, 3.0)
+        assert np.allclose(fig.get_size_inches(), (7.0, 3.0))
 
     def test_suptitle(self):
         """fig.suptitle() sets and get_suptitle() retrieves the suptitle."""
@@ -298,7 +300,10 @@ class TestAdditional:
         """subplot(211) is equivalent to subplot(2, 1, 1)."""
         fig = plt.figure()
         ax1 = plt.subplot(211)
-        assert ax1._position == (2, 1, 1)
+        # OG: _position is Bbox, not tuple; check via SubplotSpec
+        ss = ax1.get_subplotspec()
+        gs = ss.get_gridspec()
+        assert gs.nrows == 2 and gs.ncols == 1
 
     def test_subplots_grid(self):
         """subplots(2, 2) returns a list of 4 axes in correct shape."""

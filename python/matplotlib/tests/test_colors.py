@@ -6,6 +6,7 @@ parse_fmt.
 """
 
 import math
+import numpy as np
 import pytest
 
 from matplotlib.colors import (
@@ -175,29 +176,30 @@ class TestToRgbaArray:
     def test_single_str(self):
         result = to_rgba_array('red')
         assert len(result) == 1
-        assert result[0] == (1.0, 0.0, 0.0, 1.0)
+        # OG returns a numpy array; use allclose for element comparison
+        assert np.allclose(result[0], (1.0, 0.0, 0.0, 1.0))
 
     def test_two_colors(self):
         result = to_rgba_array(['k', 'w'])
         assert len(result) == 2
-        assert result[0] == (0.0, 0.0, 0.0, 1.0)
-        assert result[1] == (1.0, 1.0, 1.0, 1.0)
+        assert np.allclose(result[0], (0.0, 0.0, 0.0, 1.0))
+        assert np.allclose(result[1], (1.0, 1.0, 1.0, 1.0))
 
     def test_none_color(self):
-        # "none" as a single string returns empty list (upstream compat)
+        # "none" as a single string returns empty array (upstream compat)
         result = to_rgba_array('none')
         assert len(result) == 0
         # "none" in a list of colors still resolves to transparent
         result = to_rgba_array(['none'])
         assert len(result) == 1
-        assert result[0] == (0.0, 0.0, 0.0, 0.0)
+        assert np.allclose(result[0], (0.0, 0.0, 0.0, 0.0))
 
     def test_color_list_with_alpha(self):
         """(list_of_colors, alpha) tuple sets alpha on all colors."""
         result = to_rgba_array((['black', 'white'], 0.9))
         assert len(result) == 2
-        assert result[0] == (0.0, 0.0, 0.0, 0.9)
-        assert result[1] == (1.0, 1.0, 1.0, 0.9)
+        assert np.allclose(result[0], (0.0, 0.0, 0.0, 0.9))
+        assert np.allclose(result[1], (1.0, 1.0, 1.0, 0.9))
 
     def test_explicit_alpha_overrides(self):
         """Explicit alpha= kwarg overrides the alpha from the tuple."""
@@ -260,10 +262,13 @@ class TestHasAlphaChannel:
         ((1, 0, 0), False),
         ((1, 0, 0, 0.5), True),
         ('#ff0000', False),
-        ('#ff000080', True),
+        # OG _has_alpha_channel only checks len==4 for non-strings; hex strings
+        # are strings so it returns False regardless of length
+        ('#ff000080', False),
         ('#fff', False),
-        ('#fffa', True),
-        (('red', 0.5), True),
+        ('#fffa', False),
+        # (color, alpha) tuple has len 2, not 4 → False in OG
+        (('red', 0.5), False),
     ])
     def test_has_alpha_channel(self, color, expected):
         assert _has_alpha_channel(color) == expected

@@ -23,9 +23,10 @@ class TestTextConstruction:
         assert t.get_position() == (0, 0)
 
     def test_default_fontsize(self):
-        """Default fontsize is 12.0."""
+        """Default fontsize matches rcParams font.size (10.0 in OG 3.10.x)."""
+        import matplotlib
         t = Text()
-        assert t.get_fontsize() == 12.0
+        assert t.get_fontsize() == matplotlib.rcParams['font.size']
 
     def test_default_fontweight(self):
         """Default fontweight is 'normal'."""
@@ -68,9 +69,10 @@ class TestTextConstruction:
         assert t.get_fontsize() == 18
 
     def test_fontsize_takes_precedence_over_size(self):
-        """When both fontsize and size are given, fontsize wins."""
-        t = Text(fontsize=24, size=18)
-        assert t.get_fontsize() == 24
+        """OG raises TypeError when both fontsize and size (aliases) are given."""
+        import pytest
+        with pytest.raises(TypeError):
+            Text(fontsize=24, size=18)
 
     def test_fontweight_kwarg(self):
         """fontweight keyword sets the font weight."""
@@ -83,9 +85,10 @@ class TestTextConstruction:
         assert t.get_weight() == 'bold'
 
     def test_fontweight_takes_precedence_over_weight(self):
-        """When both fontweight and weight are given, fontweight wins."""
-        t = Text(fontweight='heavy', weight='bold')
-        assert t.get_weight() == 'heavy'
+        """OG raises TypeError when both fontweight and weight (aliases) are given."""
+        import pytest
+        with pytest.raises(TypeError):
+            Text(fontweight='heavy', weight='bold')
 
     def test_ha_kwarg(self):
         """'ha' keyword sets horizontal alignment."""
@@ -207,9 +210,11 @@ class TestTextAliases:
         assert t.get_fontsize() == 30
 
     def test_set_size_same_method_object(self):
-        """set_size and set_fontsize are the same function."""
+        """set_size wraps set_fontsize (OG uses @_docstring.copy alias)."""
         t = Text()
-        assert t.set_size == t.set_fontsize
+        # OG wraps via decorator; check that set_size.__wrapped__ is set_fontsize.__func__
+        assert (t.set_size.__func__ is t.set_fontsize.__func__
+                or getattr(t.set_size.__func__, '__wrapped__', None) is t.set_fontsize.__func__)
 
     def test_set_ha_is_alias_for_set_horizontalalignment(self):
         """set_ha is an alias for set_horizontalalignment."""
@@ -218,9 +223,11 @@ class TestTextAliases:
         assert t.get_horizontalalignment() == 'right'
 
     def test_set_ha_same_method_object(self):
-        """set_ha and set_horizontalalignment are the same function."""
+        """set_ha wraps set_horizontalalignment (OG uses @_docstring.copy alias)."""
         t = Text()
-        assert t.set_ha == t.set_horizontalalignment
+        # OG wraps via decorator; check that set_ha.__wrapped__ is the same __func__
+        assert (t.set_ha.__func__ is t.set_horizontalalignment.__func__
+                or getattr(t.set_ha.__func__, '__wrapped__', None) is t.set_horizontalalignment.__func__)
 
     def test_set_va_is_alias_for_set_verticalalignment(self):
         """set_va is an alias for set_verticalalignment."""
@@ -229,9 +236,11 @@ class TestTextAliases:
         assert t.get_verticalalignment() == 'center'
 
     def test_set_va_same_method_object(self):
-        """set_va and set_verticalalignment are the same function."""
+        """set_va wraps set_verticalalignment (OG uses @_docstring.copy alias)."""
         t = Text()
-        assert t.set_va == t.set_verticalalignment
+        # OG wraps via decorator; check that set_va.__wrapped__ is the same __func__
+        assert (t.set_va.__func__ is t.set_verticalalignment.__func__
+                or getattr(t.set_va.__func__, '__wrapped__', None) is t.set_verticalalignment.__func__)
 
 
 # -----------------------------------------------------------------------
@@ -438,9 +447,10 @@ class TestAnnotationInheritsText:
         assert isinstance(ann, Artist)
 
     def test_default_fontsize(self):
-        """Annotation inherits default fontsize of 12.0."""
+        """Annotation inherits default fontsize from rcParams font.size."""
+        import matplotlib
         ann = Annotation('note', (0, 0))
-        assert ann.get_fontsize() == 12.0
+        assert ann.get_fontsize() == matplotlib.rcParams['font.size']
 
     def test_default_fontweight(self):
         """Annotation inherits default fontweight of 'normal'."""

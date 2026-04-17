@@ -1119,3 +1119,96 @@ After this plan:
 - Phase 2: `crates/matplotlib-ft2font` — implement `FT2Font` with `fontdue`
 - Phase 3: `crates/matplotlib-image`, `crates/matplotlib-contour`, `crates/matplotlib-qhull`
 - Phase 4: PDF/PS backends
+
+---
+
+## Results (2026-04-15)
+
+**Final test count: 4401 passed, 219 skipped, 1 xpassed, 0 failed.**
+
+### Work actually performed
+
+1. **OG module migration** (Tasks 1–8): 367 files, +147k lines committed in
+   `1e3de93`. Every Python module in OG matplotlib 3.10.x is now mirrored
+   locally except the ones we intentionally keep (`rcsetup.py`, `__init__.py`
+   compat shims, `_codepod_compat.py`, the `_pil_backend.py` /
+   `_svg_backend.py` stubs). `axes/`, `backends/`, `projections/`,
+   `mpl-data/`, `tri/`, `testing/`, `animation.py`, `layout_engine.py`,
+   `widgets.py`, `sankey.py`, `texmanager.py`, `textpath.py`, `mathtext.py`,
+   `dviread.py`, etc. all present.
+
+2. **C extension stubs** (Tasks 1–4): `_backend_agg`, `ft2font`, `_qhull`,
+   `contourpy`. All importable.
+
+3. **Test adaptation** (Task 11): ~165 test failures were fixed by adapting
+   test assertions to OG behavior (lists vs ndarrays, `range` vs tuple for
+   `rowspan`, default colors, etc.) and skipping tests that depend on
+   stub-specific APIs. Tracked across commits `3068d5e`, `83a1f66`,
+   `22a3040`, plus a parallel agent pass that fixed 11 more test files.
+
+4. **`Figure.to_svg()` compat shim** (`5e5a098`): lightweight SVG renderer
+   that walks the figure tree (lines, patches, collections, images, texts)
+   with correct zorder, alpha, and dash handling. Bypasses ft2font entirely.
+
+5. **No-op `RendererAgg`** (`1b81126`): inherits `RendererBase`, satisfies
+   the draw API with no-ops, returns synthetic text metrics (0.6 × ptsize
+   char width, 1.2 × ptsize line height) so `fig.canvas.draw()` runs to
+   completion without crashing.
+
+6. **Expanded `ft2font.FT2Font` stubs** (`edc5b72`): `_get_fontmap`,
+   `get_path`, `get_glyph_name`, `get_char_index`, `draw_glyph(s)_to_bitmap`,
+   `get_bitmap_offset`, `set_charmap`, `get_ps_font_info`, etc. — enough
+   shape for OG's `backend_svg` and `backend_agg` to complete without
+   raising.
+
+7. **`savefig(png)` via buffer protocol** (`dd5a0b4`): `__buffer__` /
+   `__array__` on `RendererAgg` expose an all-white rgba ndarray, so OG's
+   `backend_agg.buffer_rgba()` path writes valid (blank) PNG.
+
+### Tests unblocked beyond the original plan
+
+- `tight_layout()` works
+- `savefig(svg)` works
+- `savefig(png)` produces valid (blank) PNG
+- `fig.canvas.draw()` runs to completion
+- 80+ tests that used `fig.to_svg()` now pass
+
+### What's still blocked
+
+- **~95 tests** in `test_rendering*.py` — these were written for the pre-OG
+  stub backend APIs (`_svg_backend.RendererSVG`, `_pil_backend.RendererPIL`)
+  and check for specific tags (`<polyline>`, `<circle>`) that OG's
+  backend_svg doesn't emit (it uses `<path d="...">`). Would need a test
+  rewrite, not a renderer fix.
+- **~16 tests** using `@image_comparison(['*.png'])` — pixel-level
+  regression testing, needs real rasterization (Phase 1 proper).
+- **~64 tests** intentionally skipped for OG behavior differences.
+- **9 contourpy tests** — Phase 3.
+
+### Commits
+
+```
+dd5a0b4 feat: savefig(png) works via __buffer__ protocol on RendererAgg stub
+edc5b72 feat: enable savefig(svg) and tight_layout via expanded ft2font stubs
+1b81126 feat: no-op RendererAgg + ft2font stubs enable fig.canvas.draw()
+d72c54d test: unskip 2 text_upstream SVG tests now that to_svg works
+5e5a098 feat: add Figure.to_svg() compat shim that bypasses ft2font
+ed7ab89 feat: add OG tri/ package and testing/ infrastructure files
+bec7eec fix: add FaceFlags and StyleFlags stubs to ft2font
+1e3de93 feat: complete OG matplotlib Phase 0 module migration
+3068d5e fix: adapt test assertions to OG matplotlib 3.10.x behavior (141→0 failures)
+```
+
+### What Phase 1 now needs to deliver
+
+Since the no-op `RendererAgg` already satisfies the API, Phase 1's job
+narrows to: produce *actual pixels* in `buffer_rgba()` by implementing
+`draw_path`, `draw_markers`, `draw_path_collection`, `draw_text`, and
+`draw_image` against a real rasterizer. The rest of the plumbing (canvas
+lifecycle, text metrics, PIL-based PNG output) already works.
+
+Phase 2 (`ft2font`) is likewise narrowed: the stub already returns
+synthetic metrics that satisfy layout code. Phase 2's job is to replace
+those estimates with real font metrics so that tight_layout results match
+upstream, and to implement `get_path` properly so that SVG/PDF text
+rendering produces readable glyphs instead of empty paths.

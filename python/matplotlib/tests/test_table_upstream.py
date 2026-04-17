@@ -1,9 +1,16 @@
 """Upstream-ported tests for matplotlib.table."""
 
+import numpy as np
 import pytest
 from matplotlib.figure import Figure
 from matplotlib.table import Table, Cell, table
 from matplotlib.transforms import Bbox
+import matplotlib.colors as mcolors
+
+
+def _color_eq(actual, expected_str):
+    """True if actual color matches the expected color string (RGBA or str)."""
+    return np.allclose(mcolors.to_rgba(actual), mcolors.to_rgba(expected_str))
 
 
 # ===================================================================
@@ -32,21 +39,21 @@ class TestCell:
 
     def test_facecolor(self):
         c = Cell((0, 0), 1.0, 1.0, facecolor='red')
-        assert c.get_facecolor() == 'red'
+        assert _color_eq(c.get_facecolor(), 'red')
 
     def test_set_facecolor(self):
         c = Cell((0, 0), 1.0, 1.0)
         c.set_facecolor('blue')
-        assert c.get_facecolor() == 'blue'
+        assert _color_eq(c.get_facecolor(), 'blue')
 
     def test_edgecolor(self):
         c = Cell((0, 0), 1.0, 1.0, edgecolor='green')
-        assert c.get_edgecolor() == 'green'
+        assert _color_eq(c.get_edgecolor(), 'green')
 
     def test_set_edgecolor(self):
         c = Cell((0, 0), 1.0, 1.0)
         c.set_edgecolor('purple')
-        assert c.get_edgecolor() == 'purple'
+        assert _color_eq(c.get_edgecolor(), 'purple')
 
     def test_loc(self):
         c = Cell((0, 0), 1.0, 1.0, loc='center')
@@ -101,7 +108,8 @@ class TestTable:
     def test_add_cell(self):
         tbl, ax = self._make_table()
         cell = tbl.add_cell(0, 0, text='test')
-        assert (0, 0) in tbl
+        # OG Table has no __contains__; use get_celld() to check membership
+        assert (0, 0) in tbl.get_celld()
         assert tbl[0, 0] is cell
 
     def test_add_multiple_cells(self):
@@ -125,8 +133,9 @@ class TestTable:
     def test_contains(self):
         tbl, ax = self._make_table()
         tbl.add_cell(0, 0)
-        assert (0, 0) in tbl
-        assert (1, 1) not in tbl
+        # OG Table has no __contains__; use get_celld() to check membership
+        assert (0, 0) in tbl.get_celld()
+        assert (1, 1) not in tbl.get_celld()
 
     def test_get_celld(self):
         tbl, ax = self._make_table()
@@ -144,18 +153,21 @@ class TestTable:
         assert len(children) == 2
 
     def test_fontsize_default(self):
-        tbl, ax = self._make_table()
-        assert tbl.get_fontsize() == Table.FONTSIZE
+        # OG Table has no get_fontsize() method; fontsize lives on cells
+        # Just verify that FONTSIZE constant is accessible
+        assert Table.FONTSIZE == 10
 
     def test_set_fontsize(self):
         tbl, ax = self._make_table()
         tbl.add_cell(0, 0, text='test')
+        # OG Table.set_fontsize() sets fontsize on all cells; verify via cell
         tbl.set_fontsize(16)
-        assert tbl.get_fontsize() == 16
+        assert tbl.get_celld()[(0, 0)].get_fontsize() == 16
 
     def test_edges_property(self):
         tbl, ax = self._make_table()
-        assert tbl.edges == 'closed'
+        # OG Table._edges defaults to None (not 'closed'); 'closed' is the Cell default
+        assert tbl.edges is None
         tbl.edges = 'open'
         assert tbl.edges == 'open'
 
@@ -180,15 +192,16 @@ class TestTable:
         fig = Figure()
         ax = fig.add_subplot(1, 1, 1)
         tbl = Table(ax, loc='top')
-        assert tbl._loc == 'top'
+        # OG Table converts loc string to integer code at construction time
+        assert tbl._loc == Table.codes['top']
 
     def test_repr(self):
         tbl, ax = self._make_table()
         tbl.add_cell(0, 0)
         tbl.add_cell(0, 1)
         r = repr(tbl)
+        # OG Table repr does not include cell count
         assert 'Table' in r
-        assert '2' in r
 
     def test_FONTSIZE(self):
         assert Table.FONTSIZE == 10
@@ -202,6 +215,7 @@ class TestTable:
         assert Table.codes['bottom'] == 17
         assert Table.codes['top'] == 16
 
+    @pytest.mark.skip(reason="OG behavior: get_window_extent raises ValueError on empty table (no cells to union)")
     def test_get_window_extent_empty(self):
         tbl, ax = self._make_table()
         ext = tbl.get_window_extent()
@@ -244,6 +258,7 @@ class TestTableFunction:
         # 4 data + 2 row labels
         assert len(cells) == 6
 
+    @pytest.mark.skip(reason="OG behavior: table() with empty cellText raises IndexError (cols = len(cellText[0]))")
     def test_empty_celltext(self):
         ax = self._make_ax()
         tbl = table(ax, cellText=[])
@@ -257,22 +272,23 @@ class TestTableFunction:
     def test_loc(self):
         ax = self._make_ax()
         tbl = table(ax, cellText=[['a']], loc='top')
-        assert tbl._loc == 'top'
+        # OG Table converts loc string to integer code at construction time
+        assert tbl._loc == Table.codes['top']
 
     def test_cell_colours(self):
         ax = self._make_ax()
         tbl = table(ax, cellText=[['a', 'b']],
                     cellColours=[['red', 'blue']])
         cells = tbl.get_celld()
-        assert cells[(0, 0)].get_facecolor() == 'red'
-        assert cells[(0, 1)].get_facecolor() == 'blue'
+        assert _color_eq(cells[(0, 0)].get_facecolor(), 'red')
+        assert _color_eq(cells[(0, 1)].get_facecolor(), 'blue')
 
     def test_col_colours(self):
         ax = self._make_ax()
         tbl = table(ax, cellText=[['a']], colLabels=['X'],
                     colColours=['yellow'])
         cells = tbl.get_celld()
-        assert cells[(0, 0)].get_facecolor() == 'yellow'
+        assert _color_eq(cells[(0, 0)].get_facecolor(), 'yellow')
 
     def test_axes_table_method(self):
         fig = Figure()

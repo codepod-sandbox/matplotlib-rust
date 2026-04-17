@@ -4,3 +4,13 @@ __pycache__/
 .DS_Store
 target/
 .worktrees/
+
+# Built Python extensions (from Rust crates; see Makefile build-ext)
+python/matplotlib/_path.so
+python/matplotlib/_path.pyd
+python/matplotlib/backends/_backend_agg.so
+python/matplotlib/backends/_backend_agg.pyd
+python/matplotlib/ft2font.so
+python/matplotlib/ft2font.pyd
+python/matplotlib/_image.so
+python/matplotlib/_image.pyd

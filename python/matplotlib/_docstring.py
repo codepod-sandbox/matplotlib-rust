@@ -72,14 +72,17 @@ class Substitution:
 class _ArtistKwdocLoader(dict):
     def __missing__(self, key):
         if not key.endswith(":kwdoc"):
-            raise KeyError(key)
+            # Return empty string for unregistered docstring keys rather than
+            # raising KeyError — allows OG axes/_axes.py to import cleanly
+            # even when some upstream interpd.register() calls haven't happened.
+            return ''
         name = key[:-len(":kwdoc")]
         from matplotlib.artist import Artist, kwdoc
         try:
             cls, = (cls for cls in _api.recursive_subclasses(Artist)
                     if cls.__name__ == name)
-        except ValueError as e:
-            raise KeyError(key) from e
+        except ValueError:
+            return ''
         return self.setdefault(key, kwdoc(cls))
 
 

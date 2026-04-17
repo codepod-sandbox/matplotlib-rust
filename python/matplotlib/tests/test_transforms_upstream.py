@@ -2,6 +2,7 @@
 
 import math
 import pytest
+import numpy as np
 from matplotlib.tests._approx import approx
 
 from matplotlib.transforms import (
@@ -84,29 +85,29 @@ class TestBboxProperties:
 
     def test_extents(self):
         bb = Bbox.from_extents(1, 2, 5, 8)
-        assert bb.extents == (1, 2, 5, 8)
+        assert tuple(bb.extents) == (1, 2, 5, 8)
 
     def test_min_max(self):
         bb = Bbox.from_extents(1, 2, 5, 8)
-        assert bb.min == (1, 2)
-        assert bb.max == (5, 8)
+        assert tuple(bb.min) == (1, 2)
+        assert tuple(bb.max) == (5, 8)
 
     def test_intervalx(self):
         bb = Bbox.from_extents(1, 2, 5, 8)
-        assert bb.intervalx == (1, 5)
+        assert tuple(bb.intervalx) == (1, 5)
 
     def test_intervaly(self):
         bb = Bbox.from_extents(1, 2, 5, 8)
-        assert bb.intervaly == (2, 8)
+        assert tuple(bb.intervaly) == (2, 8)
 
     def test_p0_p1(self):
         bb = Bbox.from_extents(1, 2, 5, 8)
-        assert bb.p0 == (1, 2)
-        assert bb.p1 == (5, 8)
+        assert tuple(bb.p0) == (1, 2)
+        assert tuple(bb.p1) == (5, 8)
 
     def test_size(self):
         bb = Bbox.from_extents(1, 2, 5, 8)
-        assert bb.size == (4, 6)
+        assert tuple(bb.size) == (4, 6)
 
     def test_is_unit(self):
         assert Bbox.unit().is_unit()
@@ -115,11 +116,11 @@ class TestBboxProperties:
     def test_get_points(self):
         bb = Bbox.from_extents(1, 2, 3, 4)
         pts = bb.get_points()
-        assert pts == [[1, 2], [3, 4]]
+        assert np.array_equal(pts, [[1, 2], [3, 4]])
 
     def test_set_points(self):
         bb = Bbox()
-        bb.set_points([[5, 6], [7, 8]])
+        bb.set_points(np.array([[5, 6], [7, 8]], float))
         assert bb.x0 == 5
         assert bb.y0 == 6
         assert bb.x1 == 7
@@ -213,8 +214,8 @@ class TestBboxOverlaps:
     def test_overlaps_adjacent(self):
         bb1 = Bbox.from_extents(0, 0, 5, 5)
         bb2 = Bbox.from_extents(5, 0, 10, 5)
-        # Adjacent boxes don't overlap (strict inequality)
-        assert not bb1.overlaps(bb2)
+        # OG overlaps uses <= so touching edges count as overlapping
+        assert bb1.overlaps(bb2)
 
     def test_count_overlaps(self):
         bb = Bbox.from_extents(0, 0, 10, 10)
@@ -368,8 +369,9 @@ class TestBboxUnionIntersection:
         assert result.y0 == 2
 
     def test_union_empty(self):
-        result = Bbox.union([])
-        assert result.is_unit()
+        # OG raises ValueError for empty union
+        with pytest.raises(ValueError):
+            Bbox.union([])
 
     def test_union_many(self):
         bboxes = [
@@ -585,7 +587,7 @@ class TestAffine2DTransforms:
     def test_transform_empty(self):
         t = Affine2D().translate(1, 2)
         result = t.transform([])
-        assert result == []
+        assert len(result) == 0
 
     def test_chained_transforms(self):
         t = Affine2D().scale(2).translate(1, 0)
@@ -673,9 +675,10 @@ class TestAffine2DSet:
         t2 = Affine2D()
         t2.set(t1)
         assert t1 == t2
-        # Modifying t1 shouldn't affect t2
+        # Note: OG set() does not copy the matrix; they share the same array.
+        # Modifying t1 in-place also updates t2.
         t1.translate(10, 10)
-        assert t1 != t2
+        assert t1 == t2  # They share the matrix
 
 
 # ===================================================================
@@ -686,7 +689,7 @@ class TestIdentityTransform:
     def test_transform(self):
         t = IdentityTransform()
         vals = [(1, 2), (3, 4)]
-        assert t.transform(vals) == vals
+        assert np.array_equal(t.transform(vals), vals)
 
     def test_inverted(self):
         t = IdentityTransform()
@@ -695,7 +698,7 @@ class TestIdentityTransform:
 
     def test_repr(self):
         t = IdentityTransform()
-        assert repr(t) == "IdentityTransform()"
+        assert 'IdentityTransform' in repr(t)
 
     def test_is_affine(self):
         t = IdentityTransform()
@@ -811,7 +814,9 @@ class TestBlendedTransform:
         tx = IdentityTransform()
         ty = IdentityTransform()
         result = blended_transform_factory(tx, ty)
-        assert isinstance(result, BlendedGenericTransform)
+        # OG returns BlendedAffine2D for affine transforms; check it's a blended type
+        from matplotlib.transforms import BlendedAffine2D
+        assert isinstance(result, (BlendedGenericTransform, BlendedAffine2D))
 
 
 # ===================================================================
@@ -820,9 +825,9 @@ class TestBlendedTransform:
 
 class TestTransformNode:
     def test_constants(self):
-        assert TransformNode.INVALID_NON_AFFINE == 1
-        assert TransformNode.INVALID_AFFINE == 2
-        assert TransformNode.INVALID == 3
+        # OG values: _VALID=0, _INVALID_AFFINE_ONLY=1, _INVALID_FULL=2
+        assert TransformNode.INVALID_NON_AFFINE == 2  # _INVALID_FULL
+        assert TransformNode.INVALID_AFFINE == 1      # _INVALID_AFFINE_ONLY
 
     def test_is_affine(self):
         n = TransformNode()
@@ -844,8 +849,9 @@ class TestTransformNode:
 class TestTransform:
     def test_input_output_dims(self):
         t = Transform()
-        assert t.input_dims == 2
-        assert t.output_dims == 2
+        # OG Transform is abstract with input_dims = None
+        assert t.input_dims is None
+        assert t.output_dims is None
 
     def test_is_separable(self):
         t = Transform()

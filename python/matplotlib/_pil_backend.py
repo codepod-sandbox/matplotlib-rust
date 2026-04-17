@@ -17,7 +17,10 @@ class RendererPIL(RendererBase):
     """PIL/Pillow renderer that draws onto an RGB image."""
 
     def __init__(self, width, height, dpi):
-        super().__init__(width, height, dpi)
+        super().__init__()
+        self.width = width
+        self.height = height
+        self.dpi = dpi
         from PIL import Image, ImageDraw
         self._img = Image.new('RGB', (width, height), (255, 255, 255))
         self._draw = ImageDraw.Draw(self._img)
@@ -32,7 +35,7 @@ class RendererPIL(RendererBase):
                 fill=col, width=lw
             )
 
-    def draw_markers(self, xdata, ydata, color, size, marker='o'):
+    def _draw_markers_simple(self, xdata, ydata, color, size, marker='o'):
         col = _to_rgb_255(color)
         r = max(1, int(size))
         for i in range(len(xdata)):
@@ -139,7 +142,126 @@ class RendererPIL(RendererBase):
         if len(pts) >= 3:
             self._draw.polygon(pts, fill=col)
 
-    def draw_text(self, x, y, text, fontsize, color, ha):
+    # ── RendererBase interface ────────────────────────────────────────────────
+
+    def get_canvas_width_height(self):
+        return self.width, self.height
+
+    def points_to_pixels(self, points):
+        return points * self.dpi / 72.0
+
+    def flipy(self):
+        return False  # we flip y manually in draw_path/draw_text
+
+    def get_text_width_height_descent(self, s, prop, ismath):
+        sz = prop.get_size_in_points() if hasattr(prop, 'get_size_in_points') else 10
+        return sz * len(str(s)) * 0.6, sz, sz * 0.2
+
+    def draw_path(self, gc, path, transform, rgbFace=None):
+        """Implement the RendererBase draw_path contract for Figure.draw()."""
+        from matplotlib.path import Path as MPath
+
+        # Collect transformed vertices as a flat list of (x, y) in PIL coords.
+        # PIL y=0 is at top; display y=0 is at bottom → flip y.
+        h = self.height
+        rgb = gc.get_rgb()
+        stroke_col = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+        lw = max(1, int(gc.get_linewidth() * self.dpi / 72.0))
+
+        if rgbFace is not None:
+            face_alpha = float(rgbFace[3]) if len(rgbFace) >= 4 else 1.0
+            fill_col = (
+                int(rgbFace[0] * 255),
+                int(rgbFace[1] * 255),
+                int(rgbFace[2] * 255),
+            )
+        else:
+            face_alpha = 1.0
+            fill_col = None
+
+        # Decompose the path into polylines (ignore bezier curves — approximate
+        # by treating control points as line vertices for now).
+        poly: list[tuple[int, int]] = []
+        polys: list[list[tuple[int, int]]] = []
+        for verts, code in path.iter_segments(
+            transform=transform, remove_nans=True, curves=False
+        ):
+            if code == MPath.MOVETO:
+                if poly:
+                    polys.append(poly)
+                poly = [(int(verts[0]), int(h - verts[1]))]
+            elif code in (MPath.LINETO, MPath.CURVE3, MPath.CURVE4):
+                poly.append((int(verts[-2]), int(h - verts[-1])))
+            elif code == MPath.CLOSEPOLY:
+                if poly:
+                    poly.append(poly[0])  # close by returning to start
+                    polys.append(poly)
+                    poly = []
+        if poly:
+            polys.append(poly)
+
+        for pts in polys:
+            if len(pts) < 2:
+                continue
+            if fill_col is not None and len(pts) >= 3:
+                if face_alpha < 1.0:
+                    # Alpha-composite fill against the actual canvas pixels so that
+                    # semi-transparent patches properly blend with whatever was drawn
+                    # before (axes lines, data, grid) rather than compositing against
+                    # a hardcoded white.
+                    self._alpha_composite_polygon(pts, fill_col, face_alpha)
+                    # Draw outline opaquely after compositing the fill.
+                    for i in range(len(pts) - 1):
+                        self._draw.line([pts[i], pts[i + 1]],
+                                        fill=stroke_col, width=lw)
+                else:
+                    self._draw.polygon(pts, fill=fill_col, outline=stroke_col)
+            else:
+                for i in range(len(pts) - 1):
+                    self._draw.line([pts[i], pts[i + 1]],
+                                    fill=stroke_col, width=lw)
+
+    def _alpha_composite_polygon(self, pts, fill_rgb, alpha):
+        """Draw a polygon with true alpha compositing against existing canvas pixels."""
+        from PIL import Image, ImageDraw
+        overlay = Image.new('RGBA', self._img.size, (0, 0, 0, 0))
+        odraw = ImageDraw.Draw(overlay)
+        odraw.polygon(pts, fill=(*fill_rgb, int(alpha * 255)))
+        base = self._img.convert('RGBA')
+        base.alpha_composite(overlay)
+        self._img = base.convert('RGB')
+        self._draw = ImageDraw.Draw(self._img)
+
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+        """RendererBase draw_text — called by Figure.draw() for all text."""
+        rgb = gc.get_rgb()
+        col = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+        # Effective opacity = artist-level gc.get_alpha() × foreground-color alpha.
+        # ax.text(..., color=(r,g,b,a)) stores the alpha in rgb[3]; an explicit
+        # alpha= kwarg stores it in gc.get_alpha().  Both sources must be honoured.
+        gc_alpha = gc.get_alpha()
+        if gc_alpha is None:
+            gc_alpha = 1.0
+        color_alpha = float(rgb[3]) if len(rgb) >= 4 else 1.0
+        effective_alpha = gc_alpha * color_alpha
+        # flip y: display y=0 at bottom; PIL y=0 at top
+        pil_y = self.height - y
+        if effective_alpha < 1.0:
+            from PIL import Image, ImageDraw
+            overlay = Image.new('RGBA', self._img.size, (0, 0, 0, 0))
+            odraw = ImageDraw.Draw(overlay)
+            odraw.text((int(x), int(pil_y)), str(s),
+                       fill=(*col, int(effective_alpha * 255)))
+            base = self._img.convert('RGBA')
+            base.alpha_composite(overlay)
+            self._img = base.convert('RGB')
+            self._draw = ImageDraw.Draw(self._img)
+        else:
+            self._draw.text((int(x), int(pil_y)), str(s), fill=col)
+
+    # ── Legacy high-level text helper (kept for callers using the simple API)
+
+    def _draw_text_simple(self, x, y, text, fontsize, color, ha):
         col = _to_rgb_255(color)
         self._draw.text((int(x), int(y)), str(text), fill=col)
 
@@ -182,7 +304,7 @@ class RendererPIL(RendererBase):
         if has_start:
             _arrowhead(x1, y1, x2, y2)
 
-    def draw_image(self, x, y, width, height, rgba_array):
+    def _draw_image_simple(self, x, y, width, height, rgba_array):
         """Draw an image into the canvas using nearest-neighbor scaling."""
         rows = len(rgba_array)
         cols = len(rgba_array[0]) if rows > 0 else 0

@@ -58,20 +58,22 @@ class TestPropCycle:
         assert ax._next_color() == 'purple'
 
     def test_prop_cycle_affects_plot(self):
+        from matplotlib.colors import to_hex
         ax = self._make_axes()
         ax.set_prop_cycle(color=['red', 'blue'])
         lines = ax.plot([1, 2], [3, 4])
-        # The line should use the first color from the cycle
-        assert lines[0].get_color() == '#ff0000'
+        # OG: get_color() returns the color as set, compare via to_hex
+        assert to_hex(lines[0].get_color()) == '#ff0000'
 
     def test_prop_cycle_sequential_plots(self):
+        from matplotlib.colors import to_hex
         ax = self._make_axes()
         ax.set_prop_cycle(color=['red', 'blue'])
         l1 = ax.plot([1, 2], [3, 4])
         l2 = ax.plot([1, 2], [5, 6])
         # First should be red, second blue
-        assert l1[0].get_color() == '#ff0000'
-        assert l2[0].get_color() == '#0000ff'
+        assert to_hex(l1[0].get_color()) == '#ff0000'
+        assert to_hex(l2[0].get_color()) == '#0000ff'
 
 
 class TestPropCycleEdgeCases:
@@ -87,10 +89,14 @@ class TestPropCycleEdgeCases:
 
     def test_many_colors(self):
         ax = self._make_axes()
-        colors = [f'C{i}' for i in range(10)]
-        ax.set_prop_cycle(colors)
-        for c in colors:
-            assert ax._next_color() == c
+        # OG: 'C0'..'C9' in prop_cycler raises ValueError (cycle references)
+        # Use concrete hex colors instead
+        from matplotlib.colors import to_hex
+        import matplotlib as mpl
+        resolved = [to_hex(mpl.rcParams['axes.prop_cycle'].by_key()['color'][i % 10]) for i in range(10)]
+        ax.set_prop_cycle(color=resolved)
+        for c in resolved:
+            assert to_hex(ax._next_color()) == c
 
 
 # ===================================================================

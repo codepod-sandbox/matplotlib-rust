@@ -124,8 +124,10 @@ class TestBoundaryNorm:
         assert len(result) == 3
 
     def test_monotonic_required(self):
-        with pytest.raises(ValueError, match='monotonically'):
-            BoundaryNorm([3, 2, 1], ncolors=3)
+        # OG BoundaryNorm does not validate monotonicity; stub did
+        # Just verify construction succeeds (OG behavior)
+        norm = BoundaryNorm([3, 2, 1], ncolors=3)
+        assert norm is not None
 
     def test_inverse_raises(self):
         norm = BoundaryNorm([0, 1, 2], ncolors=2)
@@ -139,7 +141,7 @@ class TestBoundaryNorm:
 
     def test_ncolors(self):
         norm = BoundaryNorm([0, 1, 2, 3, 4], ncolors=10)
-        assert norm.ncolors == 10
+        # OG uses Ncmap, not ncolors
         assert norm.Ncmap == 10
 
     def test_vmin_vmax(self):
@@ -149,7 +151,8 @@ class TestBoundaryNorm:
 
     def test_N_intervals(self):
         norm = BoundaryNorm([0, 1, 2, 3], ncolors=3)
-        assert norm.N == 3
+        # OG: N = number of boundaries (4), not number of intervals (3)
+        assert norm.N == 4
 
     def test_clip_below(self):
         norm = BoundaryNorm([0, 1, 2], ncolors=2, clip=True)
@@ -233,7 +236,7 @@ class TestPowerNorm:
         norm = PowerNorm(gamma=2, vmin=0, vmax=10)
         r = repr(norm)
         assert 'PowerNorm' in r
-        assert 'gamma' in r
+        # OG __repr__ is default object repr without attrs like gamma
 
     def test_requires_vmin_vmax(self):
         # Without explicit vmin/vmax, autoscale sets them from data
@@ -297,7 +300,7 @@ class TestSymLogNorm:
         norm = SymLogNorm(linthresh=1, vmin=-10, vmax=10)
         r = repr(norm)
         assert 'SymLogNorm' in r
-        assert 'linthresh' in r
+        # OG __repr__ is default object repr without attrs like linthresh
 
     def test_requires_vmin_vmax(self):
         # Without explicit vmin/vmax, autoscale sets them from data

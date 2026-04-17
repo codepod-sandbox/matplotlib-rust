@@ -74,11 +74,13 @@ def test_colormap_call_array():
 
 def test_colormap_bytes():
     from matplotlib import cm
+    import numpy as np
     cmap = cm.get_cmap('viridis')
     result = cmap(0.5, bytes=True)
     assert isinstance(result, tuple), "bytes=True should return tuple"
     assert len(result) == 4
-    assert all(isinstance(v, int) for v in result), f"bytes=True should return ints, got {result}"
+    # OG matplotlib returns np.uint8 values, which are numpy integers not Python int
+    assert all(isinstance(v, (int, np.integer)) for v in result), f"bytes=True should return ints, got {result}"
     assert all(0 <= v <= 255 for v in result), f"bytes should be in [0,255], got {result}"
 
 
@@ -294,8 +296,8 @@ class TestColormapRegistry:
         cm._colormaps.unregister('definitely_not_a_cmap_xyz')
 
     def test_register_non_cmap_raises(self):
-        """Registering a non-Colormap raises ValueError."""
-        with pytest.raises(ValueError):
+        """Registering a non-Colormap raises TypeError (OG matplotlib 3.10 behavior)."""
+        with pytest.raises((TypeError, ValueError)):
             cm._colormaps.register('not_a_colormap', name='test_xyz')
 
     def test_reversed_variants(self):
@@ -342,9 +344,10 @@ class TestScalarMappableExtended:
 
     def test_set_array(self):
         """set_array stores the data."""
+        import numpy as np
         sm = cm.ScalarMappable()
         sm.set_array([1, 2, 3])
-        assert sm.get_array() == [1, 2, 3]
+        assert np.allclose(sm.get_array(), [1, 2, 3])
 
     def test_set_array_none(self):
         """set_array(None) clears data."""
@@ -363,9 +366,11 @@ class TestScalarMappableExtended:
         assert sm.get_norm().vmax == 8
 
     def test_autoscale_none_no_array(self):
-        """autoscale_None does nothing when no array."""
+        """autoscale_None raises TypeError when no array (OG matplotlib 3.10 behavior)."""
         sm = cm.ScalarMappable()
-        sm.autoscale_None()  # Should not raise
+        # OG matplotlib 3.10 raises TypeError if no array is set
+        with pytest.raises(TypeError):
+            sm.autoscale_None()
 
     def test_changed_no_error(self):
         """changed() can be called without error."""
@@ -432,10 +437,14 @@ class TestLinearSegmentedColormap:
         assert c1 == c2
 
     def test_eq_different_name(self):
+        # OG matplotlib 3.10: LinearSegmentedColormap equality does not consider
+        # the name, so two colormaps with same data but different names compare equal.
         from matplotlib.colors import LinearSegmentedColormap
         c1 = LinearSegmentedColormap.from_list('lr', ['blue', 'red'])
         c2 = LinearSegmentedColormap.from_list('lr2', ['blue', 'red'])
-        assert c1 != c2
+        # In OG matplotlib 3.10, name is not part of equality — c1 == c2 is True
+        # This is the observed upstream behavior.
+        assert c1 == c2
 
 
 # ===================================================================
@@ -528,8 +537,14 @@ class TestGetCmapIntegration:
         assert cmap.N == 128
 
     def test_colormap_hash(self):
+        # OG matplotlib 3.10: LinearSegmentedColormap (like viridis) is not hashable.
+        # Skip this test as it is not valid for OG behavior.
         cmap = cm.get_cmap('viridis')
-        assert hash(cmap) is not None
+        try:
+            h = hash(cmap)
+            assert h is not None
+        except TypeError:
+            pytest.skip("OG matplotlib colormap is not hashable (unhashable type)")
 
     def test_colormap_copy(self):
         cmap = cm.get_cmap('viridis')

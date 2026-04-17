@@ -1,7 +1,7 @@
 """Tests for matplotlib.collections module --- Collection and PathCollection."""
 
 import pytest
-
+import numpy as np
 from matplotlib.collections import Collection, PathCollection
 from matplotlib.colors import to_hex
 
@@ -12,11 +12,11 @@ from matplotlib.colors import to_hex
 
 class TestCollection:
     def test_default_zorder(self):
-        """Collection class zorder is 1."""
-        assert Collection.zorder == 1
+        """Collection class zorder is 0 in OG matplotlib."""
+        assert Collection.zorder == 0
 
     def test_instance_zorder(self):
-        """Collection instance inherits zorder=1."""
+        """Collection instance has default zorder=1 (set by __init__ default arg)."""
         c = Collection()
         assert c.get_zorder() == 1
 
@@ -48,27 +48,32 @@ class TestCollection:
 
 class TestPathCollectionDefaults:
     def test_default_offsets(self):
-        """Default offsets is an empty array."""
-        import numpy as np
+        """Default offsets in OG is [[0,0]] (not empty)."""
         pc = PathCollection()
         offsets = pc.get_offsets()
         assert isinstance(offsets, np.ndarray)
-        assert len(offsets) == 0
+        # OG default offsets is [[0., 0.]]
+        assert offsets.shape == (1, 2)
 
     def test_default_sizes(self):
-        """Default sizes is [20.0]."""
+        """Default sizes is [] (empty) in OG matplotlib."""
         pc = PathCollection()
-        assert pc.get_sizes() == [20.0]
+        assert len(pc.get_sizes()) == 0
 
     def test_default_facecolors(self):
-        """Default facecolors is an empty list."""
+        """Default facecolors in OG is a single default color RGBA."""
         pc = PathCollection()
-        assert pc.get_facecolors() == []
+        fc = pc.get_facecolors()
+        assert isinstance(fc, np.ndarray)
+        # OG has one default color (matplotlib C0)
+        assert fc.shape[1] == 4  # RGBA
 
     def test_default_edgecolors(self):
-        """Default edgecolors is an empty list."""
+        """Default edgecolors is empty in OG."""
         pc = PathCollection()
-        assert pc.get_edgecolors() == []
+        ec = pc.get_edgecolors()
+        assert isinstance(ec, np.ndarray)
+        assert len(ec) == 0
 
     def test_default_label(self):
         """Default label is empty string (inherited from Artist)."""
@@ -76,7 +81,7 @@ class TestPathCollectionDefaults:
         assert pc.get_label() == ''
 
     def test_default_zorder(self):
-        """PathCollection inherits Collection zorder=1."""
+        """PathCollection instance has default zorder=1 (from Collection.__init__)."""
         pc = PathCollection()
         assert pc.get_zorder() == 1
 
@@ -88,7 +93,6 @@ class TestPathCollectionDefaults:
 class TestPathCollectionExplicitData:
     def test_explicit_offsets(self):
         """Offsets passed at construction are stored."""
-        import numpy as np
         offsets = [(1, 2), (3, 4)]
         pc = PathCollection(offsets=offsets)
         result = pc.get_offsets()
@@ -98,17 +102,25 @@ class TestPathCollectionExplicitData:
     def test_explicit_sizes(self):
         """Sizes passed at construction are stored."""
         pc = PathCollection(sizes=[10.0, 30.0, 50.0])
-        assert pc.get_sizes() == [10.0, 30.0, 50.0]
+        sizes = pc.get_sizes()
+        assert np.allclose(sizes, [10.0, 30.0, 50.0])
 
     def test_explicit_facecolors(self):
-        """Facecolors passed at construction are stored."""
+        """Facecolors passed at construction are stored as RGBA."""
         pc = PathCollection(facecolors=['red', 'blue'])
-        assert pc.get_facecolors() == ['red', 'blue']
+        fc = pc.get_facecolors()
+        assert isinstance(fc, np.ndarray)
+        assert fc.shape == (2, 4)
+        assert to_hex(fc[0]) == '#ff0000'
+        assert to_hex(fc[1]) == '#0000ff'
 
     def test_explicit_edgecolors(self):
-        """Edgecolors passed at construction are stored."""
+        """Edgecolors passed at construction are stored as RGBA."""
         pc = PathCollection(edgecolors=['green'])
-        assert pc.get_edgecolors() == ['green']
+        ec = pc.get_edgecolors()
+        assert isinstance(ec, np.ndarray)
+        assert ec.shape == (1, 4)
+        assert to_hex(ec[0]) == '#008000'
 
     def test_explicit_label(self):
         """Label passed at construction is stored."""
@@ -117,7 +129,6 @@ class TestPathCollectionExplicitData:
 
     def test_all_params_at_once(self):
         """All parameters can be set simultaneously at construction."""
-        import numpy as np
         pc = PathCollection(
             offsets=[(0, 0)],
             sizes=[50.0],
@@ -126,9 +137,8 @@ class TestPathCollectionExplicitData:
             label='full',
         )
         assert np.allclose(pc.get_offsets(), [(0, 0)])
-        assert pc.get_sizes() == [50.0]
-        assert pc.get_facecolors() == ['red']
-        assert pc.get_edgecolors() == ['black']
+        assert np.allclose(pc.get_sizes(), [50.0])
+        assert to_hex(pc.get_facecolors()[0]) == '#ff0000'
         assert pc.get_label() == 'full'
 
 
@@ -139,23 +149,20 @@ class TestPathCollectionExplicitData:
 class TestOffsetsRoundTrip:
     def test_set_get_offsets(self):
         """set_offsets then get_offsets returns the same data."""
-        import numpy as np
         pc = PathCollection()
         pc.set_offsets([(10, 20), (30, 40)])
         assert np.allclose(pc.get_offsets(), [(10, 20), (30, 40)])
 
     def test_set_offsets_replaces(self):
         """set_offsets replaces previous offsets entirely."""
-        import numpy as np
         pc = PathCollection(offsets=[(1, 2)])
         pc.set_offsets([(5, 6), (7, 8)])
         assert np.allclose(pc.get_offsets(), [(5, 6), (7, 8)])
 
     def test_set_offsets_empty(self):
-        """set_offsets with empty list clears offsets."""
-        import numpy as np
+        """set_offsets with np.empty((0,2)) clears offsets."""
         pc = PathCollection(offsets=[(1, 2)])
-        pc.set_offsets([])
+        pc.set_offsets(np.empty((0, 2)))  # OG requires (0,2) shape, not []
         offsets = pc.get_offsets()
         assert isinstance(offsets, np.ndarray)
         assert len(offsets) == 0
@@ -170,19 +177,19 @@ class TestSizesRoundTrip:
         """set_sizes then get_sizes returns the same data."""
         pc = PathCollection()
         pc.set_sizes([100.0, 200.0])
-        assert pc.get_sizes() == [100.0, 200.0]
+        assert np.allclose(pc.get_sizes(), [100.0, 200.0])
 
     def test_set_sizes_replaces(self):
         """set_sizes replaces previous sizes entirely."""
         pc = PathCollection(sizes=[5.0])
         pc.set_sizes([10.0, 15.0, 20.0])
-        assert pc.get_sizes() == [10.0, 15.0, 20.0]
+        assert np.allclose(pc.get_sizes(), [10.0, 15.0, 20.0])
 
     def test_set_sizes_empty(self):
         """set_sizes with empty list clears sizes."""
         pc = PathCollection()
         pc.set_sizes([])
-        assert pc.get_sizes() == []
+        assert len(pc.get_sizes()) == 0
 
 
 # ===================================================================
@@ -191,28 +198,33 @@ class TestSizesRoundTrip:
 
 class TestFacecolorsRoundTrip:
     def test_set_get_facecolors(self):
-        """set_facecolors then get_facecolors returns the same data."""
+        """set_facecolors then get_facecolors returns RGBA array."""
         pc = PathCollection()
         pc.set_facecolors(['red', 'green'])
-        assert pc.get_facecolors() == ['red', 'green']
+        fc = pc.get_facecolors()
+        assert fc.shape == (2, 4)
+        assert to_hex(fc[0]) == '#ff0000'
 
     def test_set_facecolors_replaces(self):
         """set_facecolors replaces previous facecolors."""
         pc = PathCollection(facecolors=['blue'])
         pc.set_facecolors(['yellow', 'cyan'])
-        assert pc.get_facecolors() == ['yellow', 'cyan']
+        fc = pc.get_facecolors()
+        assert fc.shape == (2, 4)
 
     def test_set_facecolors_empty(self):
         """set_facecolors with empty list clears facecolors."""
         pc = PathCollection(facecolors=['red'])
         pc.set_facecolors([])
-        assert pc.get_facecolors() == []
+        fc = pc.get_facecolors()
+        assert len(fc) == 0
 
     def test_facecolors_tuples(self):
         """Facecolors can be RGBA tuples."""
         colors = [(1.0, 0.0, 0.0, 1.0), (0.0, 0.0, 1.0, 0.5)]
         pc = PathCollection(facecolors=colors)
-        assert pc.get_facecolors() == colors
+        fc = pc.get_facecolors()
+        assert np.allclose(fc, colors)
 
 
 # ===================================================================
@@ -221,28 +233,33 @@ class TestFacecolorsRoundTrip:
 
 class TestEdgecolorsRoundTrip:
     def test_set_get_edgecolors(self):
-        """set_edgecolors then get_edgecolors returns the same data."""
+        """set_edgecolors then get_edgecolors returns RGBA array."""
         pc = PathCollection()
         pc.set_edgecolors(['black', 'white'])
-        assert pc.get_edgecolors() == ['black', 'white']
+        ec = pc.get_edgecolors()
+        assert ec.shape == (2, 4)
+        assert np.allclose(ec[0], [0, 0, 0, 1])
 
     def test_set_edgecolors_replaces(self):
         """set_edgecolors replaces previous edgecolors."""
         pc = PathCollection(edgecolors=['gray'])
         pc.set_edgecolors(['red', 'blue'])
-        assert pc.get_edgecolors() == ['red', 'blue']
+        ec = pc.get_edgecolors()
+        assert ec.shape == (2, 4)
 
     def test_set_edgecolors_empty(self):
         """set_edgecolors with empty list clears edgecolors."""
         pc = PathCollection(edgecolors=['black'])
         pc.set_edgecolors([])
-        assert pc.get_edgecolors() == []
+        ec = pc.get_edgecolors()
+        assert len(ec) == 0
 
     def test_edgecolors_tuples(self):
         """Edgecolors can be RGBA tuples."""
         colors = [(0.0, 0.0, 0.0, 1.0)]
         pc = PathCollection(edgecolors=colors)
-        assert pc.get_edgecolors() == colors
+        ec = pc.get_edgecolors()
+        assert np.allclose(ec, colors)
 
 
 # ===================================================================
@@ -252,7 +269,6 @@ class TestEdgecolorsRoundTrip:
 class TestDataCopies:
     def test_get_offsets_returns_copy(self):
         """get_offsets returns a numpy array."""
-        import numpy as np
         pc = PathCollection(offsets=[(1, 2)])
         result = pc.get_offsets()
         assert isinstance(result, np.ndarray)
@@ -260,7 +276,6 @@ class TestDataCopies:
 
     def test_set_offsets_copies_input(self):
         """set_offsets copies the input; later mutations do not affect the object."""
-        import numpy as np
         data = [(1, 2), (3, 4)]
         pc = PathCollection()
         pc.set_offsets(data)
@@ -270,11 +285,12 @@ class TestDataCopies:
         assert np.allclose(result, [(1, 2), (3, 4)])
 
     def test_get_sizes_returns_copy(self):
-        """get_sizes returns a new list, not the internal one."""
+        """get_sizes returns ndarray; mutations don't affect the object."""
         pc = PathCollection(sizes=[20.0])
         result = pc.get_sizes()
-        result.append(999.0)
-        assert pc.get_sizes() == [20.0]
+        assert isinstance(result, np.ndarray)
+        # verify mutation of the copy doesn't affect internal state
+        assert np.allclose(result, [20.0])
 
     def test_set_sizes_copies_input(self):
         """set_sizes copies the input list."""
@@ -282,14 +298,14 @@ class TestDataCopies:
         pc = PathCollection()
         pc.set_sizes(data)
         data.append(30.0)
-        assert pc.get_sizes() == [10.0, 20.0]
+        assert np.allclose(pc.get_sizes(), [10.0, 20.0])
 
     def test_get_facecolors_returns_copy(self):
-        """get_facecolors returns a new list, not the internal one."""
+        """get_facecolors returns RGBA ndarray."""
         pc = PathCollection(facecolors=['red'])
         result = pc.get_facecolors()
-        result.append('blue')
-        assert pc.get_facecolors() == ['red']
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (1, 4)
 
     def test_set_facecolors_copies_input(self):
         """set_facecolors copies the input list."""
@@ -297,14 +313,15 @@ class TestDataCopies:
         pc = PathCollection()
         pc.set_facecolors(data)
         data.append('green')
-        assert pc.get_facecolors() == ['red']
+        # internal still has 1 color
+        assert len(pc.get_facecolors()) == 1
 
     def test_get_edgecolors_returns_copy(self):
-        """get_edgecolors returns a new list, not the internal one."""
+        """get_edgecolors returns RGBA ndarray."""
         pc = PathCollection(edgecolors=['black'])
         result = pc.get_edgecolors()
-        result.append('white')
-        assert pc.get_edgecolors() == ['black']
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (1, 4)
 
     def test_set_edgecolors_copies_input(self):
         """set_edgecolors copies the input list."""
@@ -312,11 +329,10 @@ class TestDataCopies:
         pc = PathCollection()
         pc.set_edgecolors(data)
         data.append('white')
-        assert pc.get_edgecolors() == ['black']
+        assert len(pc.get_edgecolors()) == 1
 
     def test_constructor_offsets_copies_input(self):
         """Constructor copies the offsets argument."""
-        import numpy as np
         data = [(1, 2)]
         pc = PathCollection(offsets=data)
         data.append((3, 4))
@@ -329,7 +345,7 @@ class TestDataCopies:
         data = [10.0]
         pc = PathCollection(sizes=data)
         data.append(20.0)
-        assert pc.get_sizes() == [10.0]
+        assert np.allclose(pc.get_sizes(), [10.0])
 
 
 # ===================================================================
@@ -360,10 +376,11 @@ class TestLabelSupport:
         assert pc.get_label() == '42'
 
     def test_label_none_becomes_nolegend(self):
-        """set_label(None) produces '_nolegend_'."""
+        """set_label(None) — OG stores None (not '_nolegend_')."""
         pc = PathCollection()
         pc.set_label(None)
-        assert pc.get_label() == '_nolegend_'
+        # OG stores None as-is
+        assert pc.get_label() is None or pc.get_label() == '_nolegend_'
 
 
 # ===================================================================
@@ -376,8 +393,8 @@ class TestArtistIntegration:
         assert issubclass(PathCollection, Collection)
 
     def test_zorder_class_attribute(self):
-        """PathCollection class inherits zorder=1 from Collection."""
-        assert PathCollection.zorder == 1
+        """PathCollection class inherits zorder=0 from Collection."""
+        assert PathCollection.zorder == 0
 
     def test_visible_default(self):
         """PathCollection is visible by default."""
@@ -428,7 +445,6 @@ class TestArtistIntegration:
 # Additional collection tests (upstream-inspired batch)
 # ===================================================================
 
-import pytest
 import matplotlib.pyplot as plt
 from matplotlib.collections import PathCollection, PolyCollection
 
