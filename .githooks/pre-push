@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MAIN_REPO=$(dirname "$(git rev-parse --git-common-dir)")
+MAIN_REPO=$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)
 VENV_PYTHON="${MAIN_REPO}/.venv/bin/python"
 
 echo "=== pre-push: building CPython extensions ==="
