@@ -103,7 +103,7 @@ impl RendererAgg {
             // using intersect_path, which multiplies the new path alpha
             // into the existing mask bits.
             if let Ok(Some(tsk_path)) =
-                path_to_tiny_skia(&clip_path_obj, clip_affine, self.height as f64)
+                path_to_tiny_skia(&clip_path_obj, clip_affine, self.height as f64, false)
             {
                 mask.intersect_path(&tsk_path, FillRule::Winding, true, Transform::identity());
             }
@@ -180,7 +180,7 @@ impl RendererAgg {
 
         // canvas_height=tile_size so path_to_tiny_skia's y-flip puts
         // the unit-square in the right pixmap orientation.
-        let tsk_path = path_to_tiny_skia(&hatch_obj, scale_affine, tile_size as f64).ok()??;
+        let tsk_path = path_to_tiny_skia(&hatch_obj, scale_affine, tile_size as f64, false).ok()??;
 
         // Build paint via set_color_rgba8 — the f32 set_color path was
         // observed to produce 0 visible pixels in this codebase, while
@@ -286,12 +286,11 @@ impl RendererAgg {
         rgb_face: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         let affine = extract_affine(transform);
-        let tsk_path = match path_to_tiny_skia(path, affine, self.height as f64)? {
+        let info = GcInfo::from_py(gc, self.dpi);
+        let tsk_path = match path_to_tiny_skia(path, affine, self.height as f64, info.should_snap())? {
             Some(p) => p,
             None => return Ok(()), // empty path
         };
-
-        let info = GcInfo::from_py(gc, self.dpi);
         let face = rgb_face.and_then(extract_rgba_face);
         let clip = self.build_clip_mask(&info, gc);
 
@@ -365,7 +364,7 @@ impl RendererAgg {
         // the y axis is flipped (y → -y), giving us a shape already in
         // pixmap-local orientation.
         let marker_affine = extract_affine(marker_trans);
-        let marker_tsk = match path_to_tiny_skia(marker_path, marker_affine, 0.0)? {
+        let marker_tsk = match path_to_tiny_skia(marker_path, marker_affine, 0.0, false)? {
             Some(p) => p,
             None => return Ok(()),
         };
@@ -504,7 +503,7 @@ impl RendererAgg {
             // Build the path in "display local" orientation (y-flipped at
             // origin), so we can translate it per offset with a tiny_skia
             // Transform::from_translate.
-            let tsk = path_to_tiny_skia(&p, per_path, 0.0)?;
+            let tsk = path_to_tiny_skia(&p, per_path, 0.0, false)?;
             path_cache.push(tsk);
         }
 

@@ -127,11 +127,16 @@ pub fn extract_path_verts_codes<'py>(
 /// affine transform and a final y-flip (matplotlib origin is bottom-left,
 /// tiny-skia / PNG origin is top-left).
 ///
+/// When `snap` is `true`, each transformed vertex is snapped to the nearest
+/// pixel centre (half-integer coordinate) so that 1-px axis lines render
+/// crisp and unblurred.
+///
 /// Returns `None` if the path has no drawable segments after translation.
 pub fn path_to_tiny_skia(
     path: &Bound<'_, PyAny>,
     transform: Affine,
     canvas_height: f64,
+    snap: bool,
 ) -> PyResult<Option<Path>> {
     let (verts_arr, codes_arr) = extract_path_verts_codes(path)?;
     let verts = verts_arr.as_array();
@@ -145,10 +150,22 @@ pub fn path_to_tiny_skia(
     let mut pen_y: f64 = 0.0;
     let mut has_move = false;
 
+    // When snapping, round each coordinate to the nearest pixel centre.
+    // In tiny-skia's coordinate system, pixel (i) occupies [i, i+1) and its
+    // centre is at i + 0.5.  A 1-px line at an integer coordinate straddles
+    // two pixels and antialiases into both; at a half-integer it sits squarely
+    // inside one pixel → crisp axis/tick lines.
+    // Formula: floor(v) + 0.5  maps any v to the centre of its containing pixel.
+    let snap_coord = |v: f64| -> f64 {
+        if snap { v.floor() + 0.5 } else { v }
+    };
+
     let apply = |x: f64, y: f64| -> (f32, f32) {
         let (tx, ty) = transform.apply(x, y);
         // Y-flip: tiny-skia origin is top-left
-        (tx as f32, (canvas_height - ty) as f32)
+        let pix_x = snap_coord(tx);
+        let pix_y = snap_coord(canvas_height - ty);
+        (pix_x as f32, pix_y as f32)
     };
 
     if let Some(codes) = codes_arr {

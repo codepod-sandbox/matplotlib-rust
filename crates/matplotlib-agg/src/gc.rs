@@ -24,6 +24,11 @@ pub struct GcInfo {
     pub miter_limit: f32,
     /// (offset, on/off array) in pixels. Empty array or None dashes = solid.
     pub dashes: Option<(f32, Vec<f32>)>,
+
+    /// 1B.8: snap vertices to pixel centres for crisp axis lines.
+    /// `Some(true)` = always snap; `None` = snap when line is thin
+    /// (linewidth ≤ 1.5 px); `Some(false)` = never snap.
+    pub snap: Option<bool>,
 }
 
 impl GcInfo {
@@ -43,6 +48,7 @@ impl GcInfo {
         let line_cap = read_cap_style(gc);
         let line_join = read_join_style(gc);
         let dashes = read_dashes(gc, dpi);
+        let snap = read_snap(gc);
 
         Self {
             foreground,
@@ -53,6 +59,7 @@ impl GcInfo {
             line_join,
             miter_limit: 10.0,
             dashes,
+            snap,
         }
     }
 
@@ -197,6 +204,29 @@ fn read_dashes(gc: &Bound<'_, PyAny>, dpi: f64) -> Option<(f32, Vec<f32>)> {
     }
     let offset = (offset_obj.unwrap_or(0.0) * dpi / 72.0) as f32;
     Some((offset, arr))
+}
+
+/// Read `gc.get_snap()` → True / False / None.
+fn read_snap(gc: &Bound<'_, PyAny>) -> Option<bool> {
+    let v = gc.call_method0("get_snap").ok()?;
+    if v.is_none() {
+        None
+    } else {
+        v.extract::<bool>().ok()
+    }
+}
+
+impl GcInfo {
+    /// Decide whether to snap vertices to pixel centres for this draw call.
+    /// Mirrors OG agg's logic: explicit True → snap; explicit False → no snap;
+    /// None → snap only when the line is at most 1.5 px wide (axis/tick lines).
+    pub fn should_snap(&self) -> bool {
+        match self.snap {
+            Some(true) => true,
+            Some(false) => false,
+            None => self.linewidth <= 1.5,
+        }
+    }
 }
 
 /// Convert a Python "color or None" object to an RGBA array.
