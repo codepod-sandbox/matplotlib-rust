@@ -537,14 +537,9 @@ class TestGetCmapIntegration:
         assert cmap.N == 128
 
     def test_colormap_hash(self):
-        # OG matplotlib 3.10: LinearSegmentedColormap (like viridis) is not hashable.
-        # Skip this test as it is not valid for OG behavior.
         cmap = cm.get_cmap('viridis')
-        try:
-            h = hash(cmap)
-            assert h is not None
-        except TypeError:
-            pytest.skip("OG matplotlib colormap is not hashable (unhashable type)")
+        with pytest.raises(TypeError, match="unhashable type"):
+            hash(cmap)
 
     def test_colormap_copy(self):
         cmap = cm.get_cmap('viridis')

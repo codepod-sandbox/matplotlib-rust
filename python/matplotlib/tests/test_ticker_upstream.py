@@ -918,7 +918,6 @@ class TestScalarFormatter:
         assert sf.axis.get_tick_space() == 9
         assert sf.axis.get_minpos() == 0
 
-    @pytest.mark.skip(reason="Phase 2: needs real cmr10 font data (warnings depend on real font loading)")
     def test_mathtext_ticks(self):
         mpl.rcParams.update({
             'font.family': 'serif',
@@ -938,7 +937,6 @@ class TestScalarFormatter:
                 ax.set_xticks([-1, 0, 1])
                 fig.canvas.draw()
 
-    @pytest.mark.skip(reason="Phase 2: needs real cmr10 font data (log messages depend on real font loading)")
     def test_cmr10_substitutions(self, caplog):
         mpl.rcParams.update({
             'font.family': 'cmr10',
@@ -1628,10 +1626,6 @@ def test_engformatter_offset_oom(
     oom_center_desired,
     oom_noise_desired
 ):
-    # OG fake fonts: unicode-minus glyph falls back to '_'; skip case that
-    # prints "meV" since 'm' substitution depends on real font metrics
-    if data_offset == 27.149 and noise == 0.01:
-        pytest.skip("Phase 2: unicode offset formatting depends on real font")
     UNIT = "eV"
     fig, ax = plt.subplots()
     ydata = data_offset + np.arange(-5, 7, dtype=float)*noise
@@ -1759,7 +1753,6 @@ def _impl_locale_comma():
     assert x == '0,5'
 
 
-@pytest.mark.skip(reason="OG: matplotlib.testing.subprocess_run_helper not in our testing stub")
 def test_locale_comma():
     # On some systems/pytest versions, `pytest.skip` in an exception handler
     # does not skip, but is treated as an exception, so directly running this

@@ -3543,6 +3543,13 @@ class _AxesBase(martist.Artist):
             ykw.pop('labelbottom', None)
             self.yaxis.set_tick_params(**ykw)
 
+    def get_tick_params(self, axis='x', which='major'):
+        """
+        Get appearance parameters for ticks on the requested axis.
+        """
+        _api.check_in_list(['x', 'y'], axis=axis)
+        return self._axis_map[axis].get_tick_params(which=which)
+
     def set_axis_off(self):
         """
         Hide all visual components of the x- and y-axis.

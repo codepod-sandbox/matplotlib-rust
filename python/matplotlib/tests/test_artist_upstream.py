@@ -370,12 +370,10 @@ class TestArtistExtendedProperties:
         a.set_agg_filter(f)
         assert a.get_agg_filter() is f
 
-    @pytest.mark.skip(reason="OG Artist has no get_contains(); deprecated method")
     def test_contains_default_none(self):
         a = Artist()
         assert a.get_contains() is None  # type: ignore[attr-defined]
 
-    @pytest.mark.skip(reason="OG Artist has no set_contains(); deprecated method")
     def test_set_contains(self):
         a = Artist()
         fn = lambda event: True

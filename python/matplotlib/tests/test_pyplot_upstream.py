@@ -623,7 +623,6 @@ def test_plt_tight_layout_noop():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 3: contourpy not yet implemented")
 def test_plt_contour_basic():
     """plt.contour with 2D list data returns a result."""
     plt.close('all')
@@ -633,7 +632,6 @@ def test_plt_contour_basic():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="Phase 3: contourpy not yet implemented")
 def test_plt_contourf_basic():
     """plt.contourf with 2D list data returns a result."""
     plt.close('all')
@@ -674,7 +672,6 @@ def test_plt_axes_on_existing_figure():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="stub-specific: matplotlib.style.core not present in worktree; rcdefaults() fails")
 def test_plt_rc():
     """plt.rc sets rcParams values."""
     import matplotlib
@@ -684,7 +681,6 @@ def test_plt_rc():
     plt.rcdefaults()
 
 
-@pytest.mark.skip(reason="stub-specific: matplotlib.style.core not present in worktree; rcdefaults() fails")
 def test_plt_rcdefaults():
     """plt.rcdefaults restores default rcParams (no-op check)."""
     import matplotlib

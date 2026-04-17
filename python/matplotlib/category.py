@@ -9,27 +9,30 @@ import logging
 import numpy as np
 
 from matplotlib import _api, units
+from matplotlib import ticker as mticker
 
 _log = logging.getLogger(__name__)
 
 
-class StrCategoryLocator(object):
-    """Stub tick locator for categorical data."""
+class StrCategoryLocator(mticker.Locator):
+    """Minimal tick locator for categorical data."""
 
     def __init__(self, units_mapping):
+        super().__init__()
         self._units = units_mapping
 
     def tick_values(self, vmin, vmax):
-        return list(self._units.values())
+        return np.asarray(list(self._units.values()), dtype=float)
 
     def __call__(self):
         return self.tick_values(0, len(self._units))
 
 
-class StrCategoryFormatter(object):
-    """Stub tick formatter for categorical data."""
+class StrCategoryFormatter(mticker.Formatter):
+    """Minimal tick formatter for categorical data."""
 
     def __init__(self, units_mapping):
+        super().__init__()
         self._units = {v: k for k, v in units_mapping.items()}
 
     def __call__(self, x, pos=None):
@@ -82,5 +85,15 @@ class StrCategoryConverter(units.ConversionInterface):
 
     @staticmethod
     def default_units(data, axis):
-        axis.unit_data = UnitData(np.atleast_1d(data))
-        return axis.unit_data
+        if axis.units is None:
+            axis.unit_data = UnitData(np.atleast_1d(data))
+            return axis.unit_data
+        axis.units.update(np.atleast_1d(data))
+        return axis.units
+
+
+_converter = StrCategoryConverter()
+units.registry[str] = _converter
+units.registry[np.str_] = _converter
+units.registry[bytes] = _converter
+units.registry[np.bytes_] = _converter

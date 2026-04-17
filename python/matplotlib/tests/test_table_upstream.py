@@ -215,11 +215,10 @@ class TestTable:
         assert Table.codes['bottom'] == 17
         assert Table.codes['top'] == 16
 
-    @pytest.mark.skip(reason="OG behavior: get_window_extent raises ValueError on empty table (no cells to union)")
     def test_get_window_extent_empty(self):
         tbl, ax = self._make_table()
-        ext = tbl.get_window_extent()
-        assert ext.is_unit()
+        with pytest.raises(ValueError, match="cannot be empty"):
+            tbl.get_window_extent()
 
     def test_get_window_extent(self):
         tbl, ax = self._make_table()
@@ -258,11 +257,10 @@ class TestTableFunction:
         # 4 data + 2 row labels
         assert len(cells) == 6
 
-    @pytest.mark.skip(reason="OG behavior: table() with empty cellText raises IndexError (cols = len(cellText[0]))")
     def test_empty_celltext(self):
         ax = self._make_ax()
-        tbl = table(ax, cellText=[])
-        assert isinstance(tbl, Table)
+        with pytest.raises(IndexError, match="list index out of range"):
+            table(ax, cellText=[])
 
     def test_edges(self):
         ax = self._make_ax()

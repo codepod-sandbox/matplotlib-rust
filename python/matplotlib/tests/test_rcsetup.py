@@ -263,7 +263,6 @@ class TestRcContextNewKeys:
         with rc_context({key: 'hello'}):
             assert matplotlib.rcParams[key] == 'hello'
 
-    @pytest.mark.skip(reason="OG matplotlib 3.10: rc_context does not remove new keys on exit")
     def test_new_key_removed_on_exit(self):
         """A new key introduced by rc_context is removed on exit."""
         key = '_test_temp_key_67890'
@@ -272,7 +271,6 @@ class TestRcContextNewKeys:
             assert key in matplotlib.rcParams
         assert key not in matplotlib.rcParams
 
-    @pytest.mark.skip(reason="OG matplotlib 3.10: rc_context does not remove new keys on exit")
     def test_new_key_removed_on_exception(self):
         """A new key is cleaned up even when an exception occurs."""
         key = '_test_temp_key_exception'
@@ -282,7 +280,6 @@ class TestRcContextNewKeys:
                 raise ValueError("deliberate")
         assert key not in matplotlib.rcParams
 
-    @pytest.mark.skip(reason="OG matplotlib 3.10: rc_context does not remove new keys on exit")
     def test_multiple_new_keys_cleaned_up(self):
         """Multiple new keys are all cleaned up on exit."""
         keys = ['_test_nk_a', '_test_nk_b', '_test_nk_c']

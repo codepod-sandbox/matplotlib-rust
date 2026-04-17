@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 import matplotlib.pyplot as plt
+import contourpy
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +156,122 @@ def test_zero_linewidth():
 
 
 # ---------------------------------------------------------------------------
+# contourpy compatibility contract
+# ---------------------------------------------------------------------------
+def test_contourpy_generator_line_changes_with_level():
+    x = [[0, 1, 2], [0, 1, 2], [0, 1, 2]]
+    y = [[0, 0, 0], [1, 1, 1], [2, 2, 2]]
+    z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    cg = contourpy.contour_generator(
+        x, y, z,
+        line_type=contourpy.LineType.SeparateCode,
+        fill_type=contourpy.FillType.OuterCode,
+    )
+
+    vs1, cs1 = cg.create_contour(1.0)
+    vs2, cs2 = cg.create_contour(3.0)
+
+    assert len(vs1) == 1 and len(cs1) == 1
+    assert len(vs2) == 1 and len(cs2) == 1
+    assert not np.array_equal(vs1[0], vs2[0])
+
+
+def test_contourpy_generator_line_tracks_scalar_field():
+    x = [[0, 1, 2], [0, 1, 2], [0, 1, 2]]
+    y = [[0, 0, 0], [1, 1, 1], [2, 2, 2]]
+    z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    cg = contourpy.contour_generator(
+        x, y, z,
+        line_type=contourpy.LineType.SeparateCode,
+        fill_type=contourpy.FillType.OuterCode,
+    )
+
+    vs, cs = cg.create_contour(2.0)
+
+    assert vs, "expected at least one contour segment"
+    for seg, codes in zip(vs, cs):
+        assert seg.shape[1] == 2
+        assert codes.shape[0] == seg.shape[0]
+        # For z = x + y, the level-2 contour should satisfy x + y = 2.
+        np.testing.assert_allclose(seg[:, 0] + seg[:, 1], 2.0, atol=1e-9)
+
+
+def test_contourpy_generator_merges_connected_line_segments():
+    x = [[0, 1, 2], [0, 1, 2], [0, 1, 2]]
+    y = [[0, 0, 0], [1, 1, 1], [2, 2, 2]]
+    z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    cg = contourpy.contour_generator(
+        x, y, z,
+        line_type=contourpy.LineType.SeparateCode,
+        fill_type=contourpy.FillType.OuterCode,
+    )
+
+    vs, cs = cg.create_contour(2.0)
+
+    assert len(vs) == 1 and len(cs) == 1
+    np.testing.assert_allclose(vs[0], [[2.0, 0.0], [1.0, 1.0], [0.0, 2.0]])
+    np.testing.assert_array_equal(cs[0], [1, 2, 2])
+
+
+def test_contourpy_generator_fill_changes_with_interval():
+    x = [[0, 1, 2], [0, 1, 2], [0, 1, 2]]
+    y = [[0, 0, 0], [1, 1, 1], [2, 2, 2]]
+    z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    cg = contourpy.contour_generator(
+        x, y, z,
+        line_type=contourpy.LineType.SeparateCode,
+        fill_type=contourpy.FillType.OuterCode,
+    )
+
+    vs1, cs1 = cg.create_filled_contour(0.0, 2.0)
+    vs2, cs2 = cg.create_filled_contour(2.0, 4.0)
+
+    assert len(vs1) == len(cs1) and len(vs1) > 0
+    assert len(vs2) == len(cs2) and len(vs2) > 0
+    assert not all(np.array_equal(a, b) for a, b in zip(vs1, vs2))
+
+
+def test_contourpy_generator_fill_tracks_scalar_interval():
+    x = [[0, 1, 2], [0, 1, 2], [0, 1, 2]]
+    y = [[0, 0, 0], [1, 1, 1], [2, 2, 2]]
+    z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    cg = contourpy.contour_generator(
+        x, y, z,
+        line_type=contourpy.LineType.SeparateCode,
+        fill_type=contourpy.FillType.OuterCode,
+    )
+
+    vs, cs = cg.create_filled_contour(1.0, 3.0)
+
+    assert vs, "expected at least one filled contour polygon"
+    for poly, codes in zip(vs, cs):
+        assert poly.shape[1] == 2
+        assert codes.shape[0] == poly.shape[0]
+        values = poly[:, 0] + poly[:, 1]
+        assert (values >= 1.0 - 1e-9).all()
+        assert (values <= 3.0 + 1e-9).all()
+
+
+def test_contourpy_generator_merges_connected_fill_polygons():
+    x = [[0, 1, 2], [0, 1, 2], [0, 1, 2]]
+    y = [[0, 0, 0], [1, 1, 1], [2, 2, 2]]
+    z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    cg = contourpy.contour_generator(
+        x, y, z,
+        line_type=contourpy.LineType.SeparateCode,
+        fill_type=contourpy.FillType.OuterCode,
+    )
+
+    vs, cs = cg.create_filled_contour(1.0, 3.0)
+
+    assert len(vs) == 1 and len(cs) == 1
+    poly = vs[0]
+    codes = cs[0]
+    assert poly.shape[0] >= 6
+    assert codes[0] == 1 and codes[-1] == 79
+
+
+# ---------------------------------------------------------------------------
 # 13. test_empty_line_plots (upstream ~line 7580) -- second stanza only
 # ---------------------------------------------------------------------------
 def test_empty_line_plots():
@@ -221,17 +338,16 @@ def test_inverted_cla():
 def test_bar_labels(x, width, label, expected_labels, container_label):
     """Upstream: test_axes.py::test_bar_labels"""
     _, ax = plt.subplots()
-    # OG doesn't support string/categorical x-axis; skip those cases
-    if isinstance(x, (str, list)) and any(isinstance(xi, str) for xi in ([x] if isinstance(x, str) else x)):
-        try:
-            bar_container = ax.bar(x, width, label=label)
-        except (TypeError, ValueError):
-            pytest.skip("OG doesn't support categorical x-axis")
-            return
-    else:
-        bar_container = ax.bar(x, width, label=label)
+    bar_container = ax.bar(x, width, label=label)
     # OG labels individual bars as '_container0', '_container1', etc.
     assert bar_container is not None
+
+
+def test_plot_categorical_xdata():
+    fig, ax = plt.subplots()
+    line, = ax.plot(["a", "b", "c"], [1, 2, 3])
+    assert list(line.get_xdata()) == ["a", "b", "c"]
+    assert ax.xaxis.have_units()
 
 
 # ---------------------------------------------------------------------------
@@ -2192,22 +2308,16 @@ def test_contour_stub():
     """contour — Phase 3 (contourpy not yet implemented)."""
     fig, ax = plt.subplots()
     data = np.zeros((2, 2))
-    try:
-        cs = ax.contour(data)
-        assert hasattr(cs, 'collections') or hasattr(cs, 'allsegs')
-    except NotImplementedError:
-        pytest.skip("contour requires contourpy (Phase 3)")
+    cs = ax.contour(data)
+    assert hasattr(cs, 'collections') or hasattr(cs, 'allsegs')
 
 
 def test_contourf_stub():
     """contourf — Phase 3 (contourpy not yet implemented)."""
     fig, ax = plt.subplots()
     data = np.zeros((2, 2))
-    try:
-        cs = ax.contourf(data)
-        assert hasattr(cs, 'collections') or hasattr(cs, 'allsegs')
-    except NotImplementedError:
-        pytest.skip("contourf requires contourpy (Phase 3)")
+    cs = ax.contourf(data)
+    assert hasattr(cs, 'collections') or hasattr(cs, 'allsegs')
 
 
 # ---------------------------------------------------------------------------
@@ -3287,11 +3397,8 @@ def test_contour_returns_contour_set():
     y = np.linspace(-1, 1, 10)
     X, Y = np.meshgrid(x, y)
     Z = X**2 + Y**2
-    try:
-        cs = ax.contour(X, Y, Z)
-        assert hasattr(cs, 'collections') or hasattr(cs, 'allsegs')
-    except NotImplementedError:
-        pytest.skip("contour requires contourpy (Phase 3)")
+    cs = ax.contour(X, Y, Z)
+    assert hasattr(cs, 'collections') or hasattr(cs, 'allsegs')
     plt.close('all')
 
 

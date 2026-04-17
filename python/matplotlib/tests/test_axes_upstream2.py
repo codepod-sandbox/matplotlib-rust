@@ -255,21 +255,18 @@ class TestAxesTickParams:
         fig = Figure()
         return fig.add_subplot(1, 1, 1)
 
-    @pytest.mark.skip(reason="OG Axes has no get_tick_params(); check tick properties via xaxis.get_major_ticks()")
     def test_tick_params(self):
         ax = self._make_ax()
         ax.tick_params(axis='x', direction='in')
         params = ax.get_tick_params('x')
         assert params['direction'] == 'in'
 
-    @pytest.mark.skip(reason="OG Axes has no get_tick_params()")
     def test_tick_params_both(self):
         ax = self._make_ax()
         ax.tick_params(axis='both', labelsize=14)
         assert ax.get_tick_params('x')['labelsize'] == 14
         assert ax.get_tick_params('y')['labelsize'] == 14
 
-    @pytest.mark.skip(reason="OG Axes has no get_tick_params()")
     def test_tick_params_y(self):
         ax = self._make_ax()
         ax.tick_params(axis='y', direction='out')
@@ -561,18 +558,16 @@ class TestAxesMinorticks:
 # ===================================================================
 
 class TestAxesContour:
-    @pytest.mark.skip(reason="Phase 3: requires contourpy (ax.contour())")
     def test_contour(self):
         fig = Figure()
         ax = fig.add_subplot(1, 1, 1)
-        result = ax.contour()
+        result = ax.contour([[0, 1], [1, 2]])
         assert result is not None
 
-    @pytest.mark.skip(reason="Phase 3: requires contourpy (ax.contourf())")
     def test_contourf(self):
         fig = Figure()
         ax = fig.add_subplot(1, 1, 1)
-        result = ax.contourf()
+        result = ax.contourf([[0, 1], [1, 2]])
         assert result is not None
 
 
@@ -648,7 +643,6 @@ class TestAxesAdvanced:
         assert len(ax.collections) >= 1 or len(ax.patches) >= 1
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 3: requires contourpy (ax.contour())")
     def test_contour_basic(self):
         import matplotlib.pyplot as plt
         import numpy as np
@@ -661,7 +655,6 @@ class TestAxesAdvanced:
         assert cs is not None
         plt.close('all')
 
-    @pytest.mark.skip(reason="Phase 3: requires contourpy (ax.contourf())")
     def test_contourf_basic(self):
         import matplotlib.pyplot as plt
         import numpy as np

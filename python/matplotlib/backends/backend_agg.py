@@ -27,7 +27,7 @@ from math import radians, cos, sin
 import numpy as np
 
 import matplotlib as mpl
-from matplotlib import _api, cbook
+from matplotlib import _api, cbook, _text_helpers
 from matplotlib.backend_bases import (
     _Backend, FigureCanvasBase, FigureManagerBase, RendererBase)
 from matplotlib.font_manager import fontManager as _fontManager, get_font
@@ -187,6 +187,14 @@ class RendererAgg(RendererBase):
         if ismath:
             return self.draw_mathtext(gc, x, y, s, prop, angle)
         font = self._prepare_font(prop)
+        missing = set()
+        for item in _text_helpers.layout(s, font):
+            if item.glyph_idx == 0 and item.char not in missing:
+                missing.add(item.char)
+                _text_helpers.warn_on_missing_glyph(
+                    ord(item.char),
+                    item.ft_object.family_name,
+                )
         # We pass '0' for angle here, since it will be rotated (in raster
         # space) in the following call to draw_text_image).
         font.set_text(s, 0, flags=get_hinting_flag())

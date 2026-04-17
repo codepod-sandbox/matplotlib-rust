@@ -1,18 +1,5 @@
-"""Stub for matplotlib.style for RustPython/WASM sandbox."""
+"""Minimal matplotlib.style package compatibility layer."""
 
-from contextlib import contextmanager
+from .core import STYLE_BLACKLIST, available, context, use
 
-
-@contextmanager
-def context(style, after_reset=False):
-    """No-op style context — styles not supported in WASM sandbox."""
-    yield
-
-
-def use(style):
-    """No-op — styles not supported in WASM sandbox."""
-    pass
-
-
-def available():
-    return []
+__all__ = ["STYLE_BLACKLIST", "available", "context", "use"]

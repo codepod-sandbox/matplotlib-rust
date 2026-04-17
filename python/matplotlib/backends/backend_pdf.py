@@ -1417,7 +1417,7 @@ end"""
 
         flags = 0
         symbolic = False  # ps_name.name in ('Cmsy10', 'Cmmi10', 'Cmex10')
-        if FaceFlags.FIXED_WIDTH in ff:
+        if ff & FaceFlags.FIXED_WIDTH:
             flags |= 1 << 0
         if 0:  # TODO: serif
             flags |= 1 << 1
@@ -1425,7 +1425,7 @@ end"""
             flags |= 1 << 2
         else:
             flags |= 1 << 5
-        if StyleFlags.ITALIC in sf:
+        if sf & StyleFlags.ITALIC:
             flags |= 1 << 6
         if 0:  # TODO: all caps
             flags |= 1 << 16

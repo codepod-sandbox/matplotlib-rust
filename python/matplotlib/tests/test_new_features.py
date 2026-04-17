@@ -199,9 +199,6 @@ class TestArtistProperties:
 
     def test_contains(self):
         a = Artist()
-        # OG removed get_contains/set_contains; skip if not available
-        if not hasattr(a, 'get_contains'):
-            pytest.skip("get_contains not available in OG matplotlib")
         assert a.get_contains() is None
         fn = lambda *args: True
         a.set_contains(fn)
@@ -1011,10 +1008,7 @@ class TestPyplotNewWrappers:
     def test_tight_layout(self):
         plt.close('all')
         fig, ax = plt.subplots()
-        try:
-            plt.tight_layout()  # may raise NotImplementedError (Phase 2: ft2font)
-        except NotImplementedError:
-            pytest.skip("tight_layout requires ft2font (Phase 2)")
+        plt.tight_layout()
 
     def test_figtext(self):
         plt.close('all')
@@ -1465,10 +1459,7 @@ class TestUpstreamMisc:
 
     def test_axes_tight_layout(self):
         fig, ax = plt.subplots()
-        try:
-            fig.tight_layout()  # may raise NotImplementedError (Phase 2: ft2font)
-        except NotImplementedError:
-            pytest.skip("tight_layout requires ft2font (Phase 2)")
+        fig.tight_layout()
 
     def test_axes_add_patch_returns(self):
         fig, ax = plt.subplots()

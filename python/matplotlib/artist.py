@@ -591,6 +591,14 @@ class Artist:
         """
         return self._picker
 
+    def get_contains(self):
+        """Return the custom contains callable, if one is set."""
+        return self._picker if callable(self._picker) else None
+
+    def set_contains(self, picker):
+        """Set a custom contains callable for the artist."""
+        self.set_picker(picker)
+
     def get_url(self):
         """Return the url."""
         return self._url

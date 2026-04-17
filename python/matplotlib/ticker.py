@@ -1426,19 +1426,26 @@ class EngFormatter(ScalarFormatter):
         If there is no currently offset in the data, it returns the best
         engineering formatting that fits the given argument, independently.
         """
-        if len(self.locs) == 0 or self.offset == 0:
+        if len(self.locs) == 0:
             return self.fix_minus(self.format_data(x))
-        else:
-            xp = (x - self.offset) / (10. ** self.orderOfMagnitude)
-            if abs(xp) < 1e-8:
-                xp = 0
+        xp = (x - self.offset) / (10. ** self.orderOfMagnitude)
+        if abs(xp) < 1e-8:
+            xp = 0
+        if self.offset != 0:
             return self._format_maybe_minus_and_locale(self.format, xp)
+        if self.orderOfMagnitude == 0 or xp == 0:
+            return self.fix_minus(self.format_data(x))
+
+        suffix = f"{self.sep}{self.ENG_PREFIXES[int(self.orderOfMagnitude)]}{self.unit}"
+        return self._format_maybe_minus_and_locale(self.format, xp) + suffix
 
     def set_locs(self, locs):
         # docstring inherited
         self.locs = locs
         if len(self.locs) > 0:
             vmin, vmax = sorted(self.axis.get_view_interval())
+            locs = np.asarray(self.locs)
+            visible_locs = locs[(vmin <= locs) & (locs <= vmax)]
             if self._useOffset:
                 self._compute_offset()
                 if self.offset != 0:
@@ -1450,8 +1457,27 @@ class EngFormatter(ScalarFormatter):
                     # (decided by self._compute_offset) we set it to better
                     # value:
                     self.offset = round((vmin + vmax)/2, 3)
-            # Use log1000 to use engineers' oom standards
-            self.orderOfMagnitude = math.floor(math.log(vmax - vmin, 1000))*3
+            self.orderOfMagnitude = 0
+            if self.offset != 0:
+                scale = vmax - vmin
+                if scale > 0:
+                    self.orderOfMagnitude = math.floor(math.log(scale, 1000)) * 3
+            elif len(visible_locs):
+                if visible_locs.min() <= 0 <= visible_locs.max():
+                    scale = np.max(np.abs(visible_locs))
+                    if scale > 0:
+                        candidate = math.floor(math.log(scale, 1000)) * 3
+                        nonzero = np.abs(visible_locs[visible_locs != 0])
+                        if candidate != 0 and len(nonzero) and np.any(
+                            nonzero / (10 ** candidate) < 1
+                        ):
+                            candidate = 0
+                        self.orderOfMagnitude = candidate
+                else:
+                    scale = vmax - vmin
+                    if scale > 0:
+                        # Use log1000 to use engineers' oom standards.
+                        self.orderOfMagnitude = math.floor(math.log(scale, 1000)) * 3
             self._set_format()
 
     # Simplify a bit ScalarFormatter.get_offset: We always want to use

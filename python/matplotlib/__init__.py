@@ -1216,6 +1216,9 @@ def rc_context(rc=None, fname=None):
             rcParams.update(rc)
         yield
     finally:
+        for key in list(rcParams):
+            if key != 'backend' and key not in orig:
+                dict.__delitem__(rcParams, key)
         rcParams._update_raw(orig)  # Revert to the original rcs.
 
 
