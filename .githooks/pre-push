@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== pre-push: building matplotlib-python binary ==="
-cargo build -p matplotlib-python
+MAIN_REPO=$(dirname "$(git rev-parse --git-common-dir)")
+VENV_PYTHON="${MAIN_REPO}/.venv/bin/python"
 
-echo "=== pre-push: running Python tests (smoke test) ==="
-# Run dedicated smoke test file — fast collection, no parametric overhead
-target/debug/matplotlib-python -m pytest \
-  python/matplotlib/tests/test_smoke.py \
-  -x -q --tb=short
+echo "=== pre-push: building CPython extensions ==="
+PYO3_PYTHON="${VENV_PYTHON}" cargo build -p matplotlib-agg -p matplotlib-ft2font -p matplotlib-image -p matplotlib-qhull
+
+cp target/debug/libmatplotlib_agg.dylib python/matplotlib/backends/_backend_agg.so 2>/dev/null || \
+  cp target/debug/libmatplotlib_agg.so python/matplotlib/backends/_backend_agg.so 2>/dev/null || true
+cp target/debug/libmatplotlib_ft2font.dylib python/matplotlib/ft2font.so 2>/dev/null || \
+  cp target/debug/libmatplotlib_ft2font.so python/matplotlib/ft2font.so 2>/dev/null || true
+cp target/debug/libmatplotlib_image.dylib python/matplotlib/_image.so 2>/dev/null || \
+  cp target/debug/libmatplotlib_image.so python/matplotlib/_image.so 2>/dev/null || true
+cp target/debug/libmatplotlib_qhull.dylib python/matplotlib/_qhull.so 2>/dev/null || \
+  cp target/debug/libmatplotlib_qhull.so python/matplotlib/_qhull.so 2>/dev/null || true
+
+echo "=== pre-push: running smoke tests (CPython) ==="
+"${VENV_PYTHON}" -m pytest python/matplotlib/tests/test_smoke.py -x -q --tb=short
 
 echo "pre-push passed"

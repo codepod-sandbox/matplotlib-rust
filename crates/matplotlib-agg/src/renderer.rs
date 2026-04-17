@@ -180,7 +180,8 @@ impl RendererAgg {
 
         // canvas_height=tile_size so path_to_tiny_skia's y-flip puts
         // the unit-square in the right pixmap orientation.
-        let tsk_path = path_to_tiny_skia(&hatch_obj, scale_affine, tile_size as f64, false).ok()??;
+        let tsk_path =
+            path_to_tiny_skia(&hatch_obj, scale_affine, tile_size as f64, false).ok()??;
 
         // Build paint via set_color_rgba8 — the f32 set_color path was
         // observed to produce 0 visible pixels in this codebase, while
@@ -287,10 +288,11 @@ impl RendererAgg {
     ) -> PyResult<()> {
         let affine = extract_affine(transform);
         let info = GcInfo::from_py(gc, self.dpi);
-        let tsk_path = match path_to_tiny_skia(path, affine, self.height as f64, info.should_snap())? {
-            Some(p) => p,
-            None => return Ok(()), // empty path
-        };
+        let tsk_path =
+            match path_to_tiny_skia(path, affine, self.height as f64, info.should_snap())? {
+                Some(p) => p,
+                None => return Ok(()), // empty path
+            };
         let face = rgb_face.and_then(extract_rgba_face);
         let clip = self.build_clip_mask(&info, gc);
 

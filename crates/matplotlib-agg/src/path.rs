@@ -157,7 +157,11 @@ pub fn path_to_tiny_skia(
     // inside one pixel → crisp axis/tick lines.
     // Formula: floor(v) + 0.5  maps any v to the centre of its containing pixel.
     let snap_coord = |v: f64| -> f64 {
-        if snap { v.floor() + 0.5 } else { v }
+        if snap {
+            v.floor() + 0.5
+        } else {
+            v
+        }
     };
 
     let apply = |x: f64, y: f64| -> (f32, f32) {

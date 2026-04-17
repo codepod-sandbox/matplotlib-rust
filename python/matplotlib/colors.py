@@ -2733,9 +2733,10 @@ def _picklable_norm_constructor(*args):
     return _create_empty_object_of_class(_make_norm_from_scale(*args))
 
 
-@make_norm_from_scale(
-    scale.FuncScale,
-    init=lambda functions, vmin=None, vmax=None, clip=False: None)
+def _func_norm_init(functions, vmin=None, vmax=None, clip=False): pass  # RustPython: lambda in decorator args breaks property scope
+
+
+@make_norm_from_scale(scale.FuncScale, init=_func_norm_init)
 class FuncNorm(Normalize):
     """
     Arbitrary normalization using functions for the forward and inverse.
@@ -2776,10 +2777,11 @@ LogNorm.__name__ = LogNorm.__qualname__ = "LogNorm"
 LogNorm.__doc__ = "Normalize a given value to the 0-1 range on a log scale."
 
 
-@make_norm_from_scale(
-    scale.SymmetricalLogScale,
-    init=lambda linthresh, linscale=1., vmin=None, vmax=None, clip=False, *,
-                base=10: None)
+def _sym_log_norm_init(linthresh, linscale=1., vmin=None, vmax=None,
+                       clip=False, *, base=10): pass  # RustPython: lambda in decorator args breaks property scope
+
+
+@make_norm_from_scale(scale.SymmetricalLogScale, init=_sym_log_norm_init)
 class SymLogNorm(Normalize):
     """
     The symmetrical logarithmic scale is logarithmic in both the
@@ -2814,9 +2816,10 @@ class SymLogNorm(Normalize):
         self._scale.linthresh = value
 
 
-@make_norm_from_scale(
-    scale.AsinhScale,
-    init=lambda linear_width=1, vmin=None, vmax=None, clip=False: None)
+def _asinh_norm_init(linear_width=1, vmin=None, vmax=None, clip=False): pass  # RustPython: lambda in decorator args breaks property scope
+
+
+@make_norm_from_scale(scale.AsinhScale, init=_asinh_norm_init)
 class AsinhNorm(Normalize):
     """
     The inverse hyperbolic sine scale is approximately linear near
