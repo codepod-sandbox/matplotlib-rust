@@ -13,7 +13,7 @@
 //! inputs. For 2D scalar/mask inputs the caller does alpha composition
 //! externally (see image.py:480–525); we do not touch `alpha` for 2D.
 
-use ndarray::{Array2, ArrayView2, ArrayView3, ArrayViewMut2, ArrayViewMut3};
+use ndarray::{Array2, Array3, ArrayView2, ArrayView3, ArrayViewMut2, ArrayViewMut3};
 use numpy::{PyArrayMethods, PyUntypedArray, PyUntypedArrayMethods};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -482,6 +482,18 @@ pub fn resample_py(
 
     let in_ndim = in_arr.ndim();
     let out_ndim = out_arr.ndim();
+    if !out_arr.is_c_contiguous() {
+        return Err(PyValueError::new_err(
+            "resample: output array must be C-contiguous",
+        ));
+    }
+    let out_writeable: bool = out_arr
+        .getattr("flags")?
+        .get_item("WRITEABLE")?
+        .extract()?;
+    if !out_writeable {
+        return Err(PyValueError::new_err("resample: Output array must be writeable"));
+    }
     if in_ndim != out_ndim {
         return Err(PyValueError::new_err(
             "resample: input and output must have the same number of dims",
@@ -526,7 +538,7 @@ fn dispatch_2d(
     if let Ok(i) = input.downcast::<numpy::PyArray2<f64>>() {
         let o = output
             .downcast::<numpy::PyArray2<f64>>()
-            .map_err(|_| PyValueError::new_err("resample: dtype mismatch (expected f64 output)"))?;
+            .map_err(|_| PyValueError::new_err("resample: mismatched types (expected f64 output)"))?;
         let ir = i.readonly();
         let mut ow = o.readwrite();
         // filternorm is a no-op for floats — always normalize.
@@ -536,7 +548,7 @@ fn dispatch_2d(
     if let Ok(i) = input.downcast::<numpy::PyArray2<f32>>() {
         let o = output
             .downcast::<numpy::PyArray2<f32>>()
-            .map_err(|_| PyValueError::new_err("resample: dtype mismatch (expected f32 output)"))?;
+            .map_err(|_| PyValueError::new_err("resample: mismatched types (expected f32 output)"))?;
         let ir = i.readonly();
         let mut ow = o.readwrite();
         let in_f64 = ir.as_array().mapv(|v| v as f64);
@@ -549,7 +561,7 @@ fn dispatch_2d(
     if let Ok(i) = input.downcast::<numpy::PyArray2<u8>>() {
         let o = output
             .downcast::<numpy::PyArray2<u8>>()
-            .map_err(|_| PyValueError::new_err("resample: dtype mismatch (expected u8 output)"))?;
+            .map_err(|_| PyValueError::new_err("resample: mismatched types (expected u8 output)"))?;
         let ir = i.readonly();
         let mut ow = o.readwrite();
         let in_f64 = ir.as_array().mapv(|v| v as f64);
@@ -578,6 +590,67 @@ fn dispatch_3d(
     norm: bool,
     radius: f64,
 ) -> PyResult<()> {
+    let validate_rgba = |name: &str, arr: Bound<'_, PyUntypedArray>| -> PyResult<()> {
+        let shape = arr.shape();
+        if shape.get(2).copied() != Some(4) {
+            return Err(PyValueError::new_err(format!(
+                "resample: 3D {name} array must be RGBA"
+            )));
+        }
+        Ok(())
+    };
+    validate_rgba(
+        "input",
+        input
+            .downcast::<PyUntypedArray>()
+            .map_err(|_| PyTypeError::new_err("resample: `input` must be a numpy array"))?
+            .clone(),
+    )?;
+    validate_rgba(
+        "output",
+        output
+            .downcast::<PyUntypedArray>()
+            .map_err(|_| PyTypeError::new_err("resample: `output` must be a numpy array"))?
+            .clone(),
+    )?;
+
+    if let Ok(i) = input.downcast::<numpy::PyArray3<f64>>() {
+        let o = output
+            .downcast::<numpy::PyArray3<f64>>()
+            .map_err(|_| PyValueError::new_err("resample: mismatched types (expected f64 RGBA output)"))?;
+        let ir = i.readonly();
+        let mut ow = o.readwrite();
+        resample_3d_f64(
+            ir.as_array(),
+            ow.as_array_mut(),
+            inv,
+            interp,
+            alpha,
+            true,
+            radius,
+        );
+        return Ok(());
+    }
+    if let Ok(i) = input.downcast::<numpy::PyArray3<f32>>() {
+        let o = output
+            .downcast::<numpy::PyArray3<f32>>()
+            .map_err(|_| PyValueError::new_err("resample: mismatched types (expected f32 RGBA output)"))?;
+        let ir = i.readonly();
+        let mut ow = o.readwrite();
+        let in_f64 = ir.as_array().mapv(|v| v as f64);
+        let mut out_f64 = Array3::<f64>::zeros(ow.as_array().raw_dim());
+        resample_3d_f64(
+            in_f64.view(),
+            out_f64.view_mut(),
+            inv,
+            interp,
+            alpha,
+            true,
+            radius,
+        );
+        ow.as_array_mut().assign(&out_f64.mapv(|v| v as f32));
+        return Ok(());
+    }
     let _ = py;
     let i = input
         .downcast::<numpy::PyArray3<u8>>()
@@ -674,6 +747,44 @@ fn resample_3d_u8(
     }
 }
 
+fn resample_3d_f64(
+    input: ArrayView3<'_, f64>,
+    mut output: ArrayViewMut3<'_, f64>,
+    inv: Affine,
+    interp: i32,
+    alpha: f64,
+    normalize: bool,
+    radius: f64,
+) {
+    let in_rows = input.shape()[0] as i64;
+    let in_cols = input.shape()[1] as i64;
+    let channels = input.shape()[2];
+    let (out_rows, out_cols) = (output.shape()[0], output.shape()[1]);
+    let support = filter_support(interp, radius);
+
+    for oy in 0..out_rows {
+        for ox in 0..out_cols {
+            let (ix, iy) = inv.apply(ox as f64 + 0.5, oy as f64 + 0.5);
+            let sx = ix - 0.5;
+            let sy = iy - 0.5;
+            for ch in 0..channels {
+                let s = match interp {
+                    0 => sample_nearest_channel_f64(input, ix, iy, in_rows, in_cols, ch),
+                    1 => sample_bilinear_channel_f64(input, sx, sy, in_rows, in_cols, ch),
+                    _ => sample_windowed_channel_f64(
+                        input, sx, sy, in_rows, in_cols, interp, support, radius, ch, normalize,
+                    ),
+                };
+                output[(oy, ox, ch)] = if ch == 3 && channels == 4 {
+                    s * alpha
+                } else {
+                    s
+                };
+            }
+        }
+    }
+}
+
 // ── Nearest / bilinear fast paths ─────────────────────────────────────────────
 
 fn sample_nearest(input: ArrayView2<'_, f64>, ix: f64, iy: f64, in_rows: i64, in_cols: i64) -> f64 {
@@ -758,4 +869,93 @@ fn sample_bilinear_channel(
     let w0 = v00 * (1.0 - fx) + v01 * fx;
     let w1 = v10 * (1.0 - fx) + v11 * fx;
     w0 * (1.0 - fy) + w1 * fy
+}
+
+fn sample_nearest_channel_f64(
+    input: ArrayView3<'_, f64>,
+    ix: f64,
+    iy: f64,
+    in_rows: i64,
+    in_cols: i64,
+    ch: usize,
+) -> f64 {
+    let r = ix.floor() as i64;
+    let c = iy.floor() as i64;
+    if r < 0 || r >= in_cols || c < 0 || c >= in_rows {
+        return 0.0;
+    }
+    input[(c as usize, r as usize, ch)]
+}
+
+fn sample_bilinear_channel_f64(
+    input: ArrayView3<'_, f64>,
+    sx: f64,
+    sy: f64,
+    in_rows: i64,
+    in_cols: i64,
+    ch: usize,
+) -> f64 {
+    let x0 = sx.floor() as i64;
+    let y0 = sy.floor() as i64;
+    let fx = sx - x0 as f64;
+    let fy = sy - y0 as f64;
+
+    let get = |r: i64, c: i64| -> f64 {
+        if r < 0 || r >= in_rows || c < 0 || c >= in_cols {
+            0.0
+        } else {
+            input[(r as usize, c as usize, ch)]
+        }
+    };
+
+    let v00 = get(y0, x0);
+    let v01 = get(y0, x0 + 1);
+    let v10 = get(y0 + 1, x0);
+    let v11 = get(y0 + 1, x0 + 1);
+    let w0 = v00 * (1.0 - fx) + v01 * fx;
+    let w1 = v10 * (1.0 - fx) + v11 * fx;
+    w0 * (1.0 - fy) + w1 * fy
+}
+
+fn sample_windowed_channel_f64(
+    input: ArrayView3<'_, f64>,
+    sx: f64,
+    sy: f64,
+    in_rows: i64,
+    in_cols: i64,
+    interp: i32,
+    support: i64,
+    radius: f64,
+    ch: usize,
+    normalize: bool,
+) -> f64 {
+    let cx = sx.floor() as i64;
+    let cy = sy.floor() as i64;
+    let mut acc = 0.0_f64;
+    let mut wsum = 0.0_f64;
+    for ky in (cy - support + 1)..=(cy + support) {
+        let wy = kernel_eval(interp, sy - ky as f64, radius);
+        if wy == 0.0 {
+            continue;
+        }
+        for kx in (cx - support + 1)..=(cx + support) {
+            if kx < 0 || kx >= in_cols || ky < 0 || ky >= in_rows {
+                continue;
+            }
+            let wx = kernel_eval(interp, sx - kx as f64, radius);
+            if wx == 0.0 {
+                continue;
+            }
+            let w = wx * wy;
+            acc += input[(ky as usize, kx as usize, ch)] * w;
+            wsum += w;
+        }
+    }
+    if wsum == 0.0 {
+        0.0
+    } else if normalize {
+        acc / wsum
+    } else {
+        acc
+    }
 }

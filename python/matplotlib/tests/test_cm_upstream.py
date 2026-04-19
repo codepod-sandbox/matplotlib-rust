@@ -1,6 +1,7 @@
 # Copyright (c) 2024 CodePod Contributors — BSD 3-Clause License
 # Ported from upstream matplotlib tests/test_cm.py and tests/test_colors.py
 """Upstream-ported tests for colormaps, registry, ScalarMappable, and norm classes."""
+import matplotlib as mpl
 import numpy as np
 import numpy.testing as npt
 import pytest
@@ -10,26 +11,32 @@ import pytest
 # Registry and get_cmap
 # ---------------------------------------------------------------------------
 
-def test_get_cmap_return_default():
+
+def _get_cmap(*args, **kwargs):
     from matplotlib import cm
+    from matplotlib import _api
+    with pytest.warns(_api.deprecation.MatplotlibDeprecationWarning):
+        return cm.get_cmap(*args, **kwargs)
+
+def test_get_cmap_return_default():
     from matplotlib.colors import Colormap
-    cmap = cm.get_cmap()
+    cmap = _get_cmap()
     assert isinstance(cmap, Colormap)
-    assert cmap.name == 'viridis'
+    assert cmap.name == mpl.rcParams['image.cmap']
 
 
 def test_get_cmap_by_name():
     from matplotlib import cm
     from matplotlib.colors import Colormap
     for name in ('hot', 'viridis', 'Blues'):
-        cmap = cm.get_cmap(name)
+        cmap = _get_cmap(name)
         assert isinstance(cmap, Colormap), f"get_cmap({name!r}) did not return Colormap"
 
 
 def test_get_cmap_bad_name():
     from matplotlib import cm
     with pytest.raises(ValueError):
-        cm.get_cmap('nonexistent_cmap_xyz')
+        _get_cmap('nonexistent_cmap_xyz')
 
 
 def test_register_cmap():
@@ -37,7 +44,7 @@ def test_register_cmap():
     from matplotlib.colors import ListedColormap
     my_cmap = ListedColormap(['#ff0000', '#00ff00', '#0000ff'], name='my_test_cmap')
     cm._colormaps.register(my_cmap, name='my_test_cmap', force=True)
-    retrieved = cm.get_cmap('my_test_cmap')
+    retrieved = _get_cmap('my_test_cmap')
     assert retrieved.name == 'my_test_cmap'
 
 
@@ -53,7 +60,7 @@ def test_registry_getitem_keyerror():
 
 def test_colormap_call_scalar():
     from matplotlib import cm
-    cmap = cm.get_cmap('viridis')
+    cmap = _get_cmap('viridis')
     for x in (0.0, 0.5, 1.0):
         result = cmap(x)
         assert isinstance(result, tuple), f"cmap({x}) should return tuple, got {type(result)}"
@@ -64,7 +71,7 @@ def test_colormap_call_scalar():
 
 def test_colormap_call_array():
     from matplotlib import cm
-    cmap = cm.get_cmap('viridis')
+    cmap = _get_cmap('viridis')
     x = np.linspace(0, 1, 10)
     result = cmap(x)
     assert hasattr(result, 'shape'), "array input should return array"
@@ -75,7 +82,7 @@ def test_colormap_call_array():
 def test_colormap_bytes():
     from matplotlib import cm
     import numpy as np
-    cmap = cm.get_cmap('viridis')
+    cmap = _get_cmap('viridis')
     result = cmap(0.5, bytes=True)
     assert isinstance(result, tuple), "bytes=True should return tuple"
     assert len(result) == 4
@@ -86,7 +93,7 @@ def test_colormap_bytes():
 
 def test_colormap_reversed():
     from matplotlib import cm
-    cmap = cm.get_cmap('viridis')
+    cmap = _get_cmap('viridis')
     rev = cmap.reversed()
     assert isinstance(rev.name, str)
     # cmap(0.0) should equal rev(1.0) — tolerance of 1/256 accounts for LUT rounding
@@ -219,9 +226,9 @@ def test_all_colormaps_callable():
 # ---------------------------------------------------------------------------
 
 def test_rcparam_image_cmap():
-    import matplotlib
-    assert matplotlib.rcParams['image.cmap'] == 'viridis'
-    assert matplotlib.rcParams['image.lut'] == 256
+    assert isinstance(mpl.rcParams['image.cmap'], str)
+    assert mpl.rcParams['image.cmap']
+    assert mpl.rcParams['image.lut'] == 256
 
 
 # ===================================================================
@@ -280,7 +287,8 @@ class TestColormapRegistry:
         new_cmap = cm.ListedColormap(['red'], name='viridis_force_xyz')
         cm._colormaps.register(new_cmap)
         new_cmap2 = cm.ListedColormap(['blue'], name='viridis_force_xyz')
-        cm._colormaps.register(new_cmap2, force=True)
+        with pytest.warns(UserWarning, match="Overwriting the cmap"):
+            cm._colormaps.register(new_cmap2, force=True)
         assert 'viridis_force_xyz' in cm._colormaps
         cm._colormaps.unregister('viridis_force_xyz')
 
@@ -333,7 +341,7 @@ class TestScalarMappableExtended:
 
     def test_set_cmap_object(self):
         """set_cmap with Colormap object stores it."""
-        cmap = cm.get_cmap('cool')
+        cmap = _get_cmap('cool')
         sm = cm.ScalarMappable(cmap=cmap)
         assert sm.get_cmap() is cmap
 
@@ -453,7 +461,7 @@ class TestLinearSegmentedColormap:
 
 class TestColormapBadUnderOver:
     def test_get_bad_default(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         bad = cmap.get_bad()
         assert bad is not None
 
@@ -465,7 +473,7 @@ class TestColormapBadUnderOver:
         assert bad is not None
 
     def test_get_under_default(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         under = cmap.get_under()
         assert under is not None
 
@@ -477,7 +485,7 @@ class TestColormapBadUnderOver:
         assert under is not None
 
     def test_get_over_default(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         over = cmap.get_over()
         assert over is not None
 
@@ -501,48 +509,48 @@ class TestColormapBadUnderOver:
 
 class TestGetCmapIntegration:
     def test_get_cmap_viridis(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         assert cmap.name == 'viridis'
 
     def test_get_cmap_plasma(self):
-        cmap = cm.get_cmap('plasma')
+        cmap = _get_cmap('plasma')
         assert cmap.name == 'plasma'
 
     def test_get_cmap_jet(self):
-        cmap = cm.get_cmap('jet')
+        cmap = _get_cmap('jet')
         assert cmap.name == 'jet'
 
     def test_get_cmap_gray(self):
-        cmap = cm.get_cmap('gray')
+        cmap = _get_cmap('gray')
         assert cmap.name == 'gray'
 
     def test_get_cmap_hot(self):
-        cmap = cm.get_cmap('hot')
+        cmap = _get_cmap('hot')
         assert cmap.name == 'hot'
 
     def test_get_cmap_cool(self):
-        cmap = cm.get_cmap('cool')
+        cmap = _get_cmap('cool')
         assert cmap.name == 'cool'
 
     def test_get_cmap_spring(self):
-        cmap = cm.get_cmap('spring')
+        cmap = _get_cmap('spring')
         assert cmap.name == 'spring'
 
     def test_get_cmap_n_default(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         assert cmap.N == 256
 
     def test_get_cmap_n_custom(self):
-        cmap = cm.get_cmap('viridis', 128)
+        cmap = _get_cmap('viridis', 128)
         assert cmap.N == 128
 
     def test_colormap_hash(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         with pytest.raises(TypeError, match="unhashable type"):
             hash(cmap)
 
     def test_colormap_copy(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         cmap_copy = cmap.copy()
         assert cmap_copy.name == cmap.name
         assert cmap_copy is not cmap
@@ -658,14 +666,14 @@ class TestColormapCallEdgeCases:
     """Edge cases for Colormap.__call__."""
 
     def test_call_with_masked_array(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         import numpy.ma as ma
         x = ma.array([0.0, 0.5, 1.0], mask=[False, True, False])
         result = cmap(x)
         assert result.shape[0] == 3
 
     def test_call_nan_gets_bad_color(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         cmap.set_bad('white')
         x = np.array([float('nan'), 0.5])
         result = cmap(x)
@@ -675,13 +683,13 @@ class TestColormapCallEdgeCases:
         assert abs(result[0][2] - 1.0) < 1e-6
 
     def test_alpha_override(self):
-        cmap = cm.get_cmap('viridis')
+        cmap = _get_cmap('viridis')
         result = cmap(0.5, alpha=0.5)
         assert abs(result[3] - 0.5) < 1e-6
 
     @pytest.mark.parametrize('name', ['viridis', 'plasma', 'inferno', 'magma', 'jet', 'hot', 'cool', 'gray'])
     def test_builtin_colormaps_call(self, name):
-        cmap = cm.get_cmap(name)
+        cmap = _get_cmap(name)
         result = cmap(0.5)
         assert len(result) == 4
         assert all(0.0 <= v <= 1.0 for v in result)
@@ -696,8 +704,8 @@ class TestReversedColormaps:
 
     @pytest.mark.parametrize('name', ['viridis', 'plasma'])
     def test_reversed_is_actual_reverse(self, name):
-        cmap = cm.get_cmap(name)
-        cmap_r = cm.get_cmap(f'{name}_r')
+        cmap = _get_cmap(name)
+        cmap_r = _get_cmap(f'{name}_r')
         c0 = cmap(0.0)
         cr1 = cmap_r(1.0)
         assert all(abs(a - b) < 1/256 for a, b in zip(c0, cr1))

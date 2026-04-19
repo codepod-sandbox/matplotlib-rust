@@ -37,6 +37,11 @@ def triplot(ax, *args, **kwargs):
     """
     import matplotlib.axes
 
+    if not isinstance(args[0], Triangulation):
+        x, y, *rest = args
+        args = (np.asarray(ax.convert_xunits(x)),
+                np.asarray(ax.convert_yunits(y)), *rest)
+
     tri, args, kwargs = Triangulation.get_from_args_and_kwargs(*args, **kwargs)
     x, y, edges = (tri.x, tri.y, tri.edges)
 

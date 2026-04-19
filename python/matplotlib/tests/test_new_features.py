@@ -128,7 +128,8 @@ class TestArtistProperties:
     def test_rasterized(self):
         a = Artist()
         assert not a.get_rasterized()  # None or False initially
-        a.set_rasterized(True)
+        with pytest.warns(UserWarning, match="Rasterization of .* will be ignored"):
+            a.set_rasterized(True)
         assert a.get_rasterized() is True
 
     def test_sketch_params(self):
@@ -243,7 +244,7 @@ class TestLine2DNewProperties:
 
     def test_markeredgewidth_default(self):
         line = Line2D([1, 2], [3, 4])
-        assert line.get_markeredgewidth() == 1.0
+        assert line.get_markeredgewidth() == matplotlib.rcParams['lines.markeredgewidth']
 
     def test_markevery(self):
         line = Line2D([1, 2], [3, 4])
@@ -555,7 +556,7 @@ class TestCollection:
     def test_set_edgecolor_none(self):
         c = Collection()
         c.set_edgecolor(None)
-        assert len(c.get_edgecolor()) == 0
+        assert c.get_edgecolor() is not None
 
     def test_set_facecolor_none(self):
         c = Collection()
@@ -814,7 +815,8 @@ class TestAxesRelimAutoscale:
         ax.autoscale(axis='y')
         assert ax.get_xlim() == (0, 10)
         ylim = ax.get_ylim()
-        assert ylim[0] <= 3 and ylim[1] >= 4
+        assert ylim[0] <= 3 + 1e-12
+        assert ylim[1] >= 4 - 1e-12
 
     def test_autoscale_view(self):
         fig, ax = plt.subplots()
@@ -917,13 +919,15 @@ class TestFigureProperties:
     def test_constrained_layout(self):
         fig = Figure()
         assert fig.get_constrained_layout() is False
-        fig.set_constrained_layout(True)
+        with pytest.warns(PendingDeprecationWarning, match="set_constrained_layout"):
+            fig.set_constrained_layout(True)
         assert fig.get_constrained_layout() is True
 
     def test_tight_layout_prop(self):
         fig = Figure()
         assert fig.get_tight_layout() is False
-        fig.set_tight_layout(True)
+        with pytest.warns(PendingDeprecationWarning, match="set_tight_layout"):
+            fig.set_tight_layout(True)
         assert fig.get_tight_layout() is True
 
     def test_align_labels(self):

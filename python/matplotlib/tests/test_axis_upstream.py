@@ -55,7 +55,8 @@ class TestXAxisBasic:
     def test_set_major_formatter(self):
         fig, ax = plt.subplots()
         new_fmt = FixedFormatter(['a', 'b', 'c'])
-        ax.xaxis.set_major_formatter(new_fmt)
+        with pytest.warns(UserWarning, match="FixedFormatter should only be used together"):
+            ax.xaxis.set_major_formatter(new_fmt)
         assert ax.xaxis.get_major_formatter() is new_fmt
         plt.close('all')
 
@@ -69,7 +70,8 @@ class TestXAxisBasic:
     def test_set_minor_formatter(self):
         fig, ax = plt.subplots()
         new_fmt = FixedFormatter(['x', 'y', 'z'])
-        ax.xaxis.set_minor_formatter(new_fmt)
+        with pytest.warns(UserWarning, match="FixedFormatter should only be used together"):
+            ax.xaxis.set_minor_formatter(new_fmt)
         assert ax.xaxis.get_minor_formatter() is new_fmt
         plt.close('all')
 
@@ -254,7 +256,8 @@ class TestAxisExtended:
         """YAxis.set_major_formatter installs the formatter."""
         fig, ax = plt.subplots()
         fmt = FixedFormatter(['a', 'b', 'c'])
-        ax.yaxis.set_major_formatter(fmt)
+        with pytest.warns(UserWarning, match="FixedFormatter should only be used together"):
+            ax.yaxis.set_major_formatter(fmt)
         assert ax.yaxis.get_major_formatter() is fmt
         plt.close('all')
 

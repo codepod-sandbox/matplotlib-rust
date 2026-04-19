@@ -88,6 +88,13 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
         to the colormap, alpha, etc. for both lines and arrows, but these
         changes should be backward compatible.
     """
+    x = np.asarray(axes.convert_xunits(x))
+    y = np.asarray(axes.convert_yunits(y))
+    if start_points is not None:
+        start_points = np.asarray(start_points, float).copy()
+        start_points[:, 0] = axes.convert_xunits(start_points[:, 0])
+        start_points[:, 1] = axes.convert_yunits(start_points[:, 1])
+
     grid = Grid(x, y)
     mask = StreamMask(density)
     dmap = DomainMap(grid, mask)
@@ -235,11 +242,16 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
         lc.set_cmap(cmap)
         lc.set_norm(norm)
     axes.add_collection(lc)
+    # FancyArrowPatch extents are in display space and can poison dataLim for
+    # autoscaling; use the streamline collection as the sole autoscale source.
+    line_datalim = axes.dataLim.frozen()
 
     ac = mcollections.PatchCollection(arrows)
     # Adding the collection itself is broken; see #2341.
     for p in arrows:
         axes.add_patch(p)
+    axes.dataLim.set(line_datalim)
+    axes.dataLim.minpos = line_datalim.minpos
 
     axes.autoscale_view()
     stream_container = StreamplotSet(lc, ac)

@@ -56,6 +56,8 @@ class Patch(artist.Artist):
                  fill=True,
                  capstyle=None,
                  joinstyle=None,
+                 hatchcolor=None,
+                 edgegapcolor=None,
                  **kwargs):
         """
         The following kwarg properties are supported
@@ -71,7 +73,6 @@ class Patch(artist.Artist):
         if joinstyle is None:
             joinstyle = JoinStyle.miter
 
-        self._hatch_color = colors.to_rgba(mpl.rcParams['hatch.color'])
         self._hatch_linewidth = mpl.rcParams['hatch.linewidth']
         self._fill = bool(fill)  # needed for set_facecolor call
         if color is not None:
@@ -82,11 +83,13 @@ class Patch(artist.Artist):
             self.set_color(color)
         else:
             self.set_edgecolor(edgecolor)
+            self.set_hatchcolor(hatchcolor)
             self.set_facecolor(facecolor)
 
         self._linewidth = 0
         self._unscaled_dash_pattern = (0, None)  # offset, dash
         self._dash_pattern = (0, None)  # offset, dash (scaled by linewidth)
+        self._gapcolor = None
 
         self.set_linestyle(linestyle)
         self.set_linewidth(linewidth)
@@ -94,6 +97,7 @@ class Patch(artist.Artist):
         self.set_hatch(hatch)
         self.set_capstyle(capstyle)
         self.set_joinstyle(joinstyle)
+        self.set_edgegapcolor(edgegapcolor)
 
         if len(kwargs):
             self._internal_update(kwargs)
@@ -291,7 +295,9 @@ class Patch(artist.Artist):
         self._fill = other._fill
         self._hatch = other._hatch
         self._hatch_color = other._hatch_color
+        self._original_hatchcolor = other._original_hatchcolor
         self._unscaled_dash_pattern = other._unscaled_dash_pattern
+        self._gapcolor = other._gapcolor
         self.set_linewidth(other._linewidth)  # also sets scaled dashes
         self.set_transform(other.get_data_transform())
         # If the transform of other needs further initialization, then it will
@@ -338,6 +344,14 @@ class Patch(artist.Artist):
         """Return the face color."""
         return self._facecolor
 
+    def get_hatchcolor(self):
+        """Return the hatch color."""
+        if self._hatch_color == 'edge':
+            if self._edgecolor[3] == 0:
+                return colors.to_rgba(mpl.rcParams['patch.edgecolor'])
+            return self.get_edgecolor()
+        return self._hatch_color
+
     def get_linewidth(self):
         """Return the line width in points."""
         return self._linewidth
@@ -360,18 +374,14 @@ class Patch(artist.Artist):
         self.stale = True
 
     def _set_edgecolor(self, color):
-        set_hatch_color = True
         if color is None:
             if (mpl.rcParams['patch.force_edgecolor'] or
                     not self._fill or self._edge_default):
                 color = mpl.rcParams['patch.edgecolor']
             else:
                 color = 'none'
-                set_hatch_color = False
 
         self._edgecolor = colors.to_rgba(color, self._alpha)
-        if set_hatch_color:
-            self._hatch_color = self._edgecolor
         self.stale = True
 
     def set_edgecolor(self, color):
@@ -416,14 +426,47 @@ class Patch(artist.Artist):
         Patch.set_facecolor, Patch.set_edgecolor
             For setting the edge or face color individually.
         """
-        self.set_facecolor(c)
         self.set_edgecolor(c)
+        self.set_hatchcolor(c)
+        self.set_facecolor(c)
+
+    def _set_hatchcolor(self, color):
+        color = mpl._val_or_rc(color, 'hatch.color')
+        if cbook._str_equal(color, 'edge'):
+            self._hatch_color = 'edge'
+        else:
+            self._hatch_color = colors.to_rgba(color, self._alpha)
+        self.stale = True
+
+    def set_hatchcolor(self, color):
+        """
+        Set the patch hatch color.
+
+        Parameters
+        ----------
+        color : :mpltype:`color` or 'edge' or None
+        """
+        self._original_hatchcolor = color
+        self._set_hatchcolor(color)
+
+    def get_edgegapcolor(self):
+        """Return the edge gap color."""
+        return self._gapcolor
+
+    def set_edgegapcolor(self, edgegapcolor):
+        """Set a color to fill the gaps in the dashed edge style."""
+        if edgegapcolor is not None:
+            self._gapcolor = colors.to_rgba(edgegapcolor, self._alpha)
+        else:
+            self._gapcolor = None
+        self.stale = True
 
     def set_alpha(self, alpha):
         # docstring inherited
         super().set_alpha(alpha)
         self._set_facecolor(self._original_facecolor)
         self._set_edgecolor(self._original_edgecolor)
+        self._set_hatchcolor(self._original_hatchcolor)
         # stale is already True
 
     def set_linewidth(self, w):
@@ -580,6 +623,15 @@ class Patch(artist.Artist):
         """Return the hatch linewidth."""
         return self._hatch_linewidth
 
+    def _has_dashed_edge(self):
+        """
+        Return whether the patch edge has a dashed linestyle.
+
+        A custom linestyle is assumed to be dashed; we do not inspect the
+        on/off sequence directly.
+        """
+        return self._linestyle not in ('solid', '-')
+
     def _draw_paths_with_artist_properties(
             self, renderer, draw_path_args_list):
         """
@@ -600,7 +652,6 @@ class Patch(artist.Artist):
         if self._edgecolor[3] == 0 or self._linestyle == 'None':
             lw = 0
         gc.set_linewidth(lw)
-        gc.set_dashes(*self._dash_pattern)
         gc.set_capstyle(self._capstyle)
         gc.set_joinstyle(self._joinstyle)
 
@@ -622,6 +673,23 @@ class Patch(artist.Artist):
         if self.get_path_effects():
             from matplotlib.patheffects import PathEffectRenderer
             renderer = PathEffectRenderer(self.get_path_effects(), renderer)
+
+        # We first draw a path within the gaps if needed, but only for visible
+        # dashed edges; zero-width edges would otherwise yield all-zero dashes.
+        if lw > 0 and self._has_dashed_edge() and self._gapcolor is not None:
+            gc.set_foreground(self._gapcolor, isRGBA=True)
+            offset_gaps, gaps = mlines._get_inverse_dash_pattern(
+                *self._dash_pattern)
+            gc.set_dashes(offset_gaps, gaps)
+            for draw_path_args in draw_path_args_list:
+                renderer.draw_path(gc, *draw_path_args)
+
+        # Draw the main edge.
+        gc.set_foreground(self._edgecolor, isRGBA=True)
+        if lw > 0:
+            gc.set_dashes(*self._dash_pattern)
+        else:
+            gc.set_dashes(0, None)
 
         for draw_path_args in draw_path_args_list:
             renderer.draw_path(gc, *draw_path_args)
@@ -1515,7 +1583,7 @@ class FancyArrow(Polygon):
             length = distance
         else:
             length = distance + head_length
-        if not length:
+        if np.size(length) == 0:
             self.verts = np.empty([0, 2])  # display nothing if empty
         else:
             # start by drawing horizontal arrow, point at (0, 0)

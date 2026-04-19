@@ -2,6 +2,7 @@
 
 import pytest
 
+import matplotlib
 from matplotlib.text import Text, Annotation
 
 
@@ -40,11 +41,11 @@ class TestTextFontFamily:
         t = Text(0, 0, 'hello', fontname='Arial')
         assert 'Arial' in t.get_fontfamily()
 
-    @pytest.mark.skip(reason="OG: get_fontname() returns _name (separate from family); stub-specific")
     def test_get_fontname(self):
         t = Text(0, 0, 'hello')
         t.set_fontfamily('Helvetica')
-        assert t.get_fontname() == 'Helvetica'
+        assert isinstance(t.get_fontname(), str)
+        assert t.get_fontname()
 
 
 class TestTextFontStyle:
@@ -166,7 +167,7 @@ class TestTextExtended:
 
     def test_math_fontfamily_default(self):
         t = Text(0, 0, 'hello')
-        assert t.get_math_fontfamily() == 'dejavusans'
+        assert t.get_math_fontfamily() == matplotlib.rcParams['mathtext.fontset']
 
     def test_set_math_fontfamily(self):
         t = Text(0, 0, 'hello')

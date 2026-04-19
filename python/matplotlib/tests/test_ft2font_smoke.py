@@ -9,7 +9,9 @@ import os
 import numpy as np
 import pytest
 
+import matplotlib as mpl
 from matplotlib import ft2font
+from matplotlib.mathtext import MathTextParser
 
 
 def _find_dejavu_sans():
@@ -17,8 +19,7 @@ def _find_dejavu_sans():
     import matplotlib
     base = os.path.dirname(os.path.abspath(matplotlib.__file__))
     p = os.path.join(base, 'mpl-data', 'fonts', 'ttf', 'DejaVuSans.ttf')
-    if not os.path.exists(p):
-        pytest.skip(f"DejaVuSans.ttf not found at {p}")
+    assert os.path.exists(p), f"DejaVuSans.ttf not found at {p}"
     return p
 
 
@@ -101,6 +102,17 @@ def test_render_empty_string_does_not_crash():
     font.draw_glyphs_to_bitmap(antialiased=True)
     bitmap = font.get_image()
     assert bitmap.dtype == np.uint8
+
+
+def test_mathtext_raster_parse_returns_nonempty_image():
+    """MathTextParser('agg') should draw glyph pixels into FT2Image."""
+    mpl.rcParams['mathtext.fontset'] = 'cm'
+    out = MathTextParser('agg').parse(r'$a+b+\dot s$', dpi=100)
+    bitmap = np.asarray(out.image)
+    assert bitmap.dtype == np.uint8
+    assert bitmap.ndim == 2
+    assert bitmap.shape[0] > 0 and bitmap.shape[1] > 0
+    assert (bitmap > 0).any(), "mathtext raster parse returned a blank image"
 
 
 def test_metrics_scale_with_size():

@@ -3,6 +3,7 @@
 import math
 import pytest
 import numpy as np
+import matplotlib as mpl
 from matplotlib.tests._approx import approx
 
 from matplotlib.transforms import (
@@ -835,7 +836,8 @@ class TestTransformNode:
 
     def test_is_bbox(self):
         n = TransformNode()
-        assert not n.is_bbox
+        with pytest.warns(mpl.MatplotlibDeprecationWarning, match="is_bbox attribute was deprecated"):
+            assert not n.is_bbox
 
     def test_frozen(self):
         n = TransformNode()

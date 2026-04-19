@@ -188,13 +188,11 @@ def test_linestyle_named_solid():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="OG: 'loosely dashed' is not a valid OG linestyle name")
 def test_linestyle_loosely_dashed():
-    """Named extended linestyle 'loosely dashed' must produce dasharray."""
+    """OG rejects the nonstandard linestyle name 'loosely dashed'."""
     fig, ax = plt.subplots()
-    ax.plot([1, 2], [1, 2], linestyle='loosely dashed')
-    svg = fig.to_svg()  # type: ignore[attr-defined]
-    assert 'stroke-dasharray' in svg
+    with pytest.raises(ValueError, match="not a valid value for ls"):
+        ax.plot([1, 2], [1, 2], linestyle='loosely dashed')
     plt.close('all')
 
 
@@ -262,7 +260,8 @@ class TestArtistExtendedProperties:
 
     def test_set_rasterized(self):
         a = Artist()
-        a.set_rasterized(True)
+        with pytest.warns(UserWarning, match="Rasterization .* will be ignored"):
+            a.set_rasterized(True)
         assert a.get_rasterized() is True
 
     def test_sketch_params_default_none(self):

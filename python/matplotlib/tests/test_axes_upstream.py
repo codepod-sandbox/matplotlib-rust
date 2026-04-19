@@ -1593,7 +1593,10 @@ def test_fill_between_advances_color_cycle():
     # They should have different facecolors (different cycle entries)
     fc1 = poly1.get_facecolor()
     fc2 = poly2.get_facecolor()
-    assert not np.allclose(np.asarray(fc1), np.asarray(fc2))
+    if plt.rcParams["_internal.classic_mode"]:
+        assert np.allclose(np.asarray(fc1), np.asarray(fc2))
+    else:
+        assert not np.allclose(np.asarray(fc1), np.asarray(fc2))
 
 
 def test_hist_multiple_datasets():

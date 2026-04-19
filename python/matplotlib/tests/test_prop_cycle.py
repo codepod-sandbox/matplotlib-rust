@@ -4,6 +4,7 @@ import itertools
 
 import pytest
 
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.cycler import cycler, Cycler
 
@@ -48,7 +49,7 @@ class TestPropCycle:
         ax.set_prop_cycle(None)
         # After reset, should use default cycle
         c = ax._next_color()
-        assert c.startswith('#')  # default cycle is hex
+        assert c == next(iter(plt.rcParams['axes.prop_cycle']))['color']
 
     def test_set_prop_cycle_cycler_object(self):
         ax = self._make_axes()
@@ -93,7 +94,8 @@ class TestPropCycleEdgeCases:
         # Use concrete hex colors instead
         from matplotlib.colors import to_hex
         import matplotlib as mpl
-        resolved = [to_hex(mpl.rcParams['axes.prop_cycle'].by_key()['color'][i % 10]) for i in range(10)]
+        default_colors = mpl.rcParams['axes.prop_cycle'].by_key()['color']
+        resolved = [to_hex(default_colors[i % len(default_colors)]) for i in range(10)]
         ax.set_prop_cycle(color=resolved)
         for c in resolved:
             assert to_hex(ax._next_color()) == c

@@ -5,6 +5,7 @@
 /// are extracted as 3×3 affine matrices.
 use ndarray::{Array1, Array2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
+use pyo3::conversion::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 
@@ -115,6 +116,55 @@ fn apply_transform_pt(x: f64, y: f64, m: &Array2<f64>) -> (f64, f64) {
     let tx = m[[0, 0]] * x + m[[0, 1]] * y + m[[0, 2]];
     let ty = m[[1, 0]] * x + m[[1, 1]] * y + m[[1, 2]];
     (tx, ty)
+}
+
+fn clip_line_to_rect(
+    p0: [f64; 2],
+    p1: [f64; 2],
+    rect: [f64; 4],
+) -> Option<([f64; 2], [f64; 2])> {
+    let [x_min, y_min, x_max, y_max] = rect;
+    let dx = p1[0] - p0[0];
+    let dy = p1[1] - p0[1];
+    let p = [-dx, dx, -dy, dy];
+    let q = [
+        p0[0] - x_min,
+        x_max - p0[0],
+        p0[1] - y_min,
+        y_max - p0[1],
+    ];
+    let mut t0 = 0.0;
+    let mut t1 = 1.0;
+
+    for i in 0..4 {
+        if p[i].abs() < 1e-12 {
+            if q[i] < 0.0 {
+                return None;
+            }
+            continue;
+        }
+        let t = q[i] / p[i];
+        if p[i] < 0.0 {
+            if t > t1 {
+                return None;
+            }
+            if t > t0 {
+                t0 = t;
+            }
+        } else {
+            if t < t0 {
+                return None;
+            }
+            if t < t1 {
+                t1 = t;
+            }
+        }
+    }
+
+    Some((
+        [p0[0] + t0 * dx, p0[1] + t0 * dy],
+        [p0[0] + t1 * dx, p0[1] + t1 * dy],
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -383,24 +433,77 @@ fn cleanup_path<'py>(
     }
 
     // Clip to rect if provided
-    if !clip_rect.is_none() {
+    let has_curves = codes.iter().any(|code| matches!(*code, CURVE3 | CURVE4));
+
+    if !clip_rect.is_none() && !has_curves {
         // Extract clip rect as [x1, y1, x2, y2]
         let clip: Option<[f64; 4]> = extract_rect(clip_rect).ok();
         if let Some([rx1, ry1, rx2, ry2]) = clip {
+            let clip_vals = [rx1, ry1, rx2, ry2];
             let n2 = verts.nrows();
-            let mut new_verts: Vec<[f64; 2]> = Vec::with_capacity(n2);
-            let mut new_codes: Vec<u8> = Vec::with_capacity(n2);
+            let mut new_verts: Vec<[f64; 2]> = Vec::with_capacity(n2 * 2);
+            let mut new_codes: Vec<u8> = Vec::with_capacity(n2 * 2);
+            let mut current: Option<[f64; 2]> = None;
+            let mut subpath_start: Option<[f64; 2]> = None;
+            let mut last_emitted: Option<[f64; 2]> = None;
+
             for i in 0..n2 {
-                let x = verts[[i, 0]];
-                let y = verts[[i, 1]];
-                let code = codes[i];
-                if x >= rx1 && x <= rx2 && y >= ry1 && y <= ry2 {
-                    new_verts.push([x, y]);
-                    new_codes.push(code);
-                } else if code == MOVETO {
-                    // Keep MOVETO for continuity (will be skipped visually)
-                    new_verts.push([x, y]);
-                    new_codes.push(MOVETO);
+                let point = [verts[[i, 0]], verts[[i, 1]]];
+                match codes[i] {
+                    MOVETO => {
+                        current = Some(point);
+                        subpath_start = Some(point);
+                        last_emitted = None;
+                    }
+                    LINETO | CLOSEPOLY => {
+                        let start = if let Some(start) = current {
+                            start
+                        } else {
+                            current = Some(point);
+                            subpath_start = Some(point);
+                            continue;
+                        };
+                        let end = if codes[i] == CLOSEPOLY {
+                            subpath_start.unwrap_or(start)
+                        } else {
+                            point
+                        };
+                        current = Some(end);
+
+                        if let Some((clipped_start, clipped_end)) =
+                            clip_line_to_rect(start, end, clip_vals)
+                        {
+                            let same_as_last = match last_emitted {
+                                Some(last) => {
+                                    (last[0] - clipped_start[0]).abs() <= 1e-12
+                                        && (last[1] - clipped_start[1]).abs() <= 1e-12
+                                }
+                                None => false,
+                            };
+                            if !same_as_last {
+                                new_verts.push(clipped_start);
+                                new_codes.push(MOVETO);
+                            }
+                            if !same_as_last
+                                || (clipped_start[0] - clipped_end[0]).abs() > 1e-12
+                                || (clipped_start[1] - clipped_end[1]).abs() > 1e-12
+                            {
+                                new_verts.push(clipped_end);
+                                new_codes.push(LINETO);
+                                last_emitted = Some(clipped_end);
+                            } else {
+                                last_emitted = Some(clipped_start);
+                            }
+                        } else if codes[i] == CLOSEPOLY {
+                            last_emitted = None;
+                        }
+                    }
+                    _ => {
+                        new_verts.push(point);
+                        new_codes.push(codes[i]);
+                        current = Some(point);
+                        last_emitted = Some(point);
+                    }
                 }
             }
             let m2 = new_verts.len();
@@ -446,6 +549,13 @@ fn extract_rect(obj: &Bound<'_, PyAny>) -> PyResult<[f64; 4]> {
             if lst.len() >= 4 {
                 return Ok([lst[0], lst[1], lst[2], lst[3]]);
             }
+        }
+    }
+    // Try a 2x2 array of points [[x0, y0], [x1, y1]].
+    if let Ok(arr) = obj.extract::<PyReadonlyArray2<f64>>() {
+        let arr = arr.as_array();
+        if arr.nrows() >= 2 && arr.ncols() >= 2 {
+            return Ok([arr[[0, 0]], arr[[0, 1]], arr[[1, 0]], arr[[1, 1]]]);
         }
     }
     // Try direct x0/y0/x1/y1 attributes
@@ -954,10 +1064,10 @@ fn intersection(p1: (f64, f64), p2: (f64, f64), is_x: bool, bound: f64) -> (f64,
     }
 }
 
-/// update_path_extents(path, trans, rect, minpos, ignore) -> (extents, minpos)
+/// update_path_extents(path, trans, rect, minpos, ignore) -> (points, minpos, changed)
 ///
 /// Update a bounding box with the extents of a transformed path.
-/// Returns (new_extents_4, new_minpos_2).
+/// Returns (new_points_2x2, new_minpos_2, changed_bool).
 #[pyfunction]
 fn update_path_extents<'py>(
     py: Python<'py>,
@@ -980,6 +1090,10 @@ fn update_path_extents<'py>(
     let mut ymax: f64;
     let mut min_x: f64;
     let mut min_y: f64;
+    let old_points = match extract_rect(rect) {
+        Ok([r0, r1, r2, r3]) => [[r0, r1], [r2, r3]],
+        Err(_) => [[f64::INFINITY, f64::INFINITY], [f64::NEG_INFINITY, f64::NEG_INFINITY]],
+    };
 
     if ignore {
         xmin = f64::INFINITY;
@@ -1008,12 +1122,14 @@ fn update_path_extents<'py>(
     min_y = mp[1];
 
     let n = verts.nrows();
+    let mut saw_finite = false;
     for i in 0..n {
         let x = verts[[i, 0]];
         let y = verts[[i, 1]];
         if x.is_nan() || y.is_nan() {
             continue;
         }
+        saw_finite = true;
         if x < xmin {
             xmin = x;
         }
@@ -1034,16 +1150,28 @@ fn update_path_extents<'py>(
         }
     }
 
-    if xmin > xmax {
-        xmin = 0.0;
-        xmax = 0.0;
-        ymin = 0.0;
-        ymax = 0.0;
+    if !saw_finite {
+        xmin = old_points[0][0];
+        ymin = old_points[0][1];
+        xmax = old_points[1][0];
+        ymax = old_points[1][1];
     }
 
-    let extents = Array1::from_vec(vec![xmin, ymin, xmax, ymax]).into_pyarray(py);
+    let new_points = Array2::from_shape_vec((2, 2), vec![xmin, ymin, xmax, ymax])
+        .expect("2x2 extents array shape should be valid")
+        .into_pyarray(py);
     let new_minpos = Array1::from_vec(vec![min_x, min_y]).into_pyarray(py);
-    Ok(PyTuple::new(py, [extents.as_any(), new_minpos.as_any()])?)
+    let changed = ignore
+        || xmin != old_points[0][0]
+        || ymin != old_points[0][1]
+        || xmax != old_points[1][0]
+        || ymax != old_points[1][1]
+        || min_x != mp[0]
+        || min_y != mp[1];
+    Ok(PyTuple::new(
+        py,
+        [new_points.as_any(), new_minpos.as_any(), changed.into_bound_py_any(py)?.as_any()],
+    )?)
 }
 
 /// get_path_collection_extents(master_transform, paths, transforms, offsets, offset_transform)

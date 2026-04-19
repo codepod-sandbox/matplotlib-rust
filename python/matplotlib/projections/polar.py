@@ -114,6 +114,18 @@ class PolarTransform(mtransforms.Transform):
                     if self._use_rmin and self._axis is not None:
                         r = ((r - self._get_rorigin())
                              * self._axis.get_rsign())
+                    span = td - last_td
+                    if abs(span) >= 360:
+                        if span >= 0:
+                            arc = Path.arc(last_td, last_td + 360)
+                            xys.extend(arc.vertices[1:] * r)
+                        else:
+                            arc = Path.arc(last_td - 360, last_td)
+                            xys.extend(arc.vertices[::-1][1:] * r)
+                        codes.extend(arc.codes[1:])
+                        last_td = td
+                        last_t, last_r = trs[-1]
+                        continue
                     if last_td <= td:
                         while td - last_td > 360:
                             arc = Path.arc(last_td, last_td + 360)
@@ -720,9 +732,16 @@ class RadialAxis(maxis.YAxis):
         self.sticky_edges.y.append(0)
 
     def _wrap_locator_formatter(self):
-        self.set_major_locator(RadialLocator(self.get_major_locator(),
-                                             self.axes))
+        locator = self.get_major_locator()
+        if isinstance(locator, RadialLocator):
+            locator = locator.base
+        self.set_major_locator(RadialLocator(locator, self.axes))
         self.isDefault_majloc = True
+
+    def set_major_locator(self, locator):
+        if not isinstance(locator, RadialLocator):
+            locator = RadialLocator(locator, self.axes)
+        super().set_major_locator(locator)
 
     def clear(self):
         # docstring inherited
@@ -766,26 +785,30 @@ class _WedgeBbox(mtransforms.Bbox):
     originLim : `~matplotlib.transforms.Bbox`
         Bbox determining the origin for the wedge, if different from *viewLim*
     """
-    def __init__(self, center, viewLim, originLim, **kwargs):
+    def __init__(self, center, viewLim, originLim, scale_transform, **kwargs):
         super().__init__([[0, 0], [1, 1]], **kwargs)
         self._center = center
         self._viewLim = viewLim
         self._originLim = originLim
-        self.set_children(viewLim, originLim)
+        self._scale_transform = scale_transform
+        self.set_children(viewLim, originLim, scale_transform)
 
-    __str__ = mtransforms._make_str_method("_center", "_viewLim", "_originLim")
+    __str__ = mtransforms._make_str_method(
+        "_center", "_viewLim", "_originLim", "_scale_transform")
 
     def get_points(self):
         # docstring inherited
         if self._invalid:
-            points = self._viewLim.get_points().copy()
+            points = self._viewLim.transformed(
+                self._scale_transform).get_points().copy()
             # Scale angular limits to work with Wedge.
             points[:, 0] *= 180 / np.pi
             if points[0, 0] > points[1, 0]:
                 points[:, 0] = points[::-1, 0]
 
             # Scale radial limits based on origin radius.
-            points[:, 1] -= self._originLim.y0
+            points[:, 1] -= self._scale_transform.transform(
+                (0, self._originLim.y0))[1]
 
             # Scale radial limits to match axes limits.
             rscale = 0.5 / points[1, 1]
@@ -882,8 +905,8 @@ class PolarAxes(Axes):
         # Scale view limit into a bbox around the selected wedge. This may be
         # smaller than the usual unit axes rectangle if not plotting the full
         # circle.
-        self.axesLim = _WedgeBbox((0.5, 0.5),
-                                  self._realViewLim, self._originViewLim)
+        self.axesLim = _WedgeBbox(
+            (0.5, 0.5), self._realViewLim, self._originViewLim, self.transScale)
 
         # Scale the wedge to fill the axes.
         self.transWedge = mtransforms.BboxTransformFrom(self.axesLim)
@@ -1002,8 +1025,10 @@ class PolarAxes(Axes):
         thetamin, thetamax = np.rad2deg(self._realViewLim.intervalx)
         if thetamin > thetamax:
             thetamin, thetamax = thetamax, thetamin
-        rmin, rmax = ((self._realViewLim.intervaly - self.get_rorigin()) *
-                      self.get_rsign())
+        rorigin = self.transScale.transform((0, self.get_rorigin()))[1]
+        rmin, rmax = (
+            (self._realViewLim.transformed(self.transScale).intervaly - rorigin)
+            * self.get_rsign())
         if isinstance(self.patch, mpatches.Wedge):
             # Backwards-compatibility: Any subclassed Axes might override the
             # patch to not be the Wedge that PolarAxes uses.
@@ -1285,8 +1310,11 @@ class PolarAxes(Axes):
 
     def set_yscale(self, *args, **kwargs):
         super().set_yscale(*args, **kwargs)
-        self.yaxis.set_major_locator(
-            self.RadialLocator(self.yaxis.get_major_locator(), self))
+        locator = self.yaxis.get_major_locator()
+        if not isinstance(locator, self.RadialLocator):
+            locator = self.RadialLocator(locator, self)
+        self.yaxis.set_major_locator(locator)
+        self.yaxis.isDefault_majloc = True
 
     def set_rscale(self, *args, **kwargs):
         return Axes.set_yscale(self, *args, **kwargs)

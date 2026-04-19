@@ -8,6 +8,7 @@ parse_fmt.
 import math
 import numpy as np
 import pytest
+import matplotlib as mpl
 
 from matplotlib.colors import (
     CSS4_COLORS,
@@ -65,9 +66,10 @@ class TestColorNames:
 
     def test_cn_colors(self):
         """CN cycle colors C0..C9 resolve to the default color cycle."""
-        assert to_hex('C0') == '#1f77b4'
-        assert to_hex('C1') == '#ff7f0e'
-        assert to_hex('C9') == '#17becf'
+        colors = mpl.rcParams['axes.prop_cycle'].by_key().get('color', [])
+        assert to_hex('C0') == to_hex(colors[0])
+        assert to_hex('C1') == to_hex(colors[1])
+        assert to_hex('C9') == to_hex(colors[9 % len(colors)])
 
 
 # ===================================================================

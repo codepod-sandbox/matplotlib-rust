@@ -473,6 +473,12 @@ class Collection(mcolorizer.ColorizingArtist):
         if self.axes:
             self.axes._unstale_viewLim()
         transform, offset_trf, offsets, paths = self._prepare_points()
+        transforms = np.asarray(self.get_transforms(), dtype=float)
+        if transforms.size == 0:
+            transforms = np.empty((0, 0), dtype=float)
+        else:
+            transforms = np.reshape(np.atleast_3d(transforms), (-1, 3))
+        offsets = np.asarray(offsets, dtype=float)
         # Tests if the point is contained on one of the polygons formed
         # by the control points of each of the paths. A point is considered
         # "on" a path if it would lie within a stroke of width 2*pickradius
@@ -480,7 +486,7 @@ class Collection(mcolorizer.ColorizingArtist):
         # if the point is *inside* of the path instead.
         ind = _path.point_in_path_collection(
             mouseevent.x, mouseevent.y, pickradius,
-            transform.frozen(), paths, self.get_transforms(),
+            transform.frozen(), paths, transforms,
             offsets, offset_trf, pickradius <= 0)
         return len(ind) > 0, dict(ind=ind)
 

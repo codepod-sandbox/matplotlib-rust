@@ -127,16 +127,18 @@ pub fn extract_path_verts_codes<'py>(
 /// affine transform and a final y-flip (matplotlib origin is bottom-left,
 /// tiny-skia / PNG origin is top-left).
 ///
-/// When `snap` is `true`, each transformed vertex is snapped to the nearest
-/// pixel centre (half-integer coordinate) so that 1-px axis lines render
-/// crisp and unblurred.
+/// When `snap_mode` is `Some(true)` / `Some(false)`, snapping is forced on /
+/// off. When it is `None`, upstream-style auto snapping is applied: paths
+/// made only of horizontal / vertical line segments are snapped, with the
+/// exact snap offset depending on the rounded stroke width parity.
 ///
 /// Returns `None` if the path has no drawable segments after translation.
 pub fn path_to_tiny_skia(
     path: &Bound<'_, PyAny>,
     transform: Affine,
     canvas_height: f64,
-    snap: bool,
+    snap_mode: Option<bool>,
+    stroke_width: f32,
 ) -> PyResult<Option<Path>> {
     let (verts_arr, codes_arr) = extract_path_verts_codes(path)?;
     let verts = verts_arr.as_array();
@@ -145,20 +147,79 @@ pub fn path_to_tiny_skia(
         return Ok(None);
     }
 
+    let total_vertices = n;
+    let auto_should_snap = || -> bool {
+        if total_vertices > 1024 {
+            return false;
+        }
+        if let Some(codes) = &codes_arr {
+            let codes = codes.as_array();
+            let mut last = None::<(f64, f64)>;
+            for i in 0..n {
+                match codes[i] {
+                    STOP => break,
+                    MOVETO => {
+                        last = Some((verts[[i, 0]], verts[[i, 1]]));
+                    }
+                    LINETO => {
+                        let Some((x0, y0)) = last else {
+                            last = Some((verts[[i, 0]], verts[[i, 1]]));
+                            continue;
+                        };
+                        let x1 = verts[[i, 0]];
+                        let y1 = verts[[i, 1]];
+                        if (x0 - x1).abs() >= 1e-4 && (y0 - y1).abs() >= 1e-4 {
+                            return false;
+                        }
+                        last = Some((x1, y1));
+                    }
+                    CURVE3 | CURVE4 => return false,
+                    CLOSEPOLY => {}
+                    _ => {}
+                }
+            }
+            true
+        } else {
+            for i in 1..n {
+                let x0 = verts[[i - 1, 0]];
+                let y0 = verts[[i - 1, 1]];
+                let x1 = verts[[i, 0]];
+                let y1 = verts[[i, 1]];
+                if (x0 - x1).abs() >= 1e-4 && (y0 - y1).abs() >= 1e-4 {
+                    return false;
+                }
+            }
+            true
+        }
+    };
+    let snap_offset = match snap_mode {
+        Some(true) => Some(if (stroke_width.round() as i32) % 2 != 0 {
+            0.5
+        } else {
+            0.0
+        }),
+        Some(false) => None,
+        None => {
+            if auto_should_snap() {
+                Some(if (stroke_width.round() as i32) % 2 != 0 {
+                    0.5
+                } else {
+                    0.0
+                })
+            } else {
+                None
+            }
+        }
+    };
+
     let mut pb = PathBuilder::new();
     let mut pen_x: f64 = 0.0;
     let mut pen_y: f64 = 0.0;
     let mut has_move = false;
 
-    // When snapping, round each coordinate to the nearest pixel centre.
-    // In tiny-skia's coordinate system, pixel (i) occupies [i, i+1) and its
-    // centre is at i + 0.5.  A 1-px line at an integer coordinate straddles
-    // two pixels and antialiases into both; at a half-integer it sits squarely
-    // inside one pixel → crisp axis/tick lines.
-    // Formula: floor(v) + 0.5  maps any v to the centre of its containing pixel.
     let snap_coord = |v: f64| -> f64 {
-        if snap {
-            v.floor() + 0.5
+        if let Some(offset) = snap_offset {
+            (v + 0.5).floor() + offset
         } else {
             v
         }
@@ -175,20 +236,34 @@ pub fn path_to_tiny_skia(
     if let Some(codes) = codes_arr {
         let codes = codes.as_array();
         let mut i = 0usize;
+        let mut pending_move = false;
         while i < n {
             let code = codes[i];
             match code {
                 STOP => break,
                 MOVETO => {
+                    if verts[[i, 0]].is_nan() || verts[[i, 1]].is_nan() {
+                        has_move = false;
+                        pending_move = true;
+                        i += 1;
+                        continue;
+                    }
                     let (x, y) = apply(verts[[i, 0]], verts[[i, 1]]);
                     pb.move_to(x, y);
                     pen_x = verts[[i, 0]];
                     pen_y = verts[[i, 1]];
                     has_move = true;
+                    pending_move = false;
                     i += 1;
                 }
                 LINETO => {
-                    if !has_move {
+                    if verts[[i, 0]].is_nan() || verts[[i, 1]].is_nan() {
+                        has_move = false;
+                        pending_move = true;
+                        i += 1;
+                        continue;
+                    }
+                    if !has_move || pending_move {
                         let (x, y) = apply(verts[[i, 0]], verts[[i, 1]]);
                         pb.move_to(x, y);
                         has_move = true;
@@ -198,11 +273,22 @@ pub fn path_to_tiny_skia(
                     }
                     pen_x = verts[[i, 0]];
                     pen_y = verts[[i, 1]];
+                    pending_move = false;
                     i += 1;
                 }
                 CURVE3 => {
                     if i + 1 >= n {
                         break;
+                    }
+                    if verts[[i, 0]].is_nan()
+                        || verts[[i, 1]].is_nan()
+                        || verts[[i + 1, 0]].is_nan()
+                        || verts[[i + 1, 1]].is_nan()
+                    {
+                        has_move = false;
+                        pending_move = true;
+                        i += 2;
+                        continue;
                     }
                     if !has_move {
                         let (x0, y0) = apply(pen_x, pen_y);
@@ -220,6 +306,18 @@ pub fn path_to_tiny_skia(
                     if i + 2 >= n {
                         break;
                     }
+                    if verts[[i, 0]].is_nan()
+                        || verts[[i, 1]].is_nan()
+                        || verts[[i + 1, 0]].is_nan()
+                        || verts[[i + 1, 1]].is_nan()
+                        || verts[[i + 2, 0]].is_nan()
+                        || verts[[i + 2, 1]].is_nan()
+                    {
+                        has_move = false;
+                        pending_move = true;
+                        i += 3;
+                        continue;
+                    }
                     if !has_move {
                         let (x0, y0) = apply(pen_x, pen_y);
                         pb.move_to(x0, y0);
@@ -236,6 +334,7 @@ pub fn path_to_tiny_skia(
                 CLOSEPOLY => {
                     pb.close();
                     has_move = false;
+                    pending_move = false;
                     i += 1;
                 }
                 _ => {
@@ -246,11 +345,27 @@ pub fn path_to_tiny_skia(
         }
     } else {
         // codes=None: implicit MOVETO(v[0]) + LINETO(v[1..])
-        let (x, y) = apply(verts[[0, 0]], verts[[0, 1]]);
-        pb.move_to(x, y);
-        for i in 1..n {
-            let (lx, ly) = apply(verts[[i, 0]], verts[[i, 1]]);
-            pb.line_to(lx, ly);
+        let mut has_move = false;
+        let mut has_drawn = false;
+        for i in 0..n {
+            let vx = verts[[i, 0]];
+            let vy = verts[[i, 1]];
+            if vx.is_nan() || vy.is_nan() {
+                has_move = false;
+                continue;
+            }
+            let (x, y) = apply(vx, vy);
+            if !has_move {
+                pb.move_to(x, y);
+                has_move = true;
+                has_drawn = true;
+            } else {
+                pb.line_to(x, y);
+                has_drawn = true;
+            }
+        }
+        if !has_drawn {
+            return Ok(None);
         }
     }
 

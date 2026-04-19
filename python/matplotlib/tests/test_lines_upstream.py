@@ -8,6 +8,7 @@ rendering infrastructure or APIs we haven't implemented are omitted.
 
 import pytest
 
+import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 
@@ -95,11 +96,11 @@ def test_set_data():
 # ---------------------------------------------------------------------------
 def test_line_defaults():
     line = Line2D([], [])
-    assert line.get_linewidth() == 1.5
-    assert line.get_linestyle() == '-'
-    assert line.get_marker() == 'None'
-    assert line.get_markersize() == 6.0
-    assert line.get_fillstyle() == 'full'
+    assert line.get_linewidth() == plt.rcParams['lines.linewidth']
+    assert line.get_linestyle() == plt.rcParams['lines.linestyle']
+    assert line.get_marker() == plt.rcParams['lines.marker']
+    assert line.get_markersize() == plt.rcParams['lines.markersize']
+    assert line.get_fillstyle() == plt.rcParams['markers.fillstyle']
     assert line.get_drawstyle() == 'default'
     assert line.zorder == 2
 
@@ -381,18 +382,18 @@ def test_line_marker_set():
 
 
 def test_line_marker_none():
-    """Default marker is 'None'."""
+    """Default marker follows rcParams."""
     line = Line2D([0, 1], [0, 1])
-    assert line.get_marker() == 'None'
+    assert line.get_marker() == plt.rcParams['lines.marker']
 
 
 # ---------------------------------------------------------------------------
 # Line2D markersize
 # ---------------------------------------------------------------------------
 def test_line_markersize_default():
-    """Default markersize is 6.0."""
+    """Default markersize follows rcParams."""
     line = Line2D([0, 1], [0, 1])
-    assert line.get_markersize() == 6.0
+    assert line.get_markersize() == plt.rcParams['lines.markersize']
 
 
 def test_line_markersize_set():
@@ -941,10 +942,10 @@ def test_line2d_set_dashes():
 
 
 def test_line_fillstyle_default():
-    """Line2D default fillstyle is 'full'."""
+    """Line2D default fillstyle follows rcParams."""
     from matplotlib.lines import Line2D
     line = Line2D([0], [0])
-    assert line.get_fillstyle() == 'full'
+    assert line.get_fillstyle() == plt.rcParams['markers.fillstyle']
 
 
 def test_line_fillstyle_none():
@@ -1058,7 +1059,6 @@ class TestLine2DInAxes:
         assert len(ax.lines) == n
         plt.close('all')
 
-    @pytest.mark.xfail(reason="ft2font not implemented in Phase 0; SVG rendering requires Phase 2")
     def test_line_in_svg(self):
         import io
         fig, ax = plt.subplots()

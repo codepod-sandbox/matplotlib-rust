@@ -16,7 +16,8 @@ from weakref import WeakValueDictionary
 import numpy as np
 
 import matplotlib as mpl
-from . import _api, _path
+from . import _api
+import _path
 from .cbook import _to_unmasked_float_array, simple_linear_interpolation
 from .bezier import BezierSegment
 
@@ -1128,7 +1129,13 @@ def get_path_collection_extents(
         raise ValueError("No paths provided")
     if len(offsets) == 0:
         raise ValueError("No offsets provided")
+    transforms = np.asarray(transforms, dtype=float)
+    if transforms.size == 0:
+        transforms = np.empty((0, 0), dtype=float)
+    else:
+        transforms = np.reshape(np.atleast_3d(transforms), (-1, 3))
+    offsets = np.asarray(offsets, dtype=float)
     extents, minpos = _path.get_path_collection_extents(
-        master_transform, paths, np.atleast_3d(transforms),
+        master_transform, paths, transforms,
         offsets, offset_transform)
     return Bbox.from_extents(*extents, minpos=minpos)

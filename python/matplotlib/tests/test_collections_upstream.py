@@ -425,21 +425,21 @@ class TestCollectionBase:
         # Use PathCollection as concrete subclass
         from matplotlib.collections import PathCollection
         pc = PathCollection()
-        assert pc.get_linewidths() == [1.0]
+        assert _arr_eq(pc.get_linewidths(), [1.0])
 
     def test_set_linewidth_scalar(self):
         """set_linewidth with scalar stores as list."""
         from matplotlib.collections import PathCollection
         pc = PathCollection()
         pc.set_linewidth(2.5)
-        assert pc.get_linewidths() == [2.5]
+        assert _arr_eq(pc.get_linewidths(), [2.5])
 
     def test_set_linewidths_list(self):
         """set_linewidths with list stores all values."""
         from matplotlib.collections import PathCollection
         pc = PathCollection()
         pc.set_linewidths([1.0, 2.0, 3.0])
-        assert pc.get_linewidths() == [1.0, 2.0, 3.0]
+        assert _arr_eq(pc.get_linewidths(), [1.0, 2.0, 3.0])
 
     def test_default_linestyles(self):
         """Collection default linestyles (OG returns (offset, dashes) tuples)."""

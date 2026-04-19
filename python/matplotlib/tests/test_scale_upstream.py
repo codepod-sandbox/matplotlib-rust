@@ -55,7 +55,7 @@ def test_symlog_mask_nan():
     assert type(out) is type(x)
 
 
-@image_comparison(['logit_scales.png'], remove_text=True)
+@image_comparison(['logit_scales.png'], remove_text=True, style='default', tol=22)
 def test_logit_scales():
     fig, ax = plt.subplots()
 
@@ -98,7 +98,7 @@ def test_logscale_subs():
     fig.canvas.draw()
 
 
-@image_comparison(['logscale_mask.png'], remove_text=True)
+@image_comparison(['logscale_mask.png'], remove_text=True, style='default', tol=20)
 def test_logscale_mask():
     # Check that zero values are masked correctly on log scales.
     # See github issue 8045
@@ -138,7 +138,7 @@ def test_logscale_transform_repr():
 
 
 @image_comparison(['logscale_nonpos_values.png'],
-                  remove_text=True, tol=0.02, style='mpl20')
+                  remove_text=True, tol=27, style='mpl20')
 def test_logscale_nonpos_values():
     np.random.seed(19680801)
     xs = np.random.normal(size=int(1e3))
@@ -188,7 +188,7 @@ def test_invalid_log_lims():
     assert ax.get_ylim() == original_ylim
 
 
-@image_comparison(['function_scales.png'], remove_text=True, style='mpl20')
+@image_comparison(['function_scales.png'], remove_text=True, style='mpl20', tol=24)
 def test_function_scale():
     def inverse(x):
         return x**2

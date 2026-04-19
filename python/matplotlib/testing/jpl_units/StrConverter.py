@@ -27,7 +27,14 @@ class StrConverter(units.ConversionInterface):
     def convert(value, unit, axis):
         # docstring inherited
 
-        if value == []:
+        scalar_value = False
+        if isinstance(value, np.ndarray):
+            if value.size == 0:
+                return []
+            if value.ndim == 0:
+                value = value.item()
+                scalar_value = True
+        elif value == []:
             return []
 
         # we delay loading to make matplotlib happy
@@ -47,8 +54,9 @@ class StrConverter(units.ConversionInterface):
             ticks = []
             labels = []
 
-        if not np.iterable(value):
+        if isinstance(value, (str, bytes)) or not np.iterable(value):
             value = [value]
+            scalar_value = True
 
         newValues = []
         for v in value:
@@ -86,6 +94,8 @@ class StrConverter(units.ConversionInterface):
             ax.set_ylim(ticks[0], ticks[-1])
 
         result = [ticks[labels.index(v)] for v in value]
+        if scalar_value:
+            return result[0]
 
         ax.viewLim.ignore(-1)
         return result

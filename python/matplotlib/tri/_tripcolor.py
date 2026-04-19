@@ -77,6 +77,11 @@ def tripcolor(ax, *args, alpha=1.0, norm=None, cmap=None, vmin=None,
     """
     _api.check_in_list(['flat', 'gouraud'], shading=shading)
 
+    if not isinstance(args[0], Triangulation):
+        x, y, *rest = args
+        args = (np.asarray(ax.convert_xunits(x)),
+                np.asarray(ax.convert_yunits(y)), *rest)
+
     tri, args, kwargs = Triangulation.get_from_args_and_kwargs(*args, **kwargs)
 
     # Parse the color to be in one of (the other variable will be None):

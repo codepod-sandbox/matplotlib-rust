@@ -12,7 +12,9 @@ Phase 1A pass criterion: all tests in this file pass.
 import numpy as np
 import pytest
 
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.backends import _backend_agg
+from matplotlib.figure import Figure
 
 
 def test_extension_loaded():
@@ -90,6 +92,16 @@ def test_draw_text_image_does_not_raise_on_ndarray():
             return None
 
     r.draw_text_image(bitmap, 10, 10, 0.0, MinimalGC())
+
+
+def test_figure_mathtext_draws_visible_pixels():
+    """The backend_agg Python wrapper must blit mathtext FT2Image output."""
+    fig = Figure(figsize=(2, 1), dpi=100)
+    canvas = FigureCanvasAgg(fig)
+    fig.text(0.5, 0.5, r'$a+b$', ha='center', va='center')
+    canvas.draw()
+    arr = np.asarray(canvas.buffer_rgba())
+    assert (arr[:, :, :3] < 250).any(), "expected visible mathtext pixels"
 
 
 def test_region_lifecycle_noop():

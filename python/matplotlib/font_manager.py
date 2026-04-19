@@ -40,6 +40,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import inspect
 import subprocess
 import sys
 import threading
@@ -170,6 +171,10 @@ OSXFontDirectories = [
     # user fonts
     str(_HOME / "Library/Fonts"),
 ]
+
+
+def _normalize_weight(weight):
+    return weight if isinstance(weight, Number) else weight_dict[weight]
 
 
 def get_fontext_synonyms(fontext):
@@ -306,6 +311,52 @@ def findSystemFonts(fontpaths=None, fontext='ttf'):
     return [fname for fname in fontfiles if os.path.exists(fname)]
 
 
+class FontPath(str):
+    """
+    A class to describe a path to a font with a face index.
+    """
+
+    __match_args__ = ('path', 'face_index')
+
+    def __new__(cls, path, face_index):
+        ret = super().__new__(cls, path)
+        ret._face_index = face_index
+        return ret
+
+    @property
+    def path(self):
+        return str(self)
+
+    @property
+    def face_index(self):
+        return self._face_index
+
+    def _as_tuple(self):
+        return (self.path, self.face_index)
+
+    def __eq__(self, other):
+        if isinstance(other, FontPath):
+            return self._as_tuple() == other._as_tuple()
+        return super().__eq__(other)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __lt__(self, other):
+        if isinstance(other, FontPath):
+            return self._as_tuple() < other._as_tuple()
+        return super().__lt__(other)
+
+    def __gt__(self, other):
+        return not (self == other or self < other)
+
+    def __hash__(self):
+        return hash(self._as_tuple())
+
+    def __repr__(self):
+        return f"FontPath{self._as_tuple()}"
+
+
 @dataclasses.dataclass(frozen=True)
 class FontEntry:
     """
@@ -315,6 +366,7 @@ class FontEntry:
     """
 
     fname: str = ''
+    index: int = 0
     name: str = ''
     style: str = 'normal'
     variant: str = 'normal'
@@ -379,7 +431,7 @@ def ttfFontProperty(font):
         style = 'italic'
     elif sfnt2.find('regular') >= 0:
         style = 'normal'
-    elif ft2font.StyleFlags.ITALIC in font.style_flags:
+    elif font.style_flags & ft2font.StyleFlags.ITALIC:
         style = 'italic'
     else:
         style = 'normal'
@@ -428,7 +480,7 @@ def ttfFontProperty(font):
             for regex, weight in _weight_regexes:
                 if re.search(regex, style, re.I):
                     return weight
-        if ft2font.StyleFlags.BOLD in font.style_flags:
+        if font.style_flags & ft2font.StyleFlags.BOLD:
             return 700  # "bold"
         return 500  # "medium", not "regular"!
 
@@ -461,7 +513,50 @@ def ttfFontProperty(font):
         raise NotImplementedError("Non-scalable fonts are not supported")
     size = 'scalable'
 
-    return FontEntry(font.fname, name, style, variant, weight, stretch, size)
+    return FontEntry(font.fname, getattr(font, "face_index", 0),
+                     name, style, variant, weight, stretch, size)
+
+
+def _get_font_alt_names(font, primary_name):
+    """
+    Return ``(name, weight)`` pairs for alternate family names of *font*.
+    """
+    try:
+        sfnt = font.get_sfnt()
+    except ValueError:
+        return []
+
+    mac_key = (1, 0, 0)
+    ms_key = (3, 1, 0x0409)
+
+    seen = {primary_name}
+    result = []
+
+    def _weight_from_subfam(subfam):
+        subfam = subfam.replace(" ", "")
+        for regex, weight in _weight_regexes:
+            if re.search(regex, subfam, re.I):
+                return weight
+        return 400
+
+    def _try_add(name, subfam):
+        name = name.strip()
+        if not name or name in seen:
+            return
+        seen.add(name)
+        result.append((name, _weight_from_subfam(subfam.strip())))
+
+    for fam_id, subfam_id in ((1, 2), (16, 17), (21, 22)):
+        _try_add(
+            sfnt.get((*mac_key, fam_id), b'').decode('latin-1'),
+            sfnt.get((*mac_key, subfam_id), b'').decode('latin-1'),
+        )
+        _try_add(
+            sfnt.get((*ms_key, fam_id), b'').decode('utf-16-be'),
+            sfnt.get((*ms_key, subfam_id), b'').decode('utf-16-be'),
+        )
+
+    return result
 
 
 def afmFontProperty(fontpath, font):
@@ -531,7 +626,7 @@ def afmFontProperty(fontpath, font):
 
     size = 'scalable'
 
-    return FontEntry(fontpath, name, style, variant, weight, stretch, size)
+    return FontEntry(fontpath, 0, name, style, variant, weight, stretch, size)
 
 
 def _cleanup_fontproperties_init(init_method):
@@ -1071,7 +1166,7 @@ class FontManager:
     # Increment this version number whenever the font cache data
     # format or behavior has changed and requires an existing font
     # cache files to be rebuilt.
-    __version__ = 390
+    __version__ = 391
 
     def __init__(self, size=None, weight='normal'):
         self._version = self.__version__
@@ -1133,9 +1228,26 @@ class FontManager:
             prop = afmFontProperty(path, font)
             self.afmlist.append(prop)
         else:
+            supports_face_index = (
+                "face_index" in inspect.signature(ft2font.FT2Font).parameters
+            )
             font = ft2font.FT2Font(path)
             prop = ttfFontProperty(font)
             self.ttflist.append(prop)
+            for alt_name, alt_weight in _get_font_alt_names(font, prop.name):
+                self.ttflist.append(
+                    dataclasses.replace(prop, name=alt_name, weight=alt_weight))
+
+            if supports_face_index:
+                for face_index in range(1, font.num_faces):
+                    subfont = ft2font.FT2Font(path, face_index=face_index)
+                    prop = ttfFontProperty(subfont)
+                    self.ttflist.append(prop)
+                    for alt_name, alt_weight in _get_font_alt_names(
+                            subfont, prop.name):
+                        self.ttflist.append(
+                            dataclasses.replace(
+                                prop, name=alt_name, weight=alt_weight))
         self._findfont_cached.cache_clear()
 
     @property
@@ -1262,8 +1374,8 @@ class FontManager:
         # exact match of the weight names, e.g. weight1 == weight2 == "regular"
         if cbook._str_equal(weight1, weight2):
             return 0.0
-        w1 = weight1 if isinstance(weight1, Number) else weight_dict[weight1]
-        w2 = weight2 if isinstance(weight2, Number) else weight_dict[weight2]
+        w1 = _normalize_weight(weight1)
+        w2 = _normalize_weight(weight2)
         return 0.95 * (abs(w1 - w2) / 1000) + 0.05
 
     def score_size(self, size1, size2):
@@ -1346,9 +1458,13 @@ class FontManager:
         # Pass the relevant rcParams (and the font manager, as `self`) to
         # _findfont_cached so to prevent using a stale cache entry after an
         # rcParam was changed.
-        rc_params = tuple(tuple(mpl.rcParams[key]) for key in [
-            "font.serif", "font.sans-serif", "font.cursive", "font.fantasy",
-            "font.monospace"])
+        rc_params = [mpl.rcParams[f"font.{key}"] for key in [
+            "family", "style", "variant", "weight", "stretch", "size",
+            "serif", "sans-serif", "cursive", "fantasy", "monospace"]]
+        rc_params = tuple(tuple(e) if isinstance(e, list) else e
+                          for e in rc_params)
+        if directory is None and os.getenv('MPL_IGNORE_SYSTEM_FONTS'):
+            directory = cbook._get_data_path('fonts')
         ret = self._findfont_cached(
             prop, fontext, directory, fallback_to_default, rebuild_if_missing,
             rc_params)
@@ -1487,6 +1603,11 @@ class FontManager:
             if score == 0:
                 break
 
+        if best_font is not None and (_normalize_weight(prop.get_weight()) !=
+                                      _normalize_weight(best_font.weight)):
+            _log.warning('findfont: Failed to find font weight %s, now using %s.',
+                         prop.get_weight(), best_font.weight)
+
         if best_font is None or best_score >= 10.0:
             if fallback_to_default:
                 _log.warning(
@@ -1534,9 +1655,10 @@ class FontManager:
                 # actually raised.
                 return cbook._ExceptionInfo(ValueError, "No valid font could be found")
 
-        return _cached_realpath(result)
+        return FontPath(_cached_realpath(result), best_font.index)
 
 
+@_api.deprecated("3.11")
 @lru_cache
 def is_opentype_cff_font(filename):
     """
@@ -1553,15 +1675,18 @@ def is_opentype_cff_font(filename):
 
 @lru_cache(64)
 def _get_font(font_filepaths, hinting_factor, *, _kerning_factor, thread_id):
-    first_fontpath, *rest = font_filepaths
+    supports_face_index = "face_index" in inspect.signature(ft2font.FT2Font).parameters
+    (first_fontpath, first_fontindex), *rest = font_filepaths
     return ft2font.FT2Font(
         first_fontpath, hinting_factor,
+        **({"face_index": first_fontindex} if supports_face_index else {}),
         _fallback_list=[
             ft2font.FT2Font(
                 fpath, hinting_factor,
+                **({"face_index": index} if supports_face_index else {}),
                 _kerning_factor=_kerning_factor
             )
-            for fpath in rest
+            for fpath, index in rest
         ],
         _kerning_factor=_kerning_factor
     )
@@ -1589,7 +1714,7 @@ def get_font(font_filepaths, hinting_factor=None):
 
     Parameters
     ----------
-    font_filepaths : Iterable[str, Path, bytes], str, Path, bytes
+    font_filepaths : Iterable[str, Path, bytes, FontPath], str, Path, bytes, FontPath
         Relative or absolute paths to the font files to be used.
 
         If a single string, bytes, or `pathlib.Path`, then it will be treated
@@ -1604,22 +1729,32 @@ def get_font(font_filepaths, hinting_factor=None):
     `.ft2font.FT2Font`
 
     """
-    if isinstance(font_filepaths, (str, Path, bytes)):
-        paths = (_cached_realpath(font_filepaths),)
+    if isinstance(font_filepaths, FontPath):
+        paths = ((_cached_realpath(font_filepaths.path), font_filepaths.face_index),)
+    elif isinstance(font_filepaths, (str, bytes, os.PathLike)):
+        paths = ((_cached_realpath(os.fsdecode(font_filepaths)), 0),)
     else:
-        paths = tuple(_cached_realpath(fname) for fname in font_filepaths)
+        paths = tuple(
+            (_cached_realpath(fname.path), fname.face_index)
+            if isinstance(fname, FontPath)
+            else (_cached_realpath(os.fsdecode(fname)), 0)
+            for fname in font_filepaths
+        )
 
     if hinting_factor is None:
         hinting_factor = mpl.rcParams['text.hinting_factor']
 
-    return _get_font(
-        # must be a tuple to be cached
-        paths,
-        hinting_factor,
-        _kerning_factor=mpl.rcParams['text.kerning_factor'],
-        # also key on the thread ID to prevent segfaults with multi-threading
-        thread_id=threading.get_ident()
-    )
+    try:
+        return _get_font(
+            # must be a tuple to be cached
+            paths,
+            hinting_factor,
+            _kerning_factor=mpl.rcParams['text.kerning_factor'],
+            # also key on the thread ID to prevent segfaults with multi-threading
+            thread_id=threading.get_ident()
+        )
+    except OSError as exc:
+        raise FileNotFoundError(*exc.args) from None
 
 
 def _load_fontmanager(*, try_read_cache=True):

@@ -21,7 +21,7 @@ from matplotlib.backends.backend_mixed import MixedModeRenderer
 from matplotlib.colors import rgb2hex
 from matplotlib.dates import UTC
 from matplotlib.path import Path
-from matplotlib import _path
+import _path
 from matplotlib.transforms import Affine2D, Affine2DBase
 
 

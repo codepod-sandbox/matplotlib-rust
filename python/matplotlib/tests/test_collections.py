@@ -2,6 +2,7 @@
 
 import pytest
 import numpy as np
+import matplotlib as mpl
 from matplotlib.collections import Collection, PathCollection
 from matplotlib.colors import to_hex
 
@@ -69,11 +70,14 @@ class TestPathCollectionDefaults:
         assert fc.shape[1] == 4  # RGBA
 
     def test_default_edgecolors(self):
-        """Default edgecolors is empty in OG."""
+        """Default edgecolors follow the active rc style."""
         pc = PathCollection()
         ec = pc.get_edgecolors()
         assert isinstance(ec, np.ndarray)
-        assert len(ec) == 0
+        if mpl.rcParams['_internal.classic_mode']:
+            assert to_hex(ec[0]) == '#000000'
+        else:
+            assert len(ec) == 0
 
     def test_default_label(self):
         """Default label is empty string (inherited from Artist)."""

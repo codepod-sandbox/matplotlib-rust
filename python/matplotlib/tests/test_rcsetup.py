@@ -16,7 +16,7 @@ class TestRcParamsIsDict:
 
     def test_rcparams_instance_is_dict(self):
         """An RcParams instance passes isinstance check for dict."""
-        rc = RcParams({'a': 1})
+        rc = RcParams({'lines.linewidth': 1.0})
         assert isinstance(rc, dict)
 
     def test_global_rcparams_is_rcparams(self):
@@ -27,27 +27,27 @@ class TestRcParamsIsDict:
 class TestRcParamsDefaults:
     def test_lines_linewidth_default(self):
         """Default lines.linewidth is 1.5."""
-        assert matplotlib.rcParams['lines.linewidth'] == 1.5
+        assert matplotlib.rcParamsDefault['lines.linewidth'] == 1.5
 
     def test_figure_figsize_default(self):
         """Default figure.figsize is [6.4, 4.8]."""
-        assert matplotlib.rcParams['figure.figsize'] == [6.4, 4.8]
+        assert matplotlib.rcParamsDefault['figure.figsize'] == [6.4, 4.8]
 
     def test_figure_dpi_default(self):
         """Default figure.dpi is 100."""
-        assert matplotlib.rcParams['figure.dpi'] == 100
+        assert matplotlib.rcParamsDefault['figure.dpi'] == 100
 
     def test_lines_linestyle_default(self):
         """Default lines.linestyle is '-'."""
-        assert matplotlib.rcParams['lines.linestyle'] == '-'
+        assert matplotlib.rcParamsDefault['lines.linestyle'] == '-'
 
     def test_axes_facecolor_default(self):
         """Default axes.facecolor is 'white'."""
-        assert matplotlib.rcParams['axes.facecolor'] == 'white'
+        assert matplotlib.rcParamsDefault['axes.facecolor'] == 'white'
 
     def test_savefig_format_default(self):
         """Default savefig.format is 'png'."""
-        assert matplotlib.rcParams['savefig.format'] == 'png'
+        assert matplotlib.rcParamsDefault['savefig.format'] == 'png'
 
     def test_default_params_all_present(self):
         """All keys from _default_params are present in global rcParams."""
@@ -58,24 +58,23 @@ class TestRcParamsDefaults:
 class TestRcParamsRepr:
     def test_repr_starts_with_rcparams(self):
         """repr output starts with 'RcParams({'."""
-        rc = RcParams({'a': 1})
+        rc = RcParams({'lines.linewidth': 1.0})
         assert repr(rc).startswith("RcParams({")
 
     def test_repr_ends_with_closing(self):
         """repr output ends with '})'."""
-        rc = RcParams({'a': 1})
+        rc = RcParams({'lines.linewidth': 1.0})
         assert repr(rc).rstrip().endswith("})")
 
     def test_str_equals_repr(self):
         # OG matplotlib 3.10: str(rc) returns a plain key: value listing,
         # while repr(rc) returns the full RcParams({...}) form. They differ.
         # Adapt to test that str and repr both contain the key/value data.
-        rc = RcParams({'x': 10, 'y': 20})
+        rc = RcParams({'lines.linewidth': 10.0, 'figure.dpi': 20})
         s = str(rc)
         r = repr(rc)
-        # Both should encode the data — just in different formats
-        assert 'x' in s or 'x' in r
-        assert 'y' in s or 'y' in r
+        assert 'lines.linewidth' in s or 'lines.linewidth' in r
+        assert 'figure.dpi' in s or 'figure.dpi' in r
 
     def test_repr_contains_keys(self):
         """repr includes the stored keys."""
@@ -86,11 +85,15 @@ class TestRcParamsRepr:
 
     def test_repr_sorted_keys(self):
         """Keys in repr appear in sorted order."""
-        rc = RcParams({'z_key': 3, 'a_key': 1, 'm_key': 2})
+        rc = RcParams({
+            'ytick.major.width': 3,
+            'axes.linewidth': 1,
+            'lines.linewidth': 2,
+        })
         text = repr(rc)
-        pos_a = text.index("'a_key'")
-        pos_m = text.index("'m_key'")
-        pos_z = text.index("'z_key'")
+        pos_a = text.index("'axes.linewidth'")
+        pos_m = text.index("'lines.linewidth'")
+        pos_z = text.index("'ytick.major.width'")
         assert pos_a < pos_m < pos_z
 
     def test_repr_empty(self):
@@ -118,23 +121,27 @@ class TestRcParamsFindAll:
 
     def test_find_all_no_match(self):
         """find_all with a pattern matching nothing returns empty dict."""
-        rc = RcParams({'a': 1})
+        rc = RcParams({'lines.linewidth': 1.0})
         result = rc.find_all('zzz_no_match')
         assert result == {}
 
     def test_find_all_regex_dot(self):
         """find_all uses regex, so '.' matches any character."""
-        rc = RcParams({'abc': 1, 'axc': 2, 'def': 3})
-        result = rc.find_all('a.c')
-        assert 'abc' in result
-        assert 'axc' in result
-        assert 'def' not in result
+        rc = RcParams({
+            'axes.linewidth': 1.0,
+            'axes.facecolor': 'white',
+            'figure.dpi': 100,
+        })
+        result = rc.find_all(r'axes\..+')
+        assert 'axes.linewidth' in result
+        assert 'axes.facecolor' in result
+        assert 'figure.dpi' not in result
 
     def test_find_all_returns_dict(self):
         # OG matplotlib 3.10: find_all returns an RcParams instance, not a plain dict.
         # Adapt to accept either (dict-like behavior is what matters).
-        rc = RcParams({'key': 'val'})
-        result = rc.find_all('key')
+        rc = RcParams({'lines.linewidth': 1.0})
+        result = rc.find_all('lines.linewidth')
         assert isinstance(result, dict)  # RcParams is a dict subclass
 
     def test_find_all_on_global_rcparams(self):
@@ -147,33 +154,33 @@ class TestRcParamsFindAll:
 class TestRcParamsCopy:
     def test_copy_returns_rcparams(self):
         """copy() returns an RcParams instance, not a plain dict."""
-        rc = RcParams({'a': 1})
+        rc = RcParams({'lines.linewidth': 1.0})
         cp = rc.copy()
         assert isinstance(cp, RcParams)
 
     def test_copy_has_same_values(self):
         """copy() contains the same key/value pairs."""
-        rc = RcParams({'x': 10, 'y': 20})
+        rc = RcParams({'lines.linewidth': 10.0, 'figure.dpi': 20})
         cp = rc.copy()
         assert cp == rc
 
     def test_copy_is_independent(self):
         """Mutating the copy does not affect the original."""
-        rc = RcParams({'a': 1, 'b': 2})
+        rc = RcParams({'lines.linewidth': 1.0, 'figure.dpi': 2})
         cp = rc.copy()
-        cp['a'] = 999
-        assert rc['a'] == 1
+        cp['lines.linewidth'] = 999
+        assert rc['lines.linewidth'] == 1.0
 
     def test_original_mutation_does_not_affect_copy(self):
         """Mutating the original does not affect the copy."""
-        rc = RcParams({'a': 1})
+        rc = RcParams({'lines.linewidth': 1.0})
         cp = rc.copy()
-        rc['a'] = 999
-        assert cp['a'] == 1
+        rc['lines.linewidth'] = 999
+        assert cp['lines.linewidth'] == 1.0
 
     def test_copy_is_different_object(self):
         """copy() returns a new object, not the same reference."""
-        rc = RcParams({'a': 1})
+        rc = RcParams({'lines.linewidth': 1.0})
         cp = rc.copy()
         assert rc is not cp
 
@@ -255,42 +262,19 @@ class TestRcContextNested:
         assert matplotlib.rcParams['lines.linewidth'] == original
 
 
-class TestRcContextNewKeys:
-    def test_new_key_added_inside_context(self):
-        """A new key set via rc_context is visible inside the context."""
-        key = '_test_temp_key_12345'
-        assert key not in matplotlib.rcParams
-        with rc_context({key: 'hello'}):
-            assert matplotlib.rcParams[key] == 'hello'
+class TestRcContextInvalidKeys:
+    def test_invalid_key_raises_inside_context(self):
+        with pytest.raises(KeyError):
+            with rc_context({'_test_temp_key_12345': 'hello'}):
+                pass
 
-    def test_new_key_removed_on_exit(self):
-        """A new key introduced by rc_context is removed on exit."""
-        key = '_test_temp_key_67890'
-        assert key not in matplotlib.rcParams
-        with rc_context({key: 'temporary'}):
-            assert key in matplotlib.rcParams
-        assert key not in matplotlib.rcParams
-
-    def test_new_key_removed_on_exception(self):
-        """A new key is cleaned up even when an exception occurs."""
+    def test_invalid_key_does_not_leak(self):
         key = '_test_temp_key_exception'
         assert key not in matplotlib.rcParams
-        with pytest.raises(ValueError):
-            with rc_context({key: 'will be removed'}):
-                raise ValueError("deliberate")
+        with pytest.raises(KeyError):
+            with rc_context({key: 'will not stick'}):
+                pass
         assert key not in matplotlib.rcParams
-
-    def test_multiple_new_keys_cleaned_up(self):
-        """Multiple new keys are all cleaned up on exit."""
-        keys = ['_test_nk_a', '_test_nk_b', '_test_nk_c']
-        for k in keys:
-            assert k not in matplotlib.rcParams
-        overrides = {k: idx for idx, k in enumerate(keys)}
-        with rc_context(overrides):
-            for k in keys:
-                assert k in matplotlib.rcParams
-        for k in keys:
-            assert k not in matplotlib.rcParams
 
 
 # ===================================================================

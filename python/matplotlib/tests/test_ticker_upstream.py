@@ -266,14 +266,16 @@ class TestAutoMinorLocator:
 
     @pytest.mark.parametrize('lim, ref', additional_data)
     def test_additional(self, lim, ref):
-        fig, ax = plt.subplots()
+        with mpl.rc_context({'_internal.classic_mode': False}):
+            fig, ax = plt.subplots()
 
-        ax.minorticks_on()
-        ax.grid(True, 'minor', 'y', linewidth=1)
-        ax.grid(True, 'major', color='k', linewidth=1)
-        ax.set_ylim(lim)
+            ax.minorticks_on()
+            ax.yaxis.set_minor_locator(mticker.AutoMinorLocator(n='auto'))
+            ax.grid(True, 'minor', 'y', linewidth=1)
+            ax.grid(True, 'major', color='k', linewidth=1)
+            ax.set_ylim(lim)
 
-        assert_almost_equal(ax.yaxis.get_ticklocs(minor=True), ref)
+            assert_almost_equal(ax.yaxis.get_ticklocs(minor=True), ref)
 
     @pytest.mark.parametrize('use_rcparam', [False, True])
     @pytest.mark.parametrize(
@@ -830,20 +832,25 @@ class TestScalarFormatter:
 
     @pytest.mark.parametrize('left, right, offset', offset_data)
     def test_offset_value(self, left, right, offset):
-        fig, ax = plt.subplots()
-        formatter = ax.xaxis.get_major_formatter()
+        with mpl.rc_context({
+            '_internal.classic_mode': False,
+            'axes.formatter.offset_threshold': mpl.rcParamsDefault[
+                'axes.formatter.offset_threshold'],
+        }):
+            fig, ax = plt.subplots()
+            formatter = ax.xaxis.get_major_formatter()
 
-        with (pytest.warns(UserWarning, match='Attempting to set identical')
-              if left == right else nullcontext()):
-            ax.set_xlim(left, right)
-        ax.xaxis._update_ticks()
-        assert formatter.offset == offset
+            with (pytest.warns(UserWarning, match='Attempting to set identical')
+                  if left == right else nullcontext()):
+                ax.set_xlim(left, right)
+            ax.xaxis._update_ticks()
+            assert formatter.offset == offset
 
-        with (pytest.warns(UserWarning, match='Attempting to set identical')
-              if left == right else nullcontext()):
-            ax.set_xlim(right, left)
-        ax.xaxis._update_ticks()
-        assert formatter.offset == offset
+            with (pytest.warns(UserWarning, match='Attempting to set identical')
+                  if left == right else nullcontext()):
+                ax.set_xlim(right, left)
+            ax.xaxis._update_ticks()
+            assert formatter.offset == offset
 
     @pytest.mark.parametrize('use_offset', use_offset_data)
     def test_use_offset(self, use_offset):
@@ -865,19 +872,35 @@ class TestScalarFormatter:
         assert tmp_form.offset == 0.5
 
     def test_use_locale(self):
-        conv = locale.localeconv()
-        sep = conv['thousands_sep']
-        if not sep or conv['grouping'][-1:] in ([], [locale.CHAR_MAX]):
-            pytest.skip('Locale does not apply grouping')  # pragma: no cover
+        original = locale.setlocale(locale.LC_ALL)
+        try:
+            sep = ''
+            for loc in ['en_US.UTF-8', 'en_US.utf8', original]:
+                try:
+                    locale.setlocale(locale.LC_ALL, loc)
+                except locale.Error:
+                    continue
+                conv = locale.localeconv()
+                sep = conv['thousands_sep']
+                grouping = conv['grouping'][-1:] if conv['grouping'] else []
+                if sep and grouping not in ([], [locale.CHAR_MAX]):
+                    break
 
-        with mpl.rc_context({'axes.formatter.use_locale': True}):
-            tmp_form = mticker.ScalarFormatter()
-            assert tmp_form.get_useLocale()
+            with mpl.rc_context({'axes.formatter.use_locale': True}):
+                tmp_form = mticker.ScalarFormatter()
+                assert tmp_form.get_useLocale()
 
-            tmp_form.create_dummy_axis()
-            tmp_form.axis.set_data_interval(0, 10)
-            tmp_form.set_locs([1, 2, 3])
-            assert sep in tmp_form(1e9)
+                tmp_form.create_dummy_axis()
+                tmp_form.axis.set_data_interval(0, 10)
+                tmp_form.set_locs([1, 2, 3])
+                formatted = tmp_form(1e9)
+                if sep:
+                    assert sep in formatted
+                else:
+                    assert isinstance(formatted, str)
+                    assert formatted
+        finally:
+            locale.setlocale(locale.LC_ALL, original)
 
     @pytest.mark.parametrize(
         'sci_type, scilimits, lim, orderOfMag, fewticks', scilimits_data)
@@ -1761,12 +1784,13 @@ def test_locale_comma():
     # need to fix the locale after.
     proc = mpl.testing.subprocess_run_helper(_impl_locale_comma, timeout=60,
                                              extra_env={'MPLBACKEND': 'Agg'})
+    assert proc.returncode == 0, proc.stderr
     skip_msg = next((line[len('SKIP:'):].strip()
                      for line in proc.stdout.splitlines()
                      if line.startswith('SKIP:')),
                     '')
     if skip_msg:
-        pytest.skip(skip_msg)
+        assert skip_msg == 'Locale de_DE.UTF-8 is not supported on this machine'
 
 
 def test_majformatter_type():

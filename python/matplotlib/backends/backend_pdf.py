@@ -39,7 +39,7 @@ from matplotlib.ft2font import FT2Font, FaceFlags, Kerning, LoadFlags, StyleFlag
 from matplotlib.transforms import Affine2D, BboxBase
 from matplotlib.path import Path
 from matplotlib.dates import UTC
-from matplotlib import _path
+import _path
 from . import _backend_pdf_ps
 
 _log = logging.getLogger(__name__)

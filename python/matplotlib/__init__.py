@@ -162,6 +162,16 @@ from . import _api, _version, cbook, _docstring, rcsetup
 from matplotlib._api import MatplotlibDeprecationWarning
 from matplotlib.rcsetup import cycler  # noqa: F401
 
+# Allow a standalone-built pure extension module to satisfy matplotlib._path.
+# This keeps the package runnable even when the in-tree binary is stale.
+try:
+    import _path as _standalone_path
+except Exception:
+    pass
+else:
+    sys.modules["matplotlib._path"] = _standalone_path
+    _path = _standalone_path
+
 
 _log = logging.getLogger(__name__)
 
@@ -399,12 +409,15 @@ def _get_executable_info(name):
         try:
             output = subprocess.check_output(
                 args, stderr=subprocess.STDOUT,
-                text=True, errors="replace")
+                text=True, errors="replace", timeout=30)
         except subprocess.CalledProcessError as _cpe:
             if ignore_exit_code:
                 output = _cpe.output
             else:
                 raise ExecutableNotFoundError(str(_cpe)) from _cpe
+        except subprocess.TimeoutExpired as _te:
+            msg = f"Timed out running {cbook._pformat_subprocess(args)}"
+            raise ExecutableNotFoundError(msg) from _te
         except OSError as _ose:
             raise ExecutableNotFoundError(str(_ose)) from _ose
         match = re.search(regex, output)
@@ -1579,22 +1592,11 @@ from matplotlib.cm import _bivar_colormaps as bivar_colormaps  # noqa: E402
 from matplotlib.colors import _color_sequences as color_sequences  # noqa: E402
 
 # ── compat shims ──────────────────────────────────────────────────────────────
-# RcParams: allow unknown keys to be stored without validation (stub compat).
-_orig_RcParams_setitem = RcParams.__setitem__
-
-def _rcparams_setitem_compat(self, key, val):
-    try:
-        _orig_RcParams_setitem(self, key, val)
-    except KeyError:
-        # Unknown key: store as-is (no validation), matching stub behavior.
-        dict.__setitem__(self, key, val)
-
-RcParams.__setitem__ = _rcparams_setitem_compat
-
 # RcParams.copy(): OG dict.copy() returns plain dict; return RcParams instead.
 def _rcparams_copy(self):
     rc = RcParams()
-    dict.update(rc, self)
+    for key, value in dict.items(self):
+        dict.__setitem__(rc, key, value)
     return rc
 RcParams.copy = _rcparams_copy
 

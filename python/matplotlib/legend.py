@@ -37,7 +37,8 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import (Patch, Rectangle, Shadow, FancyBboxPatch,
                                 StepPatch)
 from matplotlib.collections import (
-    Collection, CircleCollection, LineCollection, PathCollection,
+    Collection, CircleCollection, LineCollection, PatchCollection,
+    PathCollection,
     PolyCollection, RegularPolyCollection)
 from matplotlib.text import Text
 from matplotlib.transforms import Bbox, BboxBase, TransformedBbox
@@ -385,6 +386,7 @@ class Legend(Artist):
         framealpha=None,      # set frame alpha
         edgecolor=None,       # frame patch edgecolor
         facecolor=None,       # frame patch facecolor
+        linewidth=None,       # frame patch linewidth
 
         bbox_to_anchor=None,  # bbox to which the legend will be anchored
         bbox_transform=None,  # transform for the bbox
@@ -455,6 +457,9 @@ class Legend(Artist):
         self.columnspacing = mpl._val_or_rc(columnspacing, 'legend.columnspacing')
         self.shadow = mpl._val_or_rc(shadow, 'legend.shadow')
 
+        handles = list(handles)
+        labels = list(labels)
+
         if reverse:
             labels = [*reversed(labels)]
             handles = [*reversed(handles)]
@@ -523,11 +528,16 @@ class Legend(Artist):
         if edgecolor == 'inherit':
             edgecolor = mpl.rcParams["axes.edgecolor"]
 
+        linewidth = mpl._val_or_rc(linewidth, "legend.linewidth")
+        if linewidth is None:
+            linewidth = mpl.rcParams["patch.linewidth"]
+
         fancybox = mpl._val_or_rc(fancybox, "legend.fancybox")
 
         self.legendPatch = FancyBboxPatch(
             xy=(0, 0), width=1, height=1,
             facecolor=facecolor, edgecolor=edgecolor,
+            linewidth=linewidth,
             # If shadow is used, default to alpha=1 (#8943).
             alpha=(framealpha if framealpha is not None
                    else 1 if shadow
@@ -575,7 +585,8 @@ class Legend(Artist):
         # set the text color
 
         color_getters = {  # getter function depends on line or patch
-            'linecolor':       ['get_color',           'get_facecolor'],
+            'linecolor':       ['get_color',           'get_edgecolor',
+                                'get_facecolor'],
             'markerfacecolor': ['get_markerfacecolor', 'get_facecolor'],
             'mfc':             ['get_markerfacecolor', 'get_facecolor'],
             'markeredgecolor': ['get_markeredgecolor', 'get_edgecolor'],
@@ -585,8 +596,24 @@ class Legend(Artist):
         if labelcolor is None:
             labelcolor = mpl.rcParams['text.color']
         if isinstance(labelcolor, str) and labelcolor in color_getters:
-            getter_names = color_getters[labelcolor]
             for handle, text in zip(self.legend_handles, self.texts):
+                getter_names = color_getters[labelcolor]
+                if labelcolor == 'linecolor':
+                    if isinstance(handle, Line2D):
+                        if handle.get_linestyle() in {'None', 'none', '', ' '}:
+                            getter_names = ['get_markerfacecolor',
+                                            'get_markeredgecolor',
+                                            'get_color']
+                        else:
+                            getter_names = ['get_color',
+                                            'get_markerfacecolor',
+                                            'get_markeredgecolor']
+                    elif isinstance(handle, Patch):
+                        getter_names = ['get_facecolor', 'get_edgecolor',
+                                        'get_color']
+                    elif isinstance(handle, Collection):
+                        getter_names = ['get_facecolor', 'get_edgecolor',
+                                        'get_color']
                 try:
                     if handle.get_array() is not None:
                         continue
@@ -595,6 +622,9 @@ class Legend(Artist):
                 for getter_name in getter_names:
                     try:
                         color = getattr(handle, getter_name)()
+                        rgba = colors.to_rgba_array(color)
+                        if rgba.size == 0 or np.allclose(rgba[:, -1], 0):
+                            continue
                         if isinstance(color, np.ndarray):
                             if (
                                     color.shape[0] == 1
@@ -858,6 +888,7 @@ class Legend(Artist):
             update_func=legend_handler.update_from_first_child),
         tuple: legend_handler.HandlerTuple(),
         PathCollection: legend_handler.HandlerPathCollection(),
+        PatchCollection: legend_handler.HandlerPolyCollection(),
         PolyCollection: legend_handler.HandlerPolyCollection()
         }
 
@@ -1397,12 +1428,12 @@ def _parse_legend_args(axs, *args, handles=None, labels=None, **kwargs):
     handlers = kwargs.get('handler_map')
 
     if (handles is not None or labels is not None) and args:
-        _api.warn_deprecated("3.9", message=(
-            "You have mixed positional and keyword arguments, some input may "
-            "be discarded.  This is deprecated since %(since)s and will "
-            "become an error in %(removal)s."))
+        raise TypeError(
+            "handles and labels must both be passed positionally or both "
+            "as keywords")
 
-    if (hasattr(handles, "__len__") and
+    if (handles is not None and labels is not None and
+            hasattr(handles, "__len__") and
             hasattr(labels, "__len__") and
             len(handles) != len(labels)):
         _api.warn_external(f"Mismatched number of handles and labels: "
@@ -1430,6 +1461,8 @@ def _parse_legend_args(axs, *args, handles=None, labels=None, **kwargs):
 
     elif len(args) == 1:  # 1 arg: user defined labels, automatic handle detection.
         labels, = args
+        if isinstance(labels, str):
+            labels = [labels]
         if any(isinstance(l, Artist) for l in labels):
             raise TypeError("A single argument passed to legend() must be a "
                             "list of labels, but found an Artist in there.")
@@ -1443,6 +1476,16 @@ def _parse_legend_args(axs, *args, handles=None, labels=None, **kwargs):
 
     else:
         raise _api.nargs_error('legend', '0-2', len(args))
+
+    if (len(args) == 2 and
+            hasattr(handles, "__len__") and
+            hasattr(labels, "__len__") and
+            len(handles) != len(labels)):
+        _api.warn_external(f"Mismatched number of handles and labels: "
+                           f"len(handles) = {len(handles)} "
+                           f"len(labels) = {len(labels)}")
+        if handles and labels:
+            handles, labels = zip(*zip(handles, labels))
 
     return handles, labels, kwargs
 

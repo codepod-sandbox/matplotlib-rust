@@ -115,9 +115,10 @@ class AxesWidget(Widget):
 
     def __init__(self, ax):
         self.ax = ax
+        self._canvas = ax.get_figure(root=True).canvas
         self._cids = []
 
-    canvas = property(lambda self: self.ax.get_figure(root=True).canvas)
+    canvas = property(lambda self: self._canvas)
 
     def connect_event(self, event, callback):
         """
@@ -1085,7 +1086,9 @@ class CheckButtons(AxesWidget):
 
     def _clear(self, event):
         """Internal event handler to clear the buttons."""
-        if self.ignore(event) or self.canvas.is_saving():
+        if (self.ignore(event) or event.canvas is not self.canvas
+                or event.canvas.is_saving()
+                or self.ax.get_figure(root=True) is None):
             return
         self._background = self.canvas.copy_from_bbox(self.ax.bbox)
         self.ax.draw_artist(self._checks)
@@ -1663,7 +1666,9 @@ class RadioButtons(AxesWidget):
 
     def _clear(self, event):
         """Internal event handler to clear the buttons."""
-        if self.ignore(event) or self.canvas.is_saving():
+        if (self.ignore(event) or event.canvas is not self.canvas
+                or event.canvas.is_saving()
+                or self.ax.get_figure(root=True) is None):
             return
         self._background = self.canvas.copy_from_bbox(self.ax.bbox)
         self.ax.draw_artist(self._buttons)
@@ -1908,6 +1913,15 @@ class Cursor(AxesWidget):
         self.horizOn = horizOn
         self.vertOn = vertOn
         self.useblit = useblit and self.canvas.supports_blit
+        if self.useblit:
+            overlaps = any(
+                other_ax is not ax and ax.bbox.overlaps(other_ax.bbox)
+                for other_ax in ax.get_figure(root=True).axes)
+            if overlaps:
+                _api.warn_external(
+                    "Cursor blitting is currently not supported on "
+                    "overlapping axes")
+                self.useblit = False
 
         if self.useblit:
             lineprops['animated'] = True
@@ -1965,9 +1979,6 @@ class MultiCursor(Widget):
 
     Parameters
     ----------
-    canvas : object
-        This parameter is entirely unused and only kept for back-compatibility.
-
     axes : list of `~matplotlib.axes.Axes`
         The `~.axes.Axes` to attach the cursor to.
 
@@ -1993,10 +2004,23 @@ class MultiCursor(Widget):
     See :doc:`/gallery/widgets/multicursor`.
     """
 
-    def __init__(self, canvas, axes, *, useblit=True, horizOn=False, vertOn=True,
+    def __init__(self, *args, useblit=True, horizOn=False, vertOn=True,
                  **lineprops):
-        # canvas is stored only to provide the deprecated .canvas attribute;
-        # once it goes away the unused argument won't need to be stored at all.
+        if len(args) == 1:
+            axes, = args
+            canvas = None
+        elif len(args) == 2:
+            canvas, axes = args
+            _api.warn_deprecated(
+                "3.10", name="MultiCursor canvas argument",
+                message="Passing 'canvas' to MultiCursor is deprecated; "
+                        "pass only 'axes' instead.")
+        else:
+            raise TypeError(
+                "MultiCursor.__init__() takes either (axes, ...) or "
+                "(canvas, axes, ...)")
+
+        # canvas is stored only to provide the deprecated .canvas attribute.
         self._canvas = canvas
 
         self.axes = axes
@@ -2026,6 +2050,13 @@ class MultiCursor(Widget):
                        for ax in axes]
 
         self.connect()
+
+    @property
+    def canvas(self):
+        _api.warn_deprecated(
+            "3.10", name="MultiCursor.canvas",
+            message="MultiCursor.canvas is deprecated.")
+        return self._canvas
 
     def connect(self):
         """Connect events."""
@@ -3647,6 +3678,27 @@ class EllipseSelector(RectangleSelector):
         width = self._selection_artist.width
         height = self._selection_artist.height
         return x - width / 2., y - height / 2., width, height
+
+    @property
+    def geometry(self):
+        """
+        Return an array of shape (2, 73) tracing the ellipse in data coords.
+
+        Unlike rectangles, an ellipse selector's public geometry should not
+        depend on how the patch backend polygonizes Bézier curves.
+        """
+        cx, cy = self._selection_artist.center
+        a = self._selection_artist.width / 2
+        b = self._selection_artist.height / 2
+        theta = np.linspace(np.pi, np.pi + 2 * np.pi, 73)
+        x = a * np.cos(theta)
+        y = b * np.sin(theta)
+        angle = np.deg2rad(self.rotation)
+        cos_a = np.cos(angle)
+        sin_a = np.sin(angle)
+        xr = cx + x * cos_a - y * sin_a
+        yr = cy + x * sin_a + y * cos_a
+        return np.array([xr, yr])
 
 
 class LassoSelector(_SelectorWidget):

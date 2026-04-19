@@ -595,7 +595,12 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         # actually render the image.
         gc = renderer.new_gc()
         self._set_gc_clip(gc)
-        gc.set_alpha(self._get_scalar_alpha())
+        scalar_alpha = self._get_scalar_alpha()
+        # For RGB(A) images, _make_image() has already folded any scalar alpha
+        # into the image's own alpha channel; applying it again through the
+        # graphics context would double-count it on backends whose image blit
+        # opacity path is not equivalent to embedded RGBA alpha.
+        gc.set_alpha(1.0 if self._A.ndim == 3 else scalar_alpha)
         gc.set_url(self.get_url())
         gc.set_gid(self.get_gid())
         if (renderer.option_scale_image()  # Renderer supports transform kwarg.
@@ -1589,6 +1594,8 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
             origin = mpl.rcParams["image.origin"]
         else:
             _api.check_in_list(('upper', 'lower'), origin=origin)
+        if not isinstance(arr, memoryview):
+            arr = np.asanyarray(arr)
         if origin == "lower":
             arr = arr[::-1]
         if (isinstance(arr, memoryview) and arr.format == "B"

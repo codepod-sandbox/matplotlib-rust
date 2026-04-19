@@ -1713,6 +1713,13 @@ class Locator(TickHelper):
             "'set_params()' not defined for locator of type " +
             str(type(self)))
 
+    def set_bounds(self, vmin, vmax):
+        """
+        Compatibility shim for legacy converters that still push bounds
+        directly into locators.
+        """
+        self._compat_bounds = (vmin, vmax)
+
     def __call__(self):
         """Return the locations of the ticks."""
         # note: some locators return data limits, other return view limits,

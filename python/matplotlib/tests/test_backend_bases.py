@@ -21,80 +21,23 @@ class TestRendererBase:
         assert r.height == 600
         assert r.dpi == 100
 
-    @pytest.mark.skip(
-        reason="OG RendererBase doesn't have stub-specific draw_line/draw_rect/"
-               "draw_circle/draw_polygon/set_clip_rect/clear_clip/get_result methods; "
-               "draw_markers requires a trans argument; draw_text requires FontProperties not str"
-    )
-    @pytest.mark.parametrize("method,args", [
-        ("draw_line", ([0, 1], [0, 1], "#000", 1.5, "-")),
-        ("draw_markers", ([0, 1], [0, 1], "#000", 3)),
-        ("draw_rect", (10, 20, 100, 50, "#000", None)),
-        ("draw_circle", (50, 50, 10, "#f00")),
-        ("draw_polygon", ([(0, 0), (1, 1), (2, 0)], "#00f", 0.5)),
-        ("draw_text", (100, 200, "hello", 12, "#000", "left")),
-        ("set_clip_rect", (0, 0, 100, 100)),
-        ("clear_clip", ()),
-        ("get_result", ()),
+    @pytest.mark.parametrize("method", [
+        "draw_line",
+        "draw_rect",
+        "draw_circle",
+        "draw_polygon",
+        "set_clip_rect",
+        "clear_clip",
+        "get_result",
     ])
-    def test_methods_raise_not_implemented(self, method, args):
+    def test_stub_specific_methods_absent(self, method):
         from matplotlib.backend_bases import RendererBase
         r = RendererBase(800, 600, 100)
-        with pytest.raises(NotImplementedError):
-            getattr(r, method)(*args)
+        assert not hasattr(r, method)
 
-
-# ===================================================================
-# TestAxesLayout
-# ===================================================================
-
-@pytest.mark.skip(reason="AxesLayout is a codepod stub that doesn't exist in OG backend_bases")
-class TestAxesLayout:
-    """AxesLayout stores geometry and provides correct coordinate transforms."""
-
-    def test_init_stores_geometry(self):
-        from matplotlib.backend_bases import AxesLayout
-        layout = AxesLayout(70, 40, 500, 400, 0.0, 10.0, 0.0, 5.0)
-        assert layout.plot_x == 70
-        assert layout.plot_y == 40
-        assert layout.plot_w == 500
-        assert layout.plot_h == 400
-        assert layout.xmin == 0.0
-        assert layout.xmax == 10.0
-        assert layout.ymin == 0.0
-        assert layout.ymax == 5.0
-
-    def test_sx_maps_xmin_to_plot_x(self):
-        from matplotlib.backend_bases import AxesLayout
-        layout = AxesLayout(70, 40, 500, 400, 0.0, 10.0, 0.0, 5.0)
-        assert abs(layout.sx(0.0) - 70.0) < 1e-9
-
-    def test_sx_maps_xmax_to_plot_x_plus_plot_w(self):
-        from matplotlib.backend_bases import AxesLayout
-        layout = AxesLayout(70, 40, 500, 400, 0.0, 10.0, 0.0, 5.0)
-        assert abs(layout.sx(10.0) - 570.0) < 1e-9
-
-    def test_sx_midpoint(self):
-        from matplotlib.backend_bases import AxesLayout
-        layout = AxesLayout(70, 40, 500, 400, 0.0, 10.0, 0.0, 5.0)
-        assert abs(layout.sx(5.0) - 320.0) < 1e-9
-
-    def test_sy_maps_ymin_to_plot_y_plus_plot_h(self):
-        """ymin maps to bottom of plot (plot_y + plot_h) because y is inverted."""
-        from matplotlib.backend_bases import AxesLayout
-        layout = AxesLayout(70, 40, 500, 400, 0.0, 10.0, 0.0, 5.0)
-        assert abs(layout.sy(0.0) - 440.0) < 1e-9
-
-    def test_sy_maps_ymax_to_plot_y(self):
-        """ymax maps to top of plot (plot_y) because y is inverted."""
-        from matplotlib.backend_bases import AxesLayout
-        layout = AxesLayout(70, 40, 500, 400, 0.0, 10.0, 0.0, 5.0)
-        assert abs(layout.sy(5.0) - 40.0) < 1e-9
-
-    def test_sy_midpoint(self):
-        from matplotlib.backend_bases import AxesLayout
-        layout = AxesLayout(70, 40, 500, 400, 0.0, 10.0, 0.0, 5.0)
-        assert abs(layout.sy(2.5) - 240.0) < 1e-9
+def test_axeslayout_absent():
+    import matplotlib.backend_bases as backend_bases
+    assert not hasattr(backend_bases, "AxesLayout")
 
 
 # ===================================================================
@@ -387,358 +330,25 @@ class TestRendererPIL:
         assert result[:4] == b'\x89PNG'
 
 
-# --- Task 4-6 tests ---
-try:
-    from matplotlib.backend_bases import AxesLayout
-    _HAS_AXES_LAYOUT = True
-except ImportError:
-    AxesLayout = None  # type: ignore
-    _HAS_AXES_LAYOUT = False
-from matplotlib._svg_backend import RendererSVG
-from matplotlib.lines import Line2D
-from matplotlib.patches import Rectangle, Circle, Polygon
-from matplotlib.collections import PathCollection
-from matplotlib.text import Text
-
-_skip_axes_layout = pytest.mark.skipif(
-    not _HAS_AXES_LAYOUT,
-    reason="AxesLayout not available in OG backend_bases"
-)
-
-
-@_skip_axes_layout
-class TestLine2DDraw:
-    def _layout(self):
-        return AxesLayout(plot_x=0, plot_y=0, plot_w=100, plot_h=100,
-                          xmin=0.0, xmax=10.0, ymin=0.0, ymax=10.0)
-
-    def test_draw_produces_polyline(self):
-        line = Line2D([0, 5, 10], [0, 10, 5], color='#ff0000', linewidth=2.0)
-        r = RendererSVG(100, 100, 100)
-        line.draw(r, self._layout())
-        assert '<polyline' in r.get_result()
-
-    def test_draw_with_marker(self):
-        line = Line2D([0, 10], [0, 10], color='#000', marker='o')
-        r = RendererSVG(100, 100, 100)
-        line.draw(r, self._layout())
-        assert '<circle' in r.get_result()
-
-    def test_draw_invisible(self):
-        line = Line2D([0, 10], [0, 10], color='#000')
-        line.set_visible(False)
-        r = RendererSVG(100, 100, 100)
-        line.draw(r, self._layout())
-        assert '<polyline' not in r.get_result()
-
-    def test_draw_none_linestyle(self):
-        line = Line2D([0, 10], [0, 10], color='#000', linestyle='None', marker='o')
-        r = RendererSVG(100, 100, 100)
-        line.draw(r, self._layout())
-        result = r.get_result()
-        assert '<polyline' not in result
-        assert '<circle' in result
-
-
-@_skip_axes_layout
-class TestRectangleDraw:
-    def _layout(self):
-        return AxesLayout(plot_x=0, plot_y=0, plot_w=100, plot_h=100,
-                          xmin=0.0, xmax=10.0, ymin=0.0, ymax=10.0)
-
-    def test_draw_produces_rect(self):
-        rect = Rectangle((2, 0), 3, 5, facecolor='#0000ff')
-        r = RendererSVG(100, 100, 100)
-        rect.draw(r, self._layout())
-        assert '<rect' in r.get_result()
-
-    def test_draw_invisible(self):
-        rect = Rectangle((0, 0), 5, 5)
-        rect.set_visible(False)
-        r = RendererSVG(100, 100, 100)
-        rect.draw(r, self._layout())
-        assert '<rect' not in r.get_result()
-
-
-@_skip_axes_layout
-class TestCircleDraw:
-    def _layout(self):
-        return AxesLayout(plot_x=0, plot_y=0, plot_w=100, plot_h=100,
-                          xmin=0.0, xmax=10.0, ymin=0.0, ymax=10.0)
-
-    def test_draw_produces_circle(self):
-        c = Circle((5, 5), 2, facecolor='#ff0000')
-        r = RendererSVG(100, 100, 100)
-        c.draw(r, self._layout())
-        assert '<circle' in r.get_result()
-
-
-@_skip_axes_layout
-class TestPolygonPatch:
-    def _layout(self):
-        return AxesLayout(plot_x=0, plot_y=0, plot_w=100, plot_h=100,
-                          xmin=0.0, xmax=10.0, ymin=0.0, ymax=10.0)
-
-    def test_init(self):
-        p = Polygon([(0, 0), (1, 1), (2, 0)], facecolor='#00ff00')
-        # closed=True (default): auto-appends closing vertex → 4 points
-        assert len(p.get_xy()) == 4
-
-    def test_draw_produces_polygon(self):
-        p = Polygon([(0, 0), (10, 10), (10, 0)], facecolor='#00ff00')
-        r = RendererSVG(100, 100, 100)
-        p.draw(r, self._layout())
-        assert '<polygon' in r.get_result()
-
-    def test_get_set_xy(self):
-        p = Polygon([(0, 0), (1, 1)])
-        p.set_xy([(2, 2), (3, 3), (4, 4)])
-        # closed=True: auto-appends closing vertex → 4 points
-        assert len(p.get_xy()) == 4
-
-
-@_skip_axes_layout
-class TestPathCollectionDraw:
-    def _layout(self):
-        return AxesLayout(plot_x=0, plot_y=0, plot_w=100, plot_h=100,
-                          xmin=0.0, xmax=10.0, ymin=0.0, ymax=10.0)
-
-    def test_draw_produces_circles(self):
-        pc = PathCollection(offsets=[(2, 3), (5, 7)], sizes=[20], facecolors=['#ff0000'])
-        r = RendererSVG(100, 100, 100)
-        pc.draw(r, self._layout())
-        assert r.get_result().count('<circle') == 2
-
-    def test_draw_empty(self):
-        pc = PathCollection(offsets=[], sizes=[20], facecolors=['#ff0000'])
-        r = RendererSVG(100, 100, 100)
-        pc.draw(r, self._layout())
-        assert '<circle' not in r.get_result()
-
-    def test_draw_invisible(self):
-        pc = PathCollection(offsets=[(5, 5)], sizes=[20], facecolors=['#ff0000'])
-        pc.set_visible(False)
-        r = RendererSVG(100, 100, 100)
-        pc.draw(r, self._layout())
-        assert '<circle' not in r.get_result()
-
-
-@_skip_axes_layout
-class TestTextDraw:
-    def _layout(self):
-        return AxesLayout(plot_x=0, plot_y=0, plot_w=100, plot_h=100,
-                          xmin=0.0, xmax=10.0, ymin=0.0, ymax=10.0)
-
-    def test_draw_produces_text(self):
-        t = Text(5, 5, 'hello')
-        r = RendererSVG(100, 100, 100)
-        t.draw(r, self._layout())
-        result = r.get_result()
-        assert 'hello' in result
-        assert '<text' in result
-
-    def test_draw_invisible(self):
-        t = Text(5, 5, 'hidden')
-        t.set_visible(False)
-        r = RendererSVG(100, 100, 100)
-        t.draw(r, self._layout())
-        assert 'hidden' not in r.get_result()
-
-
-# ===================================================================
-# TestAxesDraw
-# ===================================================================
-
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 
-@_skip_axes_layout
-class TestAxesDraw:
-    def test_empty_axes(self):
-        fig, ax = plt.subplots()
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        result = r.get_result()
-        assert '<rect' in result  # frame
-        plt.close('all')
-
-    def test_with_line(self):
-        fig, ax = plt.subplots()
-        ax.plot([0, 1, 2], [0, 1, 0])
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        result = r.get_result()
-        assert '<polyline' in result
-        plt.close('all')
-
-    def test_with_scatter(self):
-        fig, ax = plt.subplots()
-        ax.scatter([1, 2, 3], [1, 2, 3])
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        assert '<circle' in r.get_result()
-        plt.close('all')
-
-    def test_with_bar(self):
-        fig, ax = plt.subplots()
-        ax.bar([1, 2, 3], [4, 5, 6])
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        assert '<rect' in r.get_result()
-        plt.close('all')
-
-    def test_with_title_and_labels(self):
-        fig, ax = plt.subplots()
-        ax.set_title('Title')
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.plot([0, 1], [0, 1])
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        assert 'Title' in r.get_result()
-        plt.close('all')
-
-    def test_with_legend(self):
-        fig, ax = plt.subplots()
-        ax.plot([0, 1], [0, 1], label='data')
-        ax.legend()
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        assert 'data' in r.get_result()
-        plt.close('all')
-
-    def test_with_grid(self):
-        fig, ax = plt.subplots()
-        ax.plot([0, 1], [0, 1])
-        ax.grid(True)
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        assert 'stroke-dasharray' in r.get_result()
-        plt.close('all')
+def test_axeslayout_absent_for_stub_draw_tests():
+    import matplotlib.backend_bases as backend_bases
+    assert not hasattr(backend_bases, "AxesLayout")
 
 
-@_skip_axes_layout
-class TestFigureDraw:
-    def test_empty_figure(self):
-        fig = Figure()
-        r = RendererSVG(640, 480, 100)
-        fig.draw(r)
-        result = r.get_result()
-        assert '<svg' in result
-
-    def test_with_axes(self):
-        fig = Figure()
-        ax = fig.add_subplot(1, 1, 1)
-        ax.plot([0, 1], [0, 1])
-        r = RendererSVG(640, 480, 100)
-        fig.draw(r)
-        assert '<polyline' in r.get_result()
-
-    def test_with_suptitle(self):
-        fig = Figure()
-        fig.suptitle('My Title')
-        fig.add_subplot(1, 1, 1)
-        r = RendererSVG(640, 480, 100)
-        fig.draw(r)
-        assert 'My Title' in r.get_result()
-
-    def test_savefig_svg(self, tmp_path):
-        fig = Figure()
-        ax = fig.add_subplot(1, 1, 1)
-        ax.plot([0, 1, 2], [0, 1, 0])
-        path = str(tmp_path / 'test.svg')
-        fig.savefig(path)
-        with open(path) as f:
-            content = f.read()
-        assert '<svg' in content
-        assert '<polyline' in content
-
-    def test_savefig_png(self, tmp_path):
-        fig = Figure()
-        ax = fig.add_subplot(1, 1, 1)
-        ax.plot([0, 1], [0, 1])
-        path = str(tmp_path / 'test.png')
-        fig.savefig(path, format='png')
-        with open(path, 'rb') as f:
-            data = f.read()
-        assert data[:4] == b'\x89PNG'
-
-
-# ===================================================================
-# TestAxesDrawPlotTypes — Task 9-10 tests
-# ===================================================================
-
-@_skip_axes_layout
-class TestAxesDrawPlotTypes:
-    def test_fill_between(self):
-        fig, ax = plt.subplots()
-        ax.fill_between([0, 1, 2], [0, 1, 0], [0, 0, 0])
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        assert '<polygon' in r.get_result()
-        plt.close('all')
-
-    def test_fill_betweenx(self):
-        fig, ax = plt.subplots()
-        ax.fill_betweenx([0, 1, 2], [0, 1, 0], [0, 0, 0])
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        assert '<polygon' in r.get_result()
-        plt.close('all')
-
-    def test_barh(self):
-        fig, ax = plt.subplots()
-        ax.barh([0, 1, 2], [3, 5, 2])
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        assert '<rect' in r.get_result()
-        plt.close('all')
-
-    def test_errorbar_whiskers(self):
-        fig, ax = plt.subplots()
-        ax.errorbar([0, 1, 2], [1, 2, 1], yerr=0.5)
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        result = r.get_result()
-        # Should have data line and error whisker lines
-        assert '<polyline' in result
-        plt.close('all')
-
-    def test_axhline(self):
-        fig, ax = plt.subplots()
-        ax.plot([0, 1], [0, 1])
-        ax.axhline(y=0.5)
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        result = r.get_result()
-        # The spanning line should be rendered
-        assert result.count('<polyline') >= 2  # data line + spanning line
-        plt.close('all')
-
-    def test_axvline(self):
-        fig, ax = plt.subplots()
-        ax.plot([0, 1], [0, 1])
-        ax.axvline(x=0.5)
-        r = RendererSVG(640, 480, 100)
-        ax.draw(r)
-        result = r.get_result()
-        assert result.count('<polyline') >= 2
-        plt.close('all')
-
-    def test_fill_between_returns_polygon(self):
-        fig, ax = plt.subplots()
-        result = ax.fill_between([0, 1, 2], [0, 1, 0])
-        from matplotlib.collections import PolyCollection
-        assert isinstance(result, PolyCollection)
-        plt.close('all')
-
-    def test_barh_returns_container(self):
-        fig, ax = plt.subplots()
-        from matplotlib.container import BarContainer
-        result = ax.barh([0, 1], [3, 5])
-        assert isinstance(result, BarContainer)
-        plt.close('all')
+def test_figure_draw_still_renders_without_axeslayout(tmp_path):
+    fig = Figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.plot([0, 1], [0, 1])
+    path = str(tmp_path / 'test.svg')
+    fig.savefig(path)
+    with open(path) as f:
+        content = f.read()
+    assert '<svg' in content
+    assert '<path' in content or '<polyline' in content
 
 
 # ===================================================================

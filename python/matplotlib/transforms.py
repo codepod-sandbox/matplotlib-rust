@@ -583,8 +583,11 @@ class BboxBase(TransformNode):
         """
         if not len(bboxes):
             return 0
-        return count_bboxes_overlapping_bbox(
-            self, np.atleast_3d([np.array(x) for x in bboxes]))
+        bbox_extents = np.asarray(
+            [[bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax] for bbox in bboxes],
+            dtype=float,
+        )
+        return count_bboxes_overlapping_bbox(self, bbox_extents)
 
     def expanded(self, sw, sh):
         """
@@ -1849,10 +1852,29 @@ class Affine2DBase(AffineBase):
 
     def transform_affine(self, values):
         mtx = self.get_matrix()
+        values_arr = np.asanyarray(values)
+        if values_arr.ndim == 0 or values_arr.ndim > 2:
+            raise ValueError("Input values must have shape (2,) or (N, 2)")
+        if values_arr.ndim == 1:
+            if values_arr.shape[0] == 0:
+                values_arr = values_arr.reshape((0, 2))
+            elif values_arr.shape[0] == 1:
+                raise RuntimeError("Invalid affine transformation input shape")
+            elif values_arr.shape[0] != 2:
+                raise ValueError("Input values must have shape (2,) or (N, 2)")
+        elif values_arr.shape[1] != 2:
+            raise ValueError("Input values must have shape (2,) or (N, 2)")
+        is_single_point = values_arr.ndim == 1
+        if is_single_point:
+            points = values_arr[np.newaxis, :]
+        else:
+            points = values_arr
         if isinstance(values, np.ma.MaskedArray):
-            tpoints = affine_transform(values.data, mtx)
-            return np.ma.MaskedArray(tpoints, mask=np.ma.getmask(values))
-        return affine_transform(values, mtx)
+            tpoints = affine_transform(points.data, mtx)
+            masked = np.ma.MaskedArray(tpoints, mask=np.ma.getmask(values))
+            return masked[0] if is_single_point else masked
+        transformed = affine_transform(points, mtx)
+        return transformed[0] if is_single_point else transformed
 
     if DEBUG:
         _transform_affine = transform_affine

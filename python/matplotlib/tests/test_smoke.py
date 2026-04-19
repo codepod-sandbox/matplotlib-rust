@@ -80,8 +80,8 @@ def test_colors():
 
 
 def test_colormap():
-    import matplotlib.cm as cm
-    cmap = cm.get_cmap('viridis')
+    import matplotlib
+    cmap = matplotlib.colormaps['viridis']
     assert cmap is not None
 
 

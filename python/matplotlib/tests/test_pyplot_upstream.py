@@ -461,8 +461,8 @@ def test_plt_margins_get():
     plt.close('all')
     fig, ax = plt.subplots()
     mx, my = plt.margins()
-    assert mx == 0.05  # default
-    assert my == 0.05
+    assert mx == plt.rcParams['axes.xmargin']
+    assert my == plt.rcParams['axes.ymargin']
 
 
 def test_plt_margins_set():

@@ -32,9 +32,9 @@ def _reset_pyplot_state():
 
 class TestFigureCreation:
     def test_figure_default_size(self):
-        """Default figsize is (6.4, 4.8)."""
+        """Default figsize follows the active rc style."""
         fig = plt.figure()
-        assert np.allclose(fig.get_size_inches(), (6.4, 4.8))
+        assert np.allclose(fig.get_size_inches(), matplotlib.rcParams['figure.figsize'])
 
     def test_figure_custom_size(self):
         """figure(figsize=(10, 8)) sets correct size."""

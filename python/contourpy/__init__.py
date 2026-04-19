@@ -37,6 +37,22 @@ class LineType:
     ChunkCombinedNan = 4
 
 
+class Mpl2005ContourGenerator:
+    pass
+
+
+class Mpl2014ContourGenerator:
+    pass
+
+
+class SerialContourGenerator:
+    pass
+
+
+class ThreadedContourGenerator:
+    pass
+
+
 def _normalize_xy(x, y, z):
     z_arr = np.ma.asarray(z, dtype=float)
     if z_arr.ndim != 2:
@@ -49,6 +65,13 @@ def _normalize_xy(x, y, z):
     else:
         x_arr = np.asarray(x, dtype=float)
         y_arr = np.asarray(y, dtype=float)
+        ny, nx = z_arr.shape
+        if x_arr.ndim == 1 and y_arr.ndim == 1:
+            if x_arr.shape[0] != nx or y_arr.shape[0] != ny:
+                raise TypeError("Length of x/y must match z shape")
+            x_arr, y_arr = np.meshgrid(x_arr, y_arr)
+        elif x_arr.shape != z_arr.shape or y_arr.shape != z_arr.shape:
+            raise TypeError("x and y must both be 1D or match z shape")
 
     return x_arr, y_arr, z_arr
 
@@ -79,6 +102,9 @@ def _edge_point(p0, p1, z0, z1, level):
 
 
 def _cell_segments(points, values, level):
+    if ((np.ma.isMaskedArray(values) and np.any(np.ma.getmaskarray(values)))
+            or any(np.ma.is_masked(v) for v in values)):
+        return []
     edges = []
     edge_defs = ((0, 1), (1, 2), (2, 3), (3, 0))
     for i0, i1 in edge_defs:
@@ -104,6 +130,29 @@ def _cell_segments(points, values, level):
             if not np.allclose(pair[0], pair[1]):
                 segments.append([pair[0], pair[1]])
         return segments
+    return []    
+
+
+def _triangle_segments(points, values, level):
+    if ((np.ma.isMaskedArray(values) and np.any(np.ma.getmaskarray(values)))
+            or any(np.ma.is_masked(v) for v in values)):
+        return []
+    edges = []
+    edge_defs = ((0, 1), (1, 2), (2, 0))
+    for i0, i1 in edge_defs:
+        z0 = float(values[i0])
+        z1 = float(values[i1])
+        if ((z0 <= level < z1) or (z1 <= level < z0)
+                or (level == z1 and z0 != z1)):
+            edges.append(_edge_point(points[i0], points[i1], z0, z1, level))
+
+    unique_edges = []
+    for point in edges:
+        if not any(np.allclose(point, existing) for existing in unique_edges):
+            unique_edges.append(point)
+    edges = unique_edges
+    if len(edges) == 2 and not np.allclose(edges[0], edges[1]):
+        return [edges]
     return []
 
 
@@ -137,12 +186,16 @@ def _clip_polygon(points, values, threshold, keep_above):
 
 
 def _cell_filled_polygon(points, values, lower, upper):
+    if ((np.ma.isMaskedArray(values) and np.any(np.ma.getmaskarray(values)))
+            or any(np.ma.is_masked(v) for v in values)):
+        return None
     poly_points = [np.array(p, dtype=float) for p in points]
     poly_values = [float(v) for v in values]
 
     poly_points, poly_values = _clip_polygon(poly_points, poly_values, lower, True)
     if len(poly_points) < 3:
         return None
+    upper = np.nextafter(float(upper), -np.inf)
     poly_points, poly_values = _clip_polygon(poly_points, poly_values, upper, False)
     if len(poly_points) < 3:
         return None
@@ -156,11 +209,45 @@ def _cell_filled_polygon(points, values, lower, upper):
     return vertices
 
 
+def _triangle_filled_polygon(points, values, lower, upper):
+    if ((np.ma.isMaskedArray(values) and np.any(np.ma.getmaskarray(values)))
+            or any(np.ma.is_masked(v) for v in values)):
+        return None
+    poly_points = [np.array(p, dtype=float) for p in points]
+    poly_values = [float(v) for v in values]
+
+    poly_points, poly_values = _clip_polygon(poly_points, poly_values, lower, True)
+    if len(poly_points) < 3:
+        return None
+    upper = np.nextafter(float(upper), -np.inf)
+    poly_points, poly_values = _clip_polygon(poly_points, poly_values, upper, False)
+    if len(poly_points) < 3:
+        return None
+
+    vertices = np.vstack(poly_points)
+    if np.allclose(vertices[0], vertices[-1]):
+        vertices = vertices[:-1]
+    if len(vertices) < 3:
+        return None
+    return vertices
+
+
+def _corner_mask_triangles(points, values):
+    mask = np.array([np.ma.is_masked(v) for v in values], dtype=bool)
+    masked_indices = np.flatnonzero(mask)
+    if len(masked_indices) != 1:
+        return []
+    keep = [idx for idx in range(len(values)) if idx != masked_indices[0]]
+    return [([points[idx] for idx in keep], [values[idx] for idx in keep])]
+
+
 def _points_close(p0, p1):
     return np.allclose(p0, p1)
 
 
 def _merge_segments(segments):
+    if len(segments) > 256:
+        return [np.vstack(seg) for seg in segments]
     paths = [[np.array(seg[0], dtype=float), np.array(seg[1], dtype=float)] for seg in segments]
     changed = True
     while changed:
@@ -203,6 +290,12 @@ def _clean_polygon_vertices(polygon):
 
 
 def _merge_polygons(polygons):
+    # Keep merging enabled for moderately large contour regions so filled
+    # contours with hatching behave like coherent regions instead of a pile of
+    # per-cell polygons. This matters for contourf overlays and colorbars.
+    if len(polygons) > 4096:
+        return polygons
+
     edge_counts = {}
     edge_points = {}
     for polygon in polygons:
@@ -229,50 +322,57 @@ def _merge_polygons(polygons):
         adjacency.setdefault(k0, set()).add(k1)
         adjacency.setdefault(k1, set()).add(k0)
 
-    loops = []
-    visited = set()
-    for start in list(adjacency):
-        if start in visited:
-            continue
-        component = []
-        stack = [start]
-        while stack:
-            node = stack.pop()
-            if node in visited:
-                continue
-            visited.add(node)
-            component.append(node)
-            stack.extend(adjacency[node] - visited)
-        if not component:
-            continue
+    # Only merge polygons when the exposed boundary is a collection of simple
+    # cycles. If any node has degree other than 2, the region is non-manifold
+    # at the current precision (for example polygons that merely touch at a
+    # corner). In that case, keep the original cell polygons rather than
+    # inventing an arbitrary traversal or risking an infinite walk.
+    if any(len(neighbors) != 2 for neighbors in adjacency.values()):
+        return polygons
 
-        start_node = min(component)
-        polygon = [start_node]
-        prev = None
-        current = start_node
-        while True:
-            neighbors = adjacency[current] - ({prev} if prev is not None else set())
-            if not neighbors:
-                break
-            if len(polygon) > 1 and start_node in neighbors:
-                next_node = start_node
-            else:
-                next_node = sorted(neighbors)[0]
-            polygon.append(next_node)
-            prev, current = current, next_node
-            if current == start_node:
-                break
-        if len(polygon) >= 4 and polygon[-1] == start_node:
-            loops.append(np.array(polygon, dtype=float))
+    loops = []
+    visited_edges = set()
+    for start in sorted(adjacency):
+        for next_node in sorted(adjacency[start]):
+            edge = frozenset((start, next_node))
+            if edge in visited_edges:
+                continue
+
+            polygon = [start]
+            prev = start
+            current = next_node
+            visited_edges.add(edge)
+
+            while True:
+                polygon.append(current)
+                if current == start:
+                    break
+
+                neighbors = adjacency[current]
+                candidates = sorted(neighbors - {prev})
+                if len(candidates) != 1:
+                    return polygons
+
+                next_point = candidates[0]
+                edge = frozenset((current, next_point))
+                if edge in visited_edges:
+                    return polygons
+
+                visited_edges.add(edge)
+                prev, current = current, next_point
+
+            if len(polygon) >= 4:
+                loops.append(np.array(polygon, dtype=float))
 
     return loops if loops else polygons
 
 
 class _ContourGenerator:
-    def __init__(self, x, y, z):
+    def __init__(self, x, y, z, *, corner_mask=False):
         self.x = x
         self.y = y
         self.z = z
+        self.corner_mask = bool(corner_mask)
         self.xmin = float(np.nanmin(x))
         self.xmax = float(np.nanmax(x))
         self.ymin = float(np.nanmin(y))
@@ -307,6 +407,12 @@ class _ContourGenerator:
                     self.z[j + 1, i + 1],
                     self.z[j + 1, i],
                 ]
+                if ((np.ma.isMaskedArray(values) and np.any(np.ma.getmaskarray(values)))
+                        or any(np.ma.is_masked(v) for v in values)):
+                    if self.corner_mask:
+                        for tri_points, tri_values in _corner_mask_triangles(points, values):
+                            segments.extend(_triangle_segments(tri_points, tri_values, level))
+                    continue
                 segments.extend(_cell_segments(points, values, level))
 
         vertices = _merge_segments(segments)
@@ -336,6 +442,15 @@ class _ContourGenerator:
                     self.z[j + 1, i + 1],
                     self.z[j + 1, i],
                 ]
+                if ((np.ma.isMaskedArray(values) and np.any(np.ma.getmaskarray(values)))
+                        or any(np.ma.is_masked(v) for v in values)):
+                    if self.corner_mask:
+                        for tri_points, tri_values in _corner_mask_triangles(points, values):
+                            polygon = _triangle_filled_polygon(
+                                tri_points, tri_values, lower, upper)
+                            if polygon is not None:
+                                polygons.append(polygon)
+                    continue
                 polygon = _cell_filled_polygon(points, values, lower, upper)
                 if polygon is not None:
                     polygons.append(polygon)
@@ -356,6 +471,22 @@ class _ContourGenerator:
         return vertices, codes
 
 
+class _Mpl2005Generator(_ContourGenerator, Mpl2005ContourGenerator):
+    pass
+
+
+class _Mpl2014Generator(_ContourGenerator, Mpl2014ContourGenerator):
+    pass
+
+
+class _SerialGenerator(_ContourGenerator, SerialContourGenerator):
+    pass
+
+
+class _ThreadedGenerator(_ContourGenerator, ThreadedContourGenerator):
+    pass
+
+
 def contour_generator(x=None, y=None, z=None, name="serial",
                       corner_mask=None, line_type=None, fill_type=None,
                       chunk_size=None, chunk_count=None,
@@ -369,4 +500,14 @@ def contour_generator(x=None, y=None, z=None, name="serial",
         raise NotImplementedError("only FillType.OuterCode is supported")
 
     x_arr, y_arr, z_arr = _normalize_xy(x, y, z)
-    return _ContourGenerator(x_arr, y_arr, z_arr)
+    generators = {
+        "mpl2005": _Mpl2005Generator,
+        "mpl2014": _Mpl2014Generator,
+        "serial": _SerialGenerator,
+        "threaded": _ThreadedGenerator,
+    }
+    if name not in generators:
+        raise ValueError(f"Unknown contour generator name {name!r}")
+    if name == "mpl2005" and corner_mask:
+        raise ValueError("mpl2005 contour generator does not support corner_mask=True")
+    return generators[name](x_arr, y_arr, z_arr, corner_mask=bool(corner_mask))

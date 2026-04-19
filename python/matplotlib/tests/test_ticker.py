@@ -525,7 +525,8 @@ class TestLocatorBase:
 
     def test_set_params_noop(self):
         loc = Locator()
-        loc.set_params(anything='value')  # should not raise
+        with pytest.warns(UserWarning, match="'set_params\\(\\)' not defined"):
+            loc.set_params(anything='value')
 
     def test_view_limits_passthrough(self):
         loc = Locator()

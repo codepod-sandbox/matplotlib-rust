@@ -2,14 +2,21 @@
 
 import math
 import pytest
+import matplotlib as mpl
 from matplotlib.tests._approx import approx
 
 from matplotlib.cm import (
     Colormap, ListedColormap, LinearSegmentedColormap,
-    get_cmap, register_cmap, ColormapRegistry, ScalarMappable,
+    get_cmap as _cm_get_cmap, register_cmap, ColormapRegistry, ScalarMappable,
     _cmap_registry, _colormaps,
 )
 from matplotlib.colors import Normalize, LogNorm, to_rgba, to_hex, is_color_like
+
+
+def get_cmap(*args, **kwargs):
+    from matplotlib import _api
+    with pytest.warns(_api.deprecation.MatplotlibDeprecationWarning):
+        return _cm_get_cmap(*args, **kwargs)
 
 
 # ===================================================================
@@ -271,7 +278,7 @@ class TestBuiltinColormaps:
 
     def test_get_cmap_none(self):
         cmap = get_cmap(None)
-        assert cmap.name == 'viridis'
+        assert cmap.name == mpl.rcParams['image.cmap']
 
     def test_get_cmap_instance(self):
         cmap = get_cmap('viridis')
@@ -334,7 +341,8 @@ class TestColormapRegistryUpstream:
         cmap1 = ListedColormap(['red'], name=test_name)
         cmap2 = ListedColormap(['blue'], name=test_name)
         _colormaps.register(cmap1, force=True)
-        _colormaps.register(cmap2, force=True)
+        with pytest.warns(UserWarning, match="Overwriting the cmap"):
+            _colormaps.register(cmap2, force=True)
         assert _colormaps[test_name].colors[0] == cmap2.colors[0]
         _colormaps.unregister(test_name)
 
@@ -673,8 +681,7 @@ class TestColormapScalarsAndArrays:
 
     @pytest.mark.parametrize('name', ['viridis', 'plasma', 'hot', 'cool', 'gray'])
     def test_scalar_and_array_consistency(self, name):
-        from matplotlib import cm
-        cmap = cm.get_cmap(name)
+        cmap = get_cmap(name)
         x = 0.5
         # Scalar result
         scalar_result = cmap(x)
@@ -685,8 +692,7 @@ class TestColormapScalarsAndArrays:
             assert abs(s - a) < 1e-6
 
     def test_colormap_0_and_1_consistent(self):
-        from matplotlib import cm
-        cmap = cm.get_cmap('viridis')
+        cmap = get_cmap('viridis')
         r0 = cmap(0.0)
         r1 = cmap(1.0)
         # They should be different colors
@@ -695,9 +701,8 @@ class TestColormapScalarsAndArrays:
 
     def test_norm_colormap_pipeline(self):
         """Full pipeline: data -> norm -> colormap -> RGBA."""
-        from matplotlib import cm
         norm = Normalize(vmin=0, vmax=10)
-        cmap = cm.get_cmap('viridis')
+        cmap = get_cmap('viridis')
         data = np.array([0.0, 5.0, 10.0])
         normalized = norm(data)
         rgba = cmap(normalized)

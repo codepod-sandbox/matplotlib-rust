@@ -5,6 +5,22 @@ import numpy as np
 from matplotlib import _api
 
 
+def _validate_delaunay_points(x, y):
+    """Reject degenerate point sets before calling the qhull backend."""
+    points = np.column_stack((np.asarray(x, float), np.asarray(y, float)))
+    unique = np.unique(points, axis=0)
+    if len(unique) < 3:
+        raise ValueError("x and y arrays must consist of at least 3 unique points")
+
+    origin = unique[0]
+    direction = unique[1] - origin
+    rel = unique[2:] - origin
+    cross = direction[0] * rel[:, 1] - direction[1] * rel[:, 0]
+    scale = max(np.max(np.abs(unique)), 1.0)
+    if np.all(np.abs(cross) <= 1e-12 * scale):
+        raise RuntimeError("Error in qhull Delaunay triangulation calculation")
+
+
 class Triangulation:
     """
     An unstructured triangular grid consisting of npoints points and
@@ -57,6 +73,7 @@ class Triangulation:
         if triangles is None:
             # No triangulation specified, so use matplotlib._qhull to obtain
             # Delaunay triangulation.
+            _validate_delaunay_points(self.x, self.y)
             self.triangles, self._neighbors = _qhull.delaunay(x, y, sys.flags.verbose)
             self.is_delaunay = True
         else:

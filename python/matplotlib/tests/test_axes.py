@@ -158,9 +158,10 @@ class TestPlot:
         l2 = ax.plot([1], [2])
         c1 = l1[0].get_color()
         c2 = l2[0].get_color()
+        active_cycle = plt.rcParams['axes.prop_cycle'].by_key().get('color', [])
         assert c1 != c2
-        assert c1 == DEFAULT_CYCLE[0]
-        assert c2 == DEFAULT_CYCLE[1]
+        assert c1 == active_cycle[0]
+        assert c2 == active_cycle[1]
 
 
 # ===================================================================
@@ -525,6 +526,7 @@ class TestColorCycle:
         l1 = ax.plot([1], [2])
         pc = ax.scatter([1], [2])
         bc = ax.bar([1], [2])
+        active_cycle = plt.rcParams['axes.prop_cycle'].by_key().get('color', [])
 
         c1 = l1[0].get_color()
         c2 = pc.get_facecolors()[0]
@@ -532,20 +534,21 @@ class TestColorCycle:
         c3 = to_hex(bc[0]._facecolor)
 
         # First plot uses C0; all three should be colors from the cycle
-        assert _color_close(c1, DEFAULT_CYCLE[0])
-        assert any(_color_close(c2, c) for c in DEFAULT_CYCLE[:4])
-        assert any(_color_close(c3, c) for c in DEFAULT_CYCLE[:4])
+        assert _color_close(c1, active_cycle[0])
+        assert any(_color_close(c2, c) for c in active_cycle[:4])
+        assert any(_color_close(c3, c) for c in active_cycle[:4])
 
     def test_color_cycle_resets_on_cla(self):
         """cla() resets color index so next plot starts at C0 again."""
         fig, ax = plt.subplots()
         l1 = ax.plot([1], [2])
         color_before = l1[0].get_color()
+        active_cycle = plt.rcParams['axes.prop_cycle'].by_key().get('color', [])
         ax.cla()
         l2 = ax.plot([1], [2])
         color_after = l2[0].get_color()
         assert _color_close(color_before, color_after)
-        assert _color_close(color_before, DEFAULT_CYCLE[0])
+        assert _color_close(color_before, active_cycle[0])
 
 
 # ===================================================================

@@ -393,7 +393,8 @@ def test_figure_legend_empty():
     """Figure.legend on empty figure collects nothing."""
     from matplotlib.legend import Legend
     fig = plt.figure()
-    leg = fig.legend()
+    with pytest.warns(UserWarning, match="No artists with labels found"):
+        leg = fig.legend()
     # OG returns Legend with no entries, not None
     assert leg is None or isinstance(leg, Legend)
 
@@ -820,11 +821,10 @@ def test_figure_invalid_figsize_inf():
         Figure(figsize=(math.inf, 4.8))
 
 
-@pytest.mark.skip(reason="OG Figure does not raise for figsize=(0, 4.8); stub-specific behavior")
 def test_figure_invalid_figsize_zero():
-    """Zero figsize raises ValueError."""
-    with pytest.raises(ValueError):
-        Figure(figsize=(0, 4.8))
+    """OG allows zero-width figsize."""
+    fig = Figure(figsize=(0, 4.8))
+    assert tuple(fig.get_size_inches()) == (0, 4.8)
 
 
 def test_figure_invalid_figsize_negative():
@@ -846,7 +846,8 @@ class TestFigureExtended:
     def test_figure_set_constrained_layout(self):
         """Figure.set_constrained_layout changes layout."""
         fig = Figure()
-        fig.set_constrained_layout(True)
+        with pytest.warns(PendingDeprecationWarning, match="set_constrained_layout"):
+            fig.set_constrained_layout(True)
         assert fig.get_constrained_layout() is True
 
     def test_figure_tight_layout_default(self):
@@ -857,7 +858,8 @@ class TestFigureExtended:
     def test_figure_set_tight_layout(self):
         """Figure.set_tight_layout changes layout."""
         fig = Figure()
-        fig.set_tight_layout(True)
+        with pytest.warns(PendingDeprecationWarning, match="set_tight_layout"):
+            fig.set_tight_layout(True)
         assert fig.get_tight_layout() is True
 
     def test_figure_get_children_empty(self):
@@ -950,9 +952,9 @@ class TestFigureExtended:
         assert fig.get_suptitle() == 'main title'
 
     def test_figure_dpi_default(self):
-        """Figure default DPI is 100."""
+        """Figure default DPI follows the active rc style."""
         fig = Figure()
-        assert fig.get_dpi() == 100
+        assert fig.get_dpi() == plt.rcParams['figure.dpi']
 
     def test_figure_set_dpi(self):
         """Figure.set_dpi changes DPI."""
@@ -1168,12 +1170,11 @@ def test_figure_number_increments():
     plt.close('all')
 
 
-@pytest.mark.skip(reason="OG plt.figure(figsize=(0, 5)) does not raise; stub-specific behavior")
 def test_invalid_figure_size_zero():
-    """plt.figure(figsize=(0, 5)) raises ValueError."""
+    """OG plt.figure allows zero-width figsize."""
     import matplotlib.pyplot as plt
-    with pytest.raises(ValueError):
-        plt.figure(figsize=(0, 5))
+    fig = plt.figure(figsize=(0, 5))
+    assert tuple(fig.get_size_inches()) == (0, 5)
     plt.close('all')
 
 

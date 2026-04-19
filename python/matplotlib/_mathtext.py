@@ -19,7 +19,7 @@ from typing import NamedTuple
 
 import numpy as np
 from pyparsing import (
-    Empty, Forward, Literal, NotAny, oneOf, OneOrMore, Optional,
+    Empty, Forward, Literal, NotAny, one_of, OneOrMore, Optional,
     ParseBaseException, ParseException, ParseExpression, ParseFatalException,
     ParserElement, ParseResults, QuotedString, Regex, StringEnd, ZeroOrMore,
     pyparsing_common, Group)
@@ -42,7 +42,7 @@ if T.TYPE_CHECKING:
     from collections.abc import Iterable
     from .ft2font import Glyph
 
-ParserElement.enablePackrat()
+ParserElement.enable_packrat()
 _log = logging.getLogger("matplotlib.mathtext")
 
 
@@ -439,10 +439,11 @@ class BakomaFonts(TruetypeFonts):
     its own proprietary 8-bit encoding.
     """
     _fontmap = {
+        'normal': 'cmmi10',
         'cal': 'cmsy10',
         'rm':  'cmr10',
         'tt':  'cmtt10',
-        'it':  'cmmi10',
+        'it':  'cmti10',
         'bf':  'cmb10',
         'sf':  'cmss10',
         'ex':  'cmex10',
@@ -464,10 +465,13 @@ class BakomaFonts(TruetypeFonts):
         font = None
         if fontname in self.fontmap and sym in latex_to_bakoma:
             basename, num = latex_to_bakoma[sym]
-            slanted = (basename == "cmmi10") or sym in self._slanted_symbols
+            slanted = (basename in ("cmmi10", "cmti10")) or sym in self._slanted_symbols
             font = self._get_font(basename)
         elif len(sym) == 1:
-            slanted = (fontname == "it")
+            slanted = (fontname in ("it", "normal"))
+            if fontname == "normal" and sym.isdigit():
+                fontname = "rm"
+                slanted = False
             font = self._get_font(fontname)
             if font is not None:
                 num = ord(sym)
@@ -616,7 +620,14 @@ class UnicodeFonts(TruetypeFonts):
         # Only characters in the "Letter" class should be italicized in 'it'
         # mode.  Greek capital letters should be Roman.
         if found_symbol:
-            if fontname == 'it' and uniindex < 0x10000:
+            if fontname == 'normal' and uniindex < 0x10000:
+                char = chr(uniindex)
+                if (unicodedata.category(char)[0] != "L"
+                        or unicodedata.name(char).startswith("GREEK CAPITAL")):
+                    new_fontname = 'rm'
+                else:
+                    new_fontname = 'it'
+            elif fontname == 'it' and uniindex < 0x10000:
                 char = chr(uniindex)
                 if (unicodedata.category(char)[0] != "L"
                         or unicodedata.name(char).startswith("GREEK CAPITAL")):
@@ -637,7 +648,7 @@ class UnicodeFonts(TruetypeFonts):
 
         if not found_symbol:
             if self._fallback_font:
-                if (fontname in ('it', 'regular')
+                if (fontname in ('it', 'regular', 'normal')
                         and isinstance(self._fallback_font, StixFonts)):
                     fontname = 'rm'
 
@@ -649,7 +660,7 @@ class UnicodeFonts(TruetypeFonts):
                 return g
 
             else:
-                if (fontname in ('it', 'regular')
+                if (fontname in ('it', 'regular', 'normal')
                         and isinstance(self, StixFonts)):
                     return self._get_glyph('rm', font_class, sym)
                 _log.warning("Font %r does not have a glyph for %a [U+%x], "
@@ -1745,7 +1756,7 @@ def Error(msg: str) -> ParserElement:
     def raise_error(s: str, loc: int, toks: ParseResults) -> T.Any:
         raise ParseFatalException(s, loc, msg)
 
-    return Empty().setParseAction(raise_error)
+    return Empty().set_parse_action(raise_error)
 
 
 class ParserState:
@@ -1776,7 +1787,7 @@ class ParserState:
 
     @font.setter
     def font(self, name: str) -> None:
-        if name in ('rm', 'it', 'bf', 'bfit'):
+        if name in ('normal', 'rm', 'it', 'bf', 'bfit'):
             self.font_class = name
         self._font = name
 
@@ -1948,7 +1959,7 @@ class Parser:
     _dropsub_symbols = set(r'\int \oint \iint \oiint \iiint \oiiint \iiiint'.split())
 
     _fontnames = set("rm cal it tt sf bf bfit "
-                     "default bb frak scr regular".split())
+                     "default bb frak scr regular normal".split())
 
     _function_names = set("""
       arccos csc ker min arcsin deg lg Pr arctan det lim sec arg dim
@@ -1981,10 +1992,10 @@ class Parser:
                     # token, placeable, and auto_delim are forward references which
                     # are left without names to ensure useful error messages
                     if key not in ("token", "placeable", "auto_delim"):
-                        val.setName(key)
+                        val.set_name(key)
                     # Set actions
                     if hasattr(self, key):
-                        val.setParseAction(getattr(self, key))
+                        val.set_parse_action(getattr(self, key))
 
         # Root definitions.
 
@@ -2007,9 +2018,9 @@ class Parser:
             )
 
         p.float_literal  = Regex(r"[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)")
-        p.space          = oneOf(self._space_widths)("space")
+        p.space          = one_of(self._space_widths)("space")
 
-        p.style_literal  = oneOf(
+        p.style_literal  = one_of(
             [str(e.value) for e in self._MathStyle])("style_literal")
 
         p.symbol         = Regex(
@@ -2017,14 +2028,14 @@ class Parser:
             r"|\\[%${}\[\]_|]"
             + r"|\\(?:{})(?![A-Za-z])".format(
                 "|".join(map(re.escape, tex2uni)))
-        )("sym").leaveWhitespace()
+        )("sym").leave_whitespace()
         p.unknown_symbol = Regex(r"\\[A-Za-z]+")("name")
 
         p.font           = csnames("font", self._fontnames)
-        p.start_group    = Optional(r"\math" + oneOf(self._fontnames)("font")) + "{"
+        p.start_group    = Optional(r"\math" + one_of(self._fontnames)("font")) + "{"
         p.end_group      = Literal("}")
 
-        p.delim          = oneOf(self._delims)
+        p.delim          = one_of(self._delims)
 
         # Mutually recursive definitions.  (Minimizing the number of Forward
         # elements is important for speed.)
@@ -2048,6 +2059,10 @@ class Parser:
         p.required_group <<= "{" + OneOrMore(p.token)("group") + "}"
 
         p.customspace = cmd(r"\hspace", "{" + p.float_literal("space") + "}")
+
+        p.phantom = cmd(r"\phantom", p.optional_group("value"))
+        p.llap = cmd(r"\llap", p.optional_group("value"))
+        p.rlap = cmd(r"\rlap", p.optional_group("value"))
 
         p.accent = (
             csnames("accent", [*self._accent_map, *self._wide_accents])
@@ -2085,7 +2100,7 @@ class Parser:
             r"\underset",
             p.optional_group("annotation") + p.optional_group("body"))
 
-        p.text = cmd(r"\text", QuotedString('{', '\\', endQuoteChar="}"))
+        p.text = cmd(r"\text", QuotedString('{', '\\', end_quote_char="}"))
 
         p.substack = cmd(r"\substack",
                            nested_expr(opener="{", closer="}",
@@ -2094,7 +2109,7 @@ class Parser:
 
         p.subsuper = (
             (Optional(p.placeable)("nucleus")
-             + OneOrMore(oneOf(["_", "^"]) - p.placeable)("subsuper")
+             + OneOrMore(one_of(["_", "^"]) - p.placeable)("subsuper")
              + Regex("'*")("apostrophes"))
             | Regex("'+")("apostrophes")
             | (p.named_placeable("nucleus") + Regex("'*")("apostrophes"))
@@ -2115,7 +2130,8 @@ class Parser:
             r"\boldsymbol", "{" + ZeroOrMore(p.simple)("value") + "}")
 
         p.placeable     <<= (
-            p.accent     # Must be before symbol as all accents are symbols
+            p.phantom | p.llap | p.rlap
+            | p.accent   # Must be before symbol as all accents are symbols
             | p.symbol   # Must be second to catch all named symbols and single
                          # chars not in a group
             | p.function
@@ -2143,8 +2159,8 @@ class Parser:
 
         # Leaf definitions.
         p.math          = OneOrMore(p.token)
-        p.math_string   = QuotedString('$', '\\', unquoteResults=False)
-        p.non_math      = Regex(r"(?:(?:\\[$])|[^$])*").leaveWhitespace()
+        p.math_string   = QuotedString('$', '\\', unquote_results=False)
+        p.non_math      = Regex(r"(?:(?:\\[$])|[^$])*").leave_whitespace()
         p.main          = (
             p.non_math + ZeroOrMore(p.math_string + p.non_math) + StringEnd()
         )
@@ -2167,7 +2183,7 @@ class Parser:
             ParserState(fonts_object, 'default', 'rm', fontsize, dpi)]
         self._em_width_cache: dict[tuple[str, float, float], float] = {}
         try:
-            result = self._expression.parseString(s)
+            result = self._expression.parse_string(s)
         except ParseBaseException as err:
             # explain becomes a plain method on pyparsing 3 (err.explain(0)).
             raise ValueError("\n" + ParseException.explain(err, 0)) from None
@@ -2175,7 +2191,7 @@ class Parser:
         self._in_subscript_or_superscript = False
         # prevent operator spacing from leaking into a new expression
         self._em_width_cache = {}
-        ParserElement.resetCache()
+        ParserElement.reset_cache()
         return T.cast(Hlist, result[0])  # Known return type from main.
 
     def get_state(self) -> ParserState:
@@ -2194,7 +2210,7 @@ class Parser:
         return [Hlist(toks.asList())]
 
     def math_string(self, toks: ParseResults) -> ParseResults:
-        return self._math_expression.parseString(toks[0][1:-1], parseAll=True)
+        return self._math_expression.parse_string(toks[0][1:-1], parse_all=True)
 
     def math(self, toks: ParseResults) -> T.Any:
         hlist = Hlist(toks.asList())
@@ -2210,7 +2226,7 @@ class Parser:
         self.get_state().font = mpl.rcParams['mathtext.default']
         return [hlist]
 
-    float_literal = staticmethod(pyparsing_common.convertToFloat)
+    float_literal = staticmethod(pyparsing_common.convert_to_float)
 
     def text(self, toks: ParseResults) -> T.Any:
         self.push_state()
@@ -2310,6 +2326,16 @@ class Parser:
 
     def unknown_symbol(self, s: str, loc: int, toks: ParseResults) -> T.Any:
         raise ParseFatalException(s, loc, f"Unknown symbol: {toks['name']}")
+
+    def phantom(self, toks: ParseResults) -> T.Any:
+        toks["value"].is_phantom = True
+        return toks["value"]
+
+    def llap(self, toks: ParseResults) -> T.Any:
+        return [Hlist([Kern(-toks["value"].width), toks["value"]])]
+
+    def rlap(self, toks: ParseResults) -> T.Any:
+        return [Hlist([toks["value"], Kern(-toks["value"].width)])]
 
     _accent_map = {
         r'hat':            r'\circumflexaccent',

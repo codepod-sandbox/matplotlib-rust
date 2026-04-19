@@ -1198,7 +1198,8 @@ class ListedColormap(Colormap):
 
         the list will be extended by repetition.
     """
-    def __init__(self, colors, name='from_list', N=None):
+    def __init__(self, colors, name='from_list', N=None, *,
+                 bad=None, under=None, over=None):
         self.monochrome = False  # Are all colors identical? (for contour.py)
         if N is None:
             self.colors = colors
@@ -1221,6 +1222,7 @@ class ListedColormap(Colormap):
                     self.colors = [gray] * N
                 self.monochrome = True
         super().__init__(name, N)
+        self.set_extremes(bad=bad, under=under, over=over)
 
     def _init(self):
         self._lut = np.zeros((self.N + 3, 4), float)

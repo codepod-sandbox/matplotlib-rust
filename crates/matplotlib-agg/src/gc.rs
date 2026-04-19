@@ -66,12 +66,11 @@ impl GcInfo {
     /// Build a tiny_skia Paint for filling with the given RGBA color.
     pub fn make_fill_paint(&self, rgba: [f32; 4]) -> Paint<'static> {
         let mut p = Paint::default();
-        let a = (rgba[3] * self.alpha).clamp(0.0, 1.0);
         let color = Color::from_rgba(
             rgba[0].clamp(0.0, 1.0),
             rgba[1].clamp(0.0, 1.0),
             rgba[2].clamp(0.0, 1.0),
-            a,
+            rgba[3].clamp(0.0, 1.0),
         )
         .unwrap_or(Color::BLACK);
         p.set_color(color);
@@ -177,6 +176,66 @@ fn read_join_style(gc: &Bound<'_, PyAny>) -> LineJoin {
 /// Read `gc.get_dashes()` → `(offset, on_off_list)` in POINTS, convert
 /// to pixels using the renderer's dpi. matplotlib returns `(None, None)`
 /// for solid lines, and `(offset, [on, off, ...])` for dashed.
+fn normalize_dashes(offset: f32, arr: Vec<f32>) -> Option<(f32, Vec<f32>)> {
+    if arr.is_empty() {
+        return None;
+    }
+    let total: f32 = arr.iter().sum();
+    if total <= 0.0 {
+        return None;
+    }
+    let mut offset = offset.rem_euclid(total);
+
+    // Collapse zero-length segments while preserving the visible on/off
+    // pattern. Matplotlib allows zeros here and upstream Agg uses them to
+    // express phase-shift-equivalent patterns such as [0, 6, 6, 0].
+    let mut segments: Vec<(bool, f32)> = Vec::new();
+    let mut on = true;
+    for len in arr {
+        if len > 0.0 {
+            if let Some((state, acc)) = segments.last_mut() {
+                if *state == on {
+                    *acc += len;
+                } else {
+                    segments.push((on, len));
+                }
+            } else {
+                segments.push((on, len));
+            }
+        }
+        on = !on;
+    }
+    if segments.is_empty() {
+        return None;
+    }
+
+    // The pattern is cyclic; if zero-length transitions caused the last and
+    // first visible segments to have the same state, merge them.
+    if segments.len() > 1 && segments.first().unwrap().0 == segments.last().unwrap().0 {
+        let tail = segments.pop().unwrap().1;
+        segments[0].1 += tail;
+    }
+
+    // tiny-skia dash arrays start with an "on" segment. If the collapsed
+    // pattern begins with a visible gap, rotate it away and compensate in the
+    // dash offset.
+    if !segments[0].0 {
+        let shift = segments[0].1;
+        if segments.len() == 1 {
+            return None;
+        }
+        let first = segments.remove(0);
+        segments.push(first);
+        offset = (offset + shift).rem_euclid(total);
+    }
+
+    let normalized: Vec<f32> = segments.into_iter().map(|(_, len)| len).collect();
+    if normalized.iter().any(|&v| v <= 0.0) {
+        return None;
+    }
+    Some((offset, normalized))
+}
+
 fn read_dashes(gc: &Bound<'_, PyAny>, dpi: f64) -> Option<(f32, Vec<f32>)> {
     let tup = gc.call_method0("get_dashes").ok()?;
     let (offset_obj, seq_obj): (Option<f64>, Option<Vec<f64>>) = match tup.extract() {
@@ -198,12 +257,8 @@ fn read_dashes(gc: &Bound<'_, PyAny>, dpi: f64) -> Option<(f32, Vec<f32>)> {
         let tail = arr.clone();
         arr.extend(tail);
     }
-    // Ensure all segments are positive (tiny_skia asserts this).
-    if arr.iter().any(|&v| v <= 0.0) {
-        return None;
-    }
     let offset = (offset_obj.unwrap_or(0.0) * dpi / 72.0) as f32;
-    Some((offset, arr))
+    normalize_dashes(offset, arr)
 }
 
 /// Read `gc.get_snap()` → True / False / None.
@@ -213,19 +268,6 @@ fn read_snap(gc: &Bound<'_, PyAny>) -> Option<bool> {
         None
     } else {
         v.extract::<bool>().ok()
-    }
-}
-
-impl GcInfo {
-    /// Decide whether to snap vertices to pixel centres for this draw call.
-    /// Mirrors OG agg's logic: explicit True → snap; explicit False → no snap;
-    /// None → snap only when the line is at most 1.5 px wide (axis/tick lines).
-    pub fn should_snap(&self) -> bool {
-        match self.snap {
-            Some(true) => true,
-            Some(false) => false,
-            None => self.linewidth <= 1.5,
-        }
     }
 }
 

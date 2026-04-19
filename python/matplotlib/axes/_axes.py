@@ -808,6 +808,9 @@ class Axes(_AxesBase):
         l = mlines.Line2D([xmin, xmax], [y, y], transform=trans, **kwargs)
         self.add_line(l)
         l.get_path()._interpolation_steps = mpl.axis.GRIDLINE_INTERPOLATION_STEPS
+        # Clamp autoscaling to the reference value when this line is mixed
+        # with other data artists on the same axis.
+        l.sticky_edges.y[:] = [yy]
         if scaley:
             self._request_autoscale_view("y")
         return l
@@ -891,6 +894,9 @@ class Axes(_AxesBase):
         l = mlines.Line2D([x, x], [ymin, ymax], transform=trans, **kwargs)
         self.add_line(l)
         l.get_path()._interpolation_steps = mpl.axis.GRIDLINE_INTERPOLATION_STEPS
+        # Clamp autoscaling to the reference value when this line is mixed
+        # with other data artists on the same axis.
+        l.sticky_edges.x[:] = [xx]
         if scalex:
             self._request_autoscale_view("x")
         return l
@@ -962,6 +968,13 @@ class Axes(_AxesBase):
             # if a transform is passed (i.e. line points not in data space),
             # data limits should not be adjusted.
             datalim = []
+        else:
+            datalim = [
+                [self.convert_xunits(x), self.convert_yunits(y)]
+                for x, y in datalim
+            ]
+            xy1 = tuple(datalim[0])
+            xy2 = None if xy2 is None else tuple(datalim[1])
 
         line = mlines.AxLine(xy1, xy2, slope, **kwargs)
         # Like add_line, but correctly handling data limits.
@@ -4129,8 +4142,6 @@ class Axes(_AxesBase):
         if bootstrap is None:
             bootstrap = mpl.rcParams['boxplot.bootstrap']
 
-        bxpstats = cbook.boxplot_stats(x, whis=whis, bootstrap=bootstrap,
-                                       labels=tick_labels, autorange=autorange)
         if notch is None:
             notch = mpl.rcParams['boxplot.notch']
         if patch_artist is None:
@@ -4194,6 +4205,15 @@ class Axes(_AxesBase):
                     flierprops['color'] = color
                     flierprops['markerfacecolor'] = color
                     flierprops['markeredgecolor'] = color
+
+        convert_units = (self.convert_yunits
+                         if orientation == 'vertical'
+                         else self.convert_xunits)
+        x = [np.asarray(convert_units(xi))
+             for xi in cbook._reshape_2D(x, "x")]
+
+        bxpstats = cbook.boxplot_stats(x, whis=whis, bootstrap=bootstrap,
+                                       labels=tick_labels, autorange=autorange)
 
         # replace medians if necessary:
         if usermedians is not None:
@@ -5231,7 +5251,8 @@ class Axes(_AxesBase):
         """
         self._process_unit_info([("x", x), ("y", y)], kwargs, convert=False)
 
-        x, y, C = cbook.delete_masked_points(x, y, C)
+        x, y, C = cbook.delete_masked_points(
+            self.convert_xunits(x), self.convert_yunits(y), C)
 
         # Set the size of the hexagon grid
         if np.iterable(gridsize):
@@ -5498,10 +5519,12 @@ class Axes(_AxesBase):
         """
         # Strip away units for the underlying patch since units
         # do not make sense to most patch-like code
+        x0 = x
+        y0 = y
         x = self.convert_xunits(x)
         y = self.convert_yunits(y)
-        dx = self.convert_xunits(dx)
-        dy = self.convert_yunits(dy)
+        dx = self._convert_dx(dx, x0, np.asarray([x]), self.convert_xunits)
+        dy = self._convert_dx(dy, y0, np.asarray([y]), self.convert_yunits)
 
         a = mpatches.FancyArrow(x, y, dx, dy, **kwargs)
         self.add_patch(a)
@@ -6680,8 +6703,8 @@ class Axes(_AxesBase):
             y = [0, nr]
         elif len(args) == 3:
             x, y = args[:2]
-            x = np.asarray(x)
-            y = np.asarray(y)
+            x = np.asarray(self.convert_xunits(x))
+            y = np.asarray(self.convert_yunits(y))
             if x.ndim == 1 and y.ndim == 1:
                 if x.size == 2 and y.size == 2:
                     style = "image"
@@ -7017,6 +7040,8 @@ such objects
         # Avoid shadowing the builtin.
         bin_range = range
         from builtins import range
+
+        kwargs = cbook.normalize_kwargs(kwargs, mpatches.Patch)
 
         if np.isscalar(x):
             x = [x]
@@ -7501,6 +7526,8 @@ such objects
           `.colors.PowerNorm`.
         """
 
+        x = np.asarray(self.convert_xunits(x))
+        y = np.asarray(self.convert_yunits(y))
         h, xedges, yedges = np.histogram2d(x, y, bins=bins, range=range,
                                            density=density, weights=weights)
 
@@ -8595,6 +8622,16 @@ such objects
                 return (X[0] == coords).astype(float)
             kde = mlab.GaussianKDE(X, bw_method)
             return kde.evaluate(coords)
+
+        if vert is False:
+            orientation = 'horizontal'
+        _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
+
+        convert_units = (self.convert_yunits
+                         if orientation == 'vertical'
+                         else self.convert_xunits)
+        dataset = [np.asarray(convert_units(xi))
+                   for xi in cbook._reshape_2D(dataset, "dataset")]
 
         vpstats = cbook.violin_stats(dataset, _kde_method, points=points,
                                      quantiles=quantiles)

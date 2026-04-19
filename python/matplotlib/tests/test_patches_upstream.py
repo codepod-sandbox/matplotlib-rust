@@ -734,7 +734,7 @@ def test_ellipse_renders_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     red_pixels = sum(1 for r, g, b in pixels if r > 180 and g < 80 and b < 80)
     assert red_pixels > 10, f"Expected red ellipse pixels, got {red_pixels}"
     plt.close(fig)
@@ -769,7 +769,7 @@ def test_arc_renders_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     green_pixels = sum(1 for r, g, b in pixels if g > 100 and r < 50 and b < 50)
     assert green_pixels > 5, f"Expected green arc pixels, got {green_pixels}"
     plt.close(fig)
@@ -788,7 +788,7 @@ def test_fancy_bbox_round_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     blue_pixels = sum(1 for r, g, b in pixels if b > 150 and r < 80 and g < 80)
     assert blue_pixels > 20, f"Expected blue rounded box pixels, got {blue_pixels}"
     plt.close(fig)
@@ -807,7 +807,7 @@ def test_fancy_bbox_square_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     green_pixels = sum(1 for r, g, b in pixels if g > 100 and r < 50 and b < 50)
     assert green_pixels > 30, f"Expected green box pixels, got {green_pixels}"
     plt.close(fig)
@@ -842,7 +842,7 @@ def test_arrow_renders_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     red_pixels = sum(1 for r, g, b in pixels if r > 180 and g < 80 and b < 80)
     assert red_pixels > 10, f"Expected red arrow pixels, got {red_pixels}"
     plt.close(fig)
@@ -1691,7 +1691,7 @@ def test_contains_point_ellipse():
 
     ell = mpatches.Ellipse((0.5, 0.5), 0.5, 1.0)
     points = [(0.0, 0.5), (0.2, 0.5), (0.25, 0.5), (0.5, 0.5)]
-    result = np.array([ell.contains_point(point) for point in points])
+    result = np.array([ell.contains_point(point, radius=0) for point in points])
     # Center should be inside, far-left should be outside
     assert result[3]   # center (0.5, 0.5) is inside
     assert not result[0]  # (0.0, 0.5) is outside (width=0.5, so x in [0.25, 0.75])

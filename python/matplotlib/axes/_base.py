@@ -525,12 +525,9 @@ class _process_plot_var_args:
         elif len(label) == n_datasets:
             labels = label
         elif n_datasets == 1:
-            msg = (f'Passing label as a length {len(label)} sequence when '
-                    'plotting a single dataset is deprecated in Matplotlib 3.9 '
-                    'and will error in 3.11.  To keep the current behavior, '
-                    'cast the sequence to string before passing.')
-            _api.warn_deprecated('3.9', message=msg)
-            labels = [label]
+            raise ValueError(
+                f"label must be scalar or have the same length as the input "
+                f"data, but found {len(label)} for {n_datasets} datasets.")
         else:
             raise ValueError(
                 f"label must be scalar or have the same length as the input "
@@ -2360,14 +2357,40 @@ class _AxesBase(martist.Artist):
             self._unstale_viewLim()
             datalim = collection.get_datalim(self.transData)
             points = datalim.get_points()
-            if not np.isinf(datalim.minpos).all():
+            valid_minpos = (
+                np.isfinite(datalim.minpos)
+                & (datalim.minpos < np.finfo(float).max)
+            )
+            if valid_minpos.any():
                 # By definition, if minpos (minimum positive value) is set
                 # (i.e., non-inf), then min(points) <= minpos <= max(points),
                 # and minpos would be superfluous. However, we add minpos to
                 # the call so that self.dataLim will update its own minpos.
                 # This ensures that log scales see the correct minimum.
-                points = np.concatenate([points, [datalim.minpos]])
-            self.update_datalim(points)
+                minpos_point = np.array(points[0], copy=True)
+                minpos_point[valid_minpos] = datalim.minpos[valid_minpos]
+                points = np.concatenate([points, [minpos_point]])
+            # Only update limits on axes where the collection or its offsets
+            # are actually expressed in data coordinates.
+            x_is_data, y_is_data = (
+                collection.get_transform()
+                .contains_branch_seperately(self.transData))
+            ox_is_data, oy_is_data = (
+                collection.get_offset_transform()
+                .contains_branch_seperately(self.transData))
+            updatex = x_is_data or ox_is_data
+            updatey = y_is_data or oy_is_data
+            if not (updatex or updatey) and getattr(collection, "_offsets", None) is None:
+                # PatchCollection stores already-transformed paths in
+                # data coordinates, so there may no longer be an explicit
+                # transData branch to detect here.
+                updatex = updatey = True
+            self.update_datalim(
+                points,
+                updatex=updatex,
+                updatey=updatey,
+            )
+            self._request_autoscale_view()
 
         self.stale = True
         return collection
@@ -3016,12 +3039,14 @@ class _AxesBase(martist.Artist):
                       if np.isfinite(val)]
             if values:
                 x0, x1 = (min(values), max(values))
+                singular_data = np.isclose(x0, x1)
             elif getattr(self._viewLim, f"mutated{name}")():
                 # No data, but explicit viewLims already set:
                 # in mutatedx or mutatedy.
                 return
             else:
                 x0, x1 = (-np.inf, np.inf)
+                singular_data = False
             # If x0 and x1 are nonfinite, get default limits from the locator.
             locator = axis.get_major_locator()
             x0, x1 = locator.nonsingular(x0, x1)
@@ -3048,7 +3073,7 @@ class _AxesBase(martist.Artist):
             inverse_trans = transform.inverted()
             x0, x1 = axis._scale.limit_range_for_scale(x0, x1, minimum_minpos)
             x0t, x1t = transform.transform([x0, x1])
-            delta = (x1t - x0t) * margin
+            delta = 0 if singular_data else (x1t - x0t) * margin
             if not np.isfinite(delta):
                 delta = 0  # If a bound isn't finite, set margin to zero.
             x0, x1 = inverse_trans.transform([x0t - delta, x1t + delta])

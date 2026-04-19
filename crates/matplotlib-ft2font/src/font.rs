@@ -8,10 +8,11 @@ use pyo3::prelude::*;
 /// (ptsize, dpi); metrics are extracted from fontdue.
 #[derive(Clone, Debug)]
 struct Positioned {
-    ch: char,
+    glyph_index: u16,
     /// Pen position in text-local pixel coords. `pen_x` advances
     /// left-to-right starting at 0; `pen_y` is the baseline.
     pen_x: f32,
+    advance_width: f32,
     /// fontdue metrics for this glyph at the current size. Stored so
     /// draw_glyphs_to_bitmap doesn't have to re-measure.
     metrics: fontdue::Metrics,
@@ -24,6 +25,8 @@ pub struct FT2Font {
     font_data: Vec<u8>,
     /// fontdue rasterizer for glyph bitmaps.
     fontdue: fontdue::Font,
+    kerning: bool,
+    kerning_factor: f32,
 
     /// Current size (points) + dpi, set via set_size.
     ptsize: f32,
@@ -34,6 +37,7 @@ pub struct FT2Font {
     #[allow(dead_code)]
     current_angle: f32,
     laid_out: Vec<Positioned>,
+    loaded_glyphs: u32,
 
     /// Rasterized bitmap from draw_glyphs_to_bitmap. `get_image` returns
     /// a copy of this as a (H, W) uint8 ndarray.
@@ -52,6 +56,9 @@ pub struct FT2Font {
     /// `font.load_char(ccode); font.get_path()` per character, expecting
     /// get_path() to return the outline of the most recently loaded glyph.
     current_glyph_index: u16,
+    has_current_glyph: bool,
+    current_charmap_index: Option<usize>,
+    fallback_list: Vec<Py<FT2Font>>,
 
     // ----- Public attributes ------
     #[pyo3(get)]
@@ -64,6 +71,8 @@ pub struct FT2Font {
     postscript_name: String,
     #[pyo3(get)]
     num_faces: u32,
+    #[pyo3(get)]
+    num_named_instances: u32,
     #[pyo3(get)]
     face_flags: u32,
     #[pyo3(get)]
@@ -101,15 +110,32 @@ impl FT2Font {
     #[new]
     #[pyo3(signature = (filename, hinting_factor=8, *, _fallback_list=None, _kerning=false, _kerning_factor=None))]
     fn new(
-        filename: &str,
+        py: Python<'_>,
+        filename: &Bound<'_, PyAny>,
         hinting_factor: u32,
         _fallback_list: Option<&Bound<'_, PyAny>>,
         _kerning: bool,
         _kerning_factor: Option<f32>,
     ) -> PyResult<Self> {
         let _ = hinting_factor;
+        let filename = py
+            .import("os")?
+            .call_method1("fsdecode", (filename,))?
+            .extract::<String>()?;
+        let fallback_list = if let Some(fallbacks) = _fallback_list {
+            if fallbacks.is_none() {
+                Vec::new()
+            } else {
+                fallbacks
+                    .try_iter()?
+                    .map(|item| item?.extract::<Py<FT2Font>>())
+                    .collect::<PyResult<Vec<_>>>()?
+            }
+        } else {
+            Vec::new()
+        };
         // Read font bytes.
-        let font_data = std::fs::read(filename).map_err(|e| {
+        let font_data = std::fs::read(&filename).map_err(|e| {
             pyo3::exceptions::PyOSError::new_err(format!("ft2font: failed to read {filename}: {e}"))
         })?;
 
@@ -118,7 +144,7 @@ impl FT2Font {
             fontdue::Font::from_bytes(font_data.as_slice(), fontdue::FontSettings::default())
                 .map_err(|e| {
                     pyo3::exceptions::PyRuntimeError::new_err(format!(
-                        "ft2font: fontdue failed to parse {filename}: {e}"
+                "ft2font: fontdue failed to parse {filename}: {e}"
                     ))
                 })?;
 
@@ -160,6 +186,15 @@ impl FT2Font {
             thickness: 50,
         });
         let num_glyphs = face.number_of_glyphs() as u32;
+        let num_charmaps = face.tables().cmap.map(|table| table.subtables.len() as u32).unwrap_or(0);
+        let max_advance_width = (0..num_glyphs)
+            .filter_map(|gid| face.glyph_hor_advance(ttf_parser::GlyphId(gid as u16)))
+            .max()
+            .unwrap_or(0);
+        let max_advance_height = (0..num_glyphs)
+            .filter_map(|gid| face.glyph_ver_advance(ttf_parser::GlyphId(gid as u16)))
+            .max()
+            .unwrap_or(height_font as u16) as i16;
 
         let mut face_flags: u32 = 0;
         if face.is_regular() || face.is_bold() || face.is_italic() {
@@ -183,28 +218,35 @@ impl FT2Font {
         Ok(Self {
             font_data,
             fontdue,
+            kerning: true,
+            kerning_factor: _kerning_factor.unwrap_or(1.0),
             ptsize: 12.0,
             dpi: 72.0,
             current_text: String::new(),
             current_angle: 0.0,
             laid_out: Vec::new(),
+            loaded_glyphs: 0,
             bitmap: ndarray::Array2::zeros((1, 1)),
             bitmap_offset: (0, 0),
             width_26_6: 0.0,
             height_26_6: 0.0,
             descent_26_6: 0.0,
             current_glyph_index: 0,
+            has_current_glyph: false,
+            current_charmap_index: None,
+            fallback_list,
 
-            fname: filename.to_string(),
+            fname: filename,
             family_name,
             style_name,
             postscript_name,
             num_faces: 1,
+            num_named_instances: 0,
             face_flags,
             style_flags,
             num_glyphs,
             num_fixed_sizes: 0,
-            num_charmaps: 1,
+            num_charmaps,
             scalable: true,
             units_per_EM: units_per_em,
             underline_position: underline.position,
@@ -218,8 +260,8 @@ impl FT2Font {
             ascender,
             descender,
             height: height_font,
-            max_advance_width: 0,
-            max_advance_height: 0,
+            max_advance_width,
+            max_advance_height,
         })
     }
 
@@ -228,11 +270,14 @@ impl FT2Font {
     fn clear(&mut self) {
         self.current_text.clear();
         self.laid_out.clear();
+        self.loaded_glyphs = 0;
         self.bitmap = ndarray::Array2::zeros((1, 1));
         self.bitmap_offset = (0, 0);
         self.width_26_6 = 0.0;
         self.height_26_6 = 0.0;
         self.descent_26_6 = 0.0;
+        self.current_charmap_index = None;
+        self.has_current_glyph = false;
     }
 
     fn set_size(&mut self, ptsize: f32, dpi: f32) {
@@ -242,12 +287,60 @@ impl FT2Font {
 
     // ----- placeholder stubs; real bitmap rendering lands in task #33 -----
 
-    #[pyo3(signature = (s, angle=0.0, flags=0))]
-    fn set_text(&mut self, s: &str, angle: f32, flags: i32) -> PyResult<()> {
+    #[pyo3(signature = (s, angle=0.0, flags=0, *, features=None, language=None))]
+    fn set_text<'py>(
+        &mut self,
+        py: Python<'py>,
+        s: &str,
+        angle: f32,
+        flags: i32,
+        features: Option<&Bound<'_, PyAny>>,
+        language: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Bound<'py, PyArray2<i32>>> {
         let _ = flags;
+        if let Some(features) = features {
+            if !features.is_none() {
+                if let Ok(iter) = features.try_iter() {
+                    for item in iter {
+                        let item = item?;
+                        item.extract::<String>().map_err(|_| {
+                            pyo3::exceptions::PyTypeError::new_err(
+                                "features must be None or an iterable of strings",
+                            )
+                        })?;
+                    }
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "features must be None or an iterable of strings",
+                    ));
+                }
+            }
+        }
+        if let Some(language) = language {
+            if !language.is_none()
+                && language.extract::<String>().is_err()
+            {
+                if let Ok(iter) = language.try_iter() {
+                    for item in iter {
+                        let item = item?;
+                        let tuple = item.extract::<(String, i32, i32)>().map_err(|_| {
+                            pyo3::exceptions::PyTypeError::new_err(
+                                "language must be None, a string, or an iterable of (str, int, int) tuples",
+                            )
+                        })?;
+                        let _ = tuple;
+                    }
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "language must be None, a string, or an iterable of (str, int, int) tuples",
+                    ));
+                }
+            }
+        }
         self.current_text = s.to_string();
         self.current_angle = angle;
         self.laid_out.clear();
+        self.loaded_glyphs = 0;
 
         // Lay out glyphs using fontdue metrics. Each glyph's horizontal
         // advance in pixels drives the pen. Kerning pairs (2C) will be
@@ -256,12 +349,36 @@ impl FT2Font {
         let mut pen_x = 0.0_f32;
         let mut max_ascent = 0.0_f32;
         let mut max_descent = 0.0_f32;
+        let mut min_x = f32::INFINITY;
+        let mut min_y = f32::INFINITY;
 
+        let mut prev_gid = None::<u16>;
         for ch in s.chars() {
-            let metrics = self.fontdue.metrics(ch, px);
-            // fontdue advance_width includes bearings; use it for pen.
-            self.laid_out.push(Positioned { ch, pen_x, metrics });
-            pen_x += metrics.advance_width;
+            let gid = self.fontdue.lookup_glyph_index(ch);
+            if self.kerning {
+                if let Some(left_gid) = prev_gid {
+                    let kern = self
+                        .fontdue
+                        .horizontal_kern_indexed(left_gid, gid, px)
+                        .unwrap_or(0.0);
+                    pen_x += kern * (if self.kerning_factor > 0.0 {
+                        self.kerning_factor
+                    } else {
+                        1.0
+                    });
+                }
+            }
+            let metrics = self.fontdue.metrics_indexed(gid, px);
+            let advance_width = metrics.advance_width;
+            self.laid_out.push(Positioned {
+                glyph_index: gid,
+                pen_x,
+                advance_width,
+                metrics,
+            });
+            pen_x += advance_width;
+            prev_gid = Some(gid);
+            self.loaded_glyphs += 1;
 
             // Track ascent/descent from the raster bounds:
             //   ymin = baseline offset (negative = below baseline)
@@ -274,6 +391,24 @@ impl FT2Font {
             if bottom < -max_descent {
                 max_descent = -bottom;
             }
+            if metrics.width > 0 && metrics.height > 0 {
+                let glyph_x = pen_x - advance_width + metrics.xmin as f32;
+                let glyph_y = -(metrics.ymin as f32 + metrics.height as f32);
+                if glyph_x < min_x {
+                    min_x = glyph_x;
+                }
+                if glyph_y < min_y {
+                    min_y = glyph_y;
+                }
+            }
+        }
+
+        if self.laid_out.is_empty() {
+            self.width_26_6 = 0.0;
+            self.height_26_6 = 0.0;
+            self.descent_26_6 = 0.0;
+            self.bitmap_offset = (0, 0);
+            return Ok(ndarray::Array2::<i32>::zeros((0, 2)).into_pyarray(py));
         }
 
         // Bitmap metrics in 26.6 subpixels. get_width_height reports the
@@ -283,7 +418,19 @@ impl FT2Font {
         self.width_26_6 = pen_x * 64.0;
         self.height_26_6 = total_h * 64.0;
         self.descent_26_6 = max_descent * 64.0;
-        Ok(())
+        if min_x.is_finite() && min_y.is_finite() {
+            self.bitmap_offset = (
+                (min_x.floor() * 64.0) as i32,
+                (-min_y.floor() * 64.0) as i32,
+            );
+        } else {
+            self.bitmap_offset = (0, 0);
+        }
+        let mut xys = ndarray::Array2::<i32>::zeros((self.laid_out.len(), 2));
+        for (i, glyph) in self.laid_out.iter().enumerate() {
+            xys[(i, 0)] = (glyph.pen_x * 64.0).round() as i32;
+        }
+        Ok(xys.into_pyarray(py))
     }
 
     fn get_width_height(&self) -> (f32, f32) {
@@ -354,8 +501,13 @@ impl FT2Font {
             return;
         }
 
-        let bitmap_w = (max_x - min_x).ceil().max(1.0) as usize;
-        let bitmap_h = (max_y - min_y).ceil().max(1.0) as usize;
+        let min_x_floor = min_x.floor();
+        let min_y_floor = min_y.floor();
+        let max_x_ceil = max_x.ceil();
+        let max_y_ceil = max_y.ceil();
+
+        let bitmap_w = (max_x_ceil - min_x_floor).max(1.0) as usize;
+        let bitmap_h = (max_y_ceil - min_y_floor).max(1.0) as usize;
         let mut bitmap = ndarray::Array2::<u8>::zeros((bitmap_h, bitmap_w));
 
         // Second pass: rasterize each glyph and composite into the
@@ -367,13 +519,13 @@ impl FT2Font {
             if g.metrics.width == 0 || g.metrics.height == 0 {
                 continue;
             }
-            let (_m, pixels) = self.fontdue.rasterize(g.ch, self.px_size());
+            let (_m, pixels) = self.fontdue.rasterize_indexed(g.glyph_index, self.px_size());
             let gw = g.metrics.width;
             let gh = g.metrics.height;
             let gx = g.pen_x + g.metrics.xmin as f32;
             let gy = -(g.metrics.ymin as f32 + g.metrics.height as f32);
-            let dst_x = (gx - min_x).round() as i32;
-            let dst_y = (gy - min_y).round() as i32;
+            let dst_x = gx.floor() as i32 - min_x_floor as i32;
+            let dst_y = gy.floor() as i32 - min_y_floor as i32;
 
             for sy in 0..gh {
                 let dy = dst_y + sy as i32;
@@ -404,11 +556,11 @@ impl FT2Font {
         // top-left corner, in 26.6 subpixels. OG's backend_agg.py:181-203
         // uses it to align the blit to the baseline after rotation.
         self.bitmap_offset = (
-            (min_x * 64.0).round() as i32,
+            (min_x_floor * 64.0) as i32,
             // +min_y because we flipped earlier; this is the y offset
             // in pixmap-down coordinates from the baseline to the
             // bitmap's top row.
-            (-min_y * 64.0).round() as i32,
+            (-min_y_floor * 64.0) as i32,
         );
     }
 
@@ -421,7 +573,45 @@ impl FT2Font {
         glyph: &Bound<'_, PyAny>,
         antialiased: Option<&Bound<'_, PyAny>>,
     ) {
-        let _ = (image, x, y, glyph, antialiased);
+        let _ = antialiased; // fontdue rasterization is antialiased.
+        let Ok(mut image) = image.extract::<PyRefMut<'_, FT2Image>>() else {
+            return;
+        };
+        let Ok(glyph) = glyph.extract::<PyRef<'_, Glyph>>() else {
+            return;
+        };
+        let (metrics, pixels) = self
+            .fontdue
+            .rasterize_indexed(glyph.glyph_index as u16, glyph.pixel_size);
+        if metrics.width == 0 || metrics.height == 0 {
+            return;
+        }
+
+        let dst_x = x + metrics.xmin;
+        let dst_y = y - (metrics.ymin + metrics.height as i32);
+        let h = image.data.shape()[0] as i32;
+        let w = image.data.shape()[1] as i32;
+
+        for sy in 0..metrics.height {
+            let dy = dst_y + sy as i32;
+            if dy < 0 || dy >= h {
+                continue;
+            }
+            for sx in 0..metrics.width {
+                let dx = dst_x + sx as i32;
+                if dx < 0 || dx >= w {
+                    continue;
+                }
+                let src = pixels[sy * metrics.width + sx];
+                if src == 0 {
+                    continue;
+                }
+                let dst = &mut image.data[(dy as usize, dx as usize)];
+                if src > *dst {
+                    *dst = src;
+                }
+            }
+        }
     }
 
     fn get_image<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<u8>> {
@@ -435,10 +625,23 @@ impl FT2Font {
     // ----- glyph lookup (stubs for 2C) -----
 
     fn get_num_glyphs(&self) -> u32 {
-        self.num_glyphs
+        self.loaded_glyphs
     }
 
     fn get_char_index(&self, codepoint: u32) -> u32 {
+        if codepoint == 0 {
+            return 0;
+        }
+        let Ok(face) = ttf_parser::Face::parse(&self.font_data, 0) else {
+            return 0;
+        };
+        if let Some(cmap) = face.tables().cmap {
+            if let Some(index) = self.current_charmap_index {
+                if let Some(sub) = cmap.subtables.get(index as u16) {
+                    return sub.glyph_index(codepoint).map(|gid| gid.0 as u32).unwrap_or(0);
+                }
+            }
+        }
         if let Some(ch) = char::from_u32(codepoint) {
             self.fontdue.lookup_glyph_index(ch) as u32
         } else {
@@ -447,11 +650,31 @@ impl FT2Font {
     }
 
     fn get_name_index(&self, _name: &str) -> u32 {
+        let Ok(face) = ttf_parser::Face::parse(&self.font_data, 0) else {
+            return 0;
+        };
+        for gid in 0..face.number_of_glyphs() {
+            let glyph_id = ttf_parser::GlyphId(gid);
+            if face.glyph_name(glyph_id) == Some(_name) {
+                return gid as u32;
+            }
+        }
         0
     }
 
     fn get_glyph_name(&self, index: u32) -> String {
-        format!("glyph_{index}")
+        let Ok(face) = ttf_parser::Face::parse(&self.font_data, 0) else {
+            return format!("glyph_{index}");
+        };
+        face.glyph_name(ttf_parser::GlyphId(index as u16))
+            .map(str::to_string)
+            .unwrap_or_else(|| {
+                if index == 0 {
+                    ".notdef".to_string()
+                } else {
+                    format!("glyph_{index}")
+                }
+            })
     }
 
     /// Return the full codepoint → glyph-id map. ttf-parser's cmap
@@ -460,26 +683,89 @@ impl FT2Font {
         let mut out = std::collections::HashMap::new();
         if let Ok(face) = ttf_parser::Face::parse(&self.font_data, 0) {
             if let Some(cmap) = face.tables().cmap {
-                for sub in cmap.subtables {
-                    sub.codepoints(|cp| {
-                        if let Some(gid) = sub.glyph_index(cp) {
-                            out.entry(cp).or_insert(gid.0 as u32);
-                        }
-                    });
+                if let Some(index) = self.current_charmap_index {
+                    if let Some(sub) = cmap.subtables.get(index as u16) {
+                        sub.codepoints(|cp| {
+                            if cp == 0 {
+                                return;
+                            }
+                            if let Some(gid) = sub.glyph_index(cp) {
+                                out.entry(cp).or_insert(gid.0 as u32);
+                            }
+                        });
+                    }
+                } else {
+                    for sub in cmap.subtables {
+                        sub.codepoints(|cp| {
+                            if cp == 0 {
+                                return;
+                            }
+                            if let Some(gid) = sub.glyph_index(cp) {
+                                out.entry(cp).or_insert(gid.0 as u32);
+                            }
+                        });
+                    }
                 }
             }
         }
         out
     }
 
-    fn select_charmap(&mut self, _i: u32) {}
-    fn set_charmap(&mut self, _i: u32) {}
+    fn select_charmap(&mut self, i: u32) {
+        let Ok(face) = ttf_parser::Face::parse(&self.font_data, 0) else {
+            return;
+        };
+        let Some(cmap) = face.tables().cmap else {
+            return;
+        };
+        match i {
+            // FT_ENCODING_UNICODE
+            0x756e6963 => {
+                let mut best: Option<(usize, usize)> = None;
+                for (idx, sub) in cmap.subtables.into_iter().enumerate() {
+                    if !sub.is_unicode() {
+                        continue;
+                    }
+                    let mut count = 0usize;
+                    sub.codepoints(|cp| {
+                        if let Some(gid) = sub.glyph_index(cp) {
+                            let _ = gid;
+                            count += 1;
+                        }
+                    });
+                    if best.is_none_or(|(_, best_count)| count > best_count) {
+                        best = Some((idx, count));
+                    }
+                }
+                self.current_charmap_index = best.map(|(idx, _)| idx);
+            }
+            // FT_ENCODING_APPLE_ROMAN
+            0x61726d6e => {
+                self.current_charmap_index = cmap.subtables.into_iter().enumerate().find_map(
+                    |(idx, sub)| {
+                        (matches!(sub.platform_id, ttf_parser::PlatformId::Macintosh)
+                            && sub.encoding_id == 0)
+                            .then_some(idx)
+                    },
+                );
+            }
+            _ => {}
+        }
+    }
 
-    /// Kerning between two glyph indices in 26.6 subpixels (mode is
-    /// ignored — we always return design-unit kerning scaled to pixels).
+    fn set_charmap(&mut self, i: u32) {
+        self.current_charmap_index = Some(i as usize);
+    }
+
+    /// Kerning between two glyph indices.
+    ///
+    /// - DEFAULT returns rounded pixel kerning in 26.6 subpixels.
+    /// - UNFITTED returns unrounded scaled kerning in 26.6 subpixels.
+    /// - UNSCALED returns raw font units.
+    ///
     /// Uses ttf-parser's legacy `kern` table subtables. GPOS kerning
     /// requires full shaping and is out of scope for Phase 2.
-    fn get_kerning(&self, left: u32, right: u32, _mode: i32) -> i32 {
+    fn get_kerning(&self, left: u32, right: u32, mode: i32) -> i32 {
         let face = match ttf_parser::Face::parse(&self.font_data, 0) {
             Ok(f) => f,
             Err(_) => return 0,
@@ -502,8 +788,54 @@ impl FT2Font {
         if upem <= 0.0 {
             return 0;
         }
-        let px = total_fu as f32 * self.px_size() / upem;
-        (px * 64.0) as i32
+        match mode {
+            2 => total_fu,
+            1 => {
+                let px = total_fu as f32 * self.px_size() / upem;
+                (px * 64.0).floor() as i32
+            }
+            _ => {
+                let px = total_fu as f32 * self.px_size() / upem;
+                px.round() as i32 * 64
+            }
+        }
+    }
+
+    fn _layout<'py>(
+        slf: Py<Self>,
+        py: Python<'py>,
+        s: &str,
+        flags: i32,
+    ) -> PyResult<Vec<LayoutItem>> {
+        let _ = flags;
+        let self_obj = slf.clone_ref(py);
+        let slf_ref = slf.bind(py).borrow();
+        let mut out = Vec::with_capacity(s.chars().count());
+        for ch in s.chars() {
+            let chosen = if slf_ref.get_char_index(ch as u32) != 0 {
+                self_obj.clone_ref(py)
+            } else {
+                let mut chosen = None;
+                for fallback in &slf_ref.fallback_list {
+                    let fallback_ref = fallback.bind(py).borrow();
+                    if fallback_ref.get_char_index(ch as u32) != 0 {
+                        chosen = Some(fallback.clone_ref(py));
+                        break;
+                    }
+                }
+                chosen.unwrap_or_else(|| {
+                    slf_ref.fallback_list
+                        .last()
+                        .map(|f| f.clone_ref(py))
+                        .unwrap_or_else(|| self_obj.clone_ref(py))
+                })
+            };
+            out.push(LayoutItem {
+                char: ch.to_string(),
+                ft_object: chosen,
+            });
+        }
+        Ok(out)
     }
 
     /// Return every name-table entry as
@@ -516,6 +848,9 @@ impl FT2Font {
         };
         if let Some(name_table) = face.tables().name {
             for name in name_table.names.into_iter() {
+                if name.name.is_empty() {
+                    continue;
+                }
                 let pid = platform_id_u16(name.platform_id) as u32;
                 let eid = name.encoding_id as u32;
                 let lid = name.language_id as u32;
@@ -535,150 +870,167 @@ impl FT2Font {
             Ok(f) => f,
             Err(_) => return Ok(py.None()),
         };
-        let tables = face.tables();
+        let raw_face = face.raw_face();
         let d = pyo3::types::PyDict::new(py);
         match name {
             "head" => {
-                // _SfntHeadDict: version, fontRevision are 16.16
-                // fixed-point exposed as (major, minor) tuples. created
-                // / modified are LONGDATETIME (64-bit) split into
-                // (hi, lo) 32-bit halves per the same convention.
-                d.set_item("version", fixed_tuple_1616(0x10000))?;
-                d.set_item("fontRevision", fixed_tuple_1616(0))?;
-                d.set_item("checkSumAdjustment", 0_i32)?;
-                d.set_item("magicNumber", 0x5F0F3CF5_u32)?;
-                d.set_item("flags", 0_i32)?;
-                d.set_item("unitsPerEm", face.units_per_em() as i32)?;
-                d.set_item("created", (0_i32, 0_i32))?;
-                d.set_item("modified", (0_i32, 0_i32))?;
-                let bbox = face.global_bounding_box();
-                d.set_item("xMin", bbox.x_min as i32)?;
-                d.set_item("yMin", bbox.y_min as i32)?;
-                d.set_item("xMax", bbox.x_max as i32)?;
-                d.set_item("yMax", bbox.y_max as i32)?;
-                let mut mac_style: u16 = 0;
-                if face.is_bold() {
-                    mac_style |= 0x01;
-                }
-                if face.is_italic() {
-                    mac_style |= 0x02;
-                }
-                d.set_item("macStyle", mac_style as i32)?;
-                d.set_item("lowestRecPPEM", 0_i32)?;
-                d.set_item("fontDirectionHint", 2_i32)?;
-                d.set_item("indexToLocFormat", 0_i32)?;
-                d.set_item("glyphDataFormat", 0_i32)?;
+                let Some(head) = raw_face.table(ttf_parser::Tag::from_bytes(b"head")) else {
+                    return Ok(py.None());
+                };
+                d.set_item("version", fixed_tuple_1616(read_i32_be(head, 0).unwrap_or(0)))?;
+                d.set_item("fontRevision", fixed_tuple_1616(read_i32_be(head, 4).unwrap_or(0)))?;
+                d.set_item("checkSumAdjustment", read_i32_be(head, 8).unwrap_or(0))?;
+                d.set_item("magicNumber", read_u32_be(head, 12).unwrap_or(0))?;
+                d.set_item("flags", read_u16_be(head, 16).unwrap_or(0) as i32)?;
+                d.set_item("unitsPerEm", read_u16_be(head, 18).unwrap_or(0) as i32)?;
+                let created = read_u64_be(head, 20).unwrap_or(0);
+                let modified = read_u64_be(head, 28).unwrap_or(0);
+                d.set_item("created", ((created >> 32) as u32, created as u32))?;
+                d.set_item("modified", ((modified >> 32) as u32, modified as u32))?;
+                d.set_item("xMin", read_i16_be(head, 36).unwrap_or(0) as i32)?;
+                d.set_item("yMin", read_i16_be(head, 38).unwrap_or(0) as i32)?;
+                d.set_item("xMax", read_i16_be(head, 40).unwrap_or(0) as i32)?;
+                d.set_item("yMax", read_i16_be(head, 42).unwrap_or(0) as i32)?;
+                d.set_item("macStyle", read_u16_be(head, 44).unwrap_or(0) as i32)?;
+                d.set_item("lowestRecPPEM", read_u16_be(head, 46).unwrap_or(0) as i32)?;
+                d.set_item("fontDirectionHint", read_i16_be(head, 48).unwrap_or(0) as i32)?;
+                d.set_item("indexToLocFormat", read_i16_be(head, 50).unwrap_or(0) as i32)?;
+                d.set_item("glyphDataFormat", read_i16_be(head, 52).unwrap_or(0) as i32)?;
                 Ok(d.into_any().unbind())
             }
             "hhea" => {
-                let h = tables.hhea;
-                // _SfntHheaDict: version is 16.16 fixed-point tuple.
-                d.set_item("version", fixed_tuple_1616(0x10000))?;
-                d.set_item("ascent", h.ascender as i32)?;
-                d.set_item("descent", h.descender as i32)?;
-                d.set_item("lineGap", h.line_gap as i32)?;
-                d.set_item("advanceWidthMax", 0_i32)?;
-                d.set_item("minLeftBearing", 0_i32)?;
-                d.set_item("minRightBearing", 0_i32)?;
-                d.set_item("xMaxExtent", 0_i32)?;
-                d.set_item("caretSlopeRise", 1_i32)?;
-                d.set_item("caretSlopeRun", 0_i32)?;
-                d.set_item("caretOffset", 0_i32)?;
-                d.set_item("metricDataFormat", 0_i32)?;
-                d.set_item("numOfLongHorMetrics", h.number_of_metrics as i32)?;
+                let Some(hhea) = raw_face.table(ttf_parser::Tag::from_bytes(b"hhea")) else {
+                    return Ok(py.None());
+                };
+                d.set_item("version", fixed_tuple_1616(read_i32_be(hhea, 0).unwrap_or(0)))?;
+                d.set_item("ascent", read_i16_be(hhea, 4).unwrap_or(0) as i32)?;
+                d.set_item("descent", read_i16_be(hhea, 6).unwrap_or(0) as i32)?;
+                d.set_item("lineGap", read_i16_be(hhea, 8).unwrap_or(0) as i32)?;
+                d.set_item("advanceWidthMax", read_u16_be(hhea, 10).unwrap_or(0) as i32)?;
+                d.set_item("minLeftBearing", read_i16_be(hhea, 12).unwrap_or(0) as i32)?;
+                d.set_item("minRightBearing", read_i16_be(hhea, 14).unwrap_or(0) as i32)?;
+                d.set_item("xMaxExtent", read_i16_be(hhea, 16).unwrap_or(0) as i32)?;
+                d.set_item("caretSlopeRise", read_i16_be(hhea, 18).unwrap_or(0) as i32)?;
+                d.set_item("caretSlopeRun", read_i16_be(hhea, 20).unwrap_or(0) as i32)?;
+                d.set_item("caretOffset", read_i16_be(hhea, 22).unwrap_or(0) as i32)?;
+                d.set_item("metricDataFormat", read_i16_be(hhea, 32).unwrap_or(0) as i32)?;
+                d.set_item("numOfLongHorMetrics", read_u16_be(hhea, 34).unwrap_or(0) as i32)?;
                 Ok(d.into_any().unbind())
             }
             "OS/2" => {
-                let os2 = match tables.os2 {
-                    Some(t) => t,
-                    None => return Ok(py.None()),
+                let Some(os2) = raw_face.table(ttf_parser::Tag::from_bytes(b"OS/2")) else {
+                    return Ok(py.None());
                 };
-                // _SfntOs2Dict: version is an int (not a tuple!).
-                // We report version 4 (a real OS/2 version, not 0xFFFF
-                // which matplotlib treats as "missing").
-                d.set_item("version", 4_i32)?;
-                d.set_item("xAvgCharWidth", 0_i32)?;
-                d.set_item("usWeightClass", os2.weight().to_number() as i32)?;
-                d.set_item("usWidthClass", os2.width().to_number() as i32)?;
-                d.set_item("fsType", 0_i32)?;
-                d.set_item("ySubscriptXSize", 0_i32)?;
-                d.set_item("ySubscriptYSize", 0_i32)?;
-                d.set_item("ySubscriptXOffset", 0_i32)?;
-                d.set_item("ySubscriptYOffset", 0_i32)?;
-                d.set_item("ySuperscriptXSize", 0_i32)?;
-                d.set_item("ySuperscriptYSize", 0_i32)?;
-                d.set_item("ySuperscriptXOffset", 0_i32)?;
-                d.set_item("ySuperscriptYOffset", 0_i32)?;
-                d.set_item("yStrikeoutSize", 0_i32)?;
-                d.set_item("yStrikeoutPosition", 0_i32)?;
-                d.set_item("sFamilyClass", 0_i32)?;
-                // panose is raw 10 bytes; ulCharRange is a 4-tuple of
-                // u32s (the Unicode range bits) per _SfntOs2Dict, NOT
-                // bytes. achVendID is 4 raw bytes.
-                d.set_item("panose", pyo3::types::PyBytes::new(py, &[0u8; 10]))?;
-                d.set_item("ulCharRange", (0_u32, 0_u32, 0_u32, 0_u32))?;
-                d.set_item("achVendID", pyo3::types::PyBytes::new(py, b"UKWN"))?;
-                let mut fs_sel: u16 = 0;
-                if face.is_italic() {
-                    fs_sel |= 0x01;
+                let version = read_u16_be(os2, 0).unwrap_or(0) as i32;
+                d.set_item("version", version)?;
+                d.set_item("xAvgCharWidth", read_i16_be(os2, 2).unwrap_or(0) as i32)?;
+                d.set_item("usWeightClass", read_u16_be(os2, 4).unwrap_or(0) as i32)?;
+                d.set_item("usWidthClass", read_u16_be(os2, 6).unwrap_or(0) as i32)?;
+                d.set_item("fsType", read_u16_be(os2, 8).unwrap_or(0) as i32)?;
+                d.set_item("ySubscriptXSize", read_i16_be(os2, 10).unwrap_or(0) as i32)?;
+                d.set_item("ySubscriptYSize", read_i16_be(os2, 12).unwrap_or(0) as i32)?;
+                d.set_item("ySubscriptXOffset", read_i16_be(os2, 14).unwrap_or(0) as i32)?;
+                d.set_item("ySubscriptYOffset", read_i16_be(os2, 16).unwrap_or(0) as i32)?;
+                d.set_item("ySuperscriptXSize", read_i16_be(os2, 18).unwrap_or(0) as i32)?;
+                d.set_item("ySuperscriptYSize", read_i16_be(os2, 20).unwrap_or(0) as i32)?;
+                d.set_item("ySuperscriptXOffset", read_i16_be(os2, 22).unwrap_or(0) as i32)?;
+                d.set_item("ySuperscriptYOffset", read_i16_be(os2, 24).unwrap_or(0) as i32)?;
+                d.set_item("yStrikeoutSize", read_i16_be(os2, 26).unwrap_or(0) as i32)?;
+                d.set_item("yStrikeoutPosition", read_i16_be(os2, 28).unwrap_or(0) as i32)?;
+                d.set_item("sFamilyClass", read_i16_be(os2, 30).unwrap_or(0) as i32)?;
+                d.set_item("panose", pyo3::types::PyBytes::new(py, os2.get(32..42).unwrap_or(&[])))?;
+                d.set_item("ulUnicodeRange", (
+                    read_u32_be(os2, 42).unwrap_or(0),
+                    read_u32_be(os2, 46).unwrap_or(0),
+                    read_u32_be(os2, 50).unwrap_or(0),
+                    read_u32_be(os2, 54).unwrap_or(0),
+                ))?;
+                d.set_item("achVendID", pyo3::types::PyBytes::new(py, os2.get(58..62).unwrap_or(&[])))?;
+                d.set_item("fsSelection", read_u16_be(os2, 62).unwrap_or(0) as i32)?;
+                d.set_item("usFirstCharIndex", read_u16_be(os2, 64).unwrap_or(0) as i32)?;
+                d.set_item("usLastCharIndex", read_u16_be(os2, 66).unwrap_or(0) as i32)?;
+                d.set_item("sTypoAscender", read_i16_be(os2, 68).unwrap_or(0) as i32)?;
+                d.set_item("sTypoDescender", read_i16_be(os2, 70).unwrap_or(0) as i32)?;
+                d.set_item("sTypoLineGap", read_i16_be(os2, 72).unwrap_or(0) as i32)?;
+                d.set_item("usWinAscent", read_u16_be(os2, 74).unwrap_or(0) as i32)?;
+                d.set_item("usWinDescent", read_u16_be(os2, 76).unwrap_or(0) as i32)?;
+                if version >= 1 {
+                    d.set_item(
+                        "ulCodePageRange",
+                        (
+                            read_u32_be(os2, 78).unwrap_or(0),
+                            read_u32_be(os2, 82).unwrap_or(0),
+                        ),
+                    )?;
                 }
-                if face.is_bold() {
-                    fs_sel |= 0x20;
+                if version >= 2 {
+                    d.set_item("sxHeight", read_i16_be(os2, 86).unwrap_or(0) as i32)?;
+                    d.set_item("sCapHeight", read_i16_be(os2, 88).unwrap_or(0) as i32)?;
+                    d.set_item("usDefaultChar", read_u16_be(os2, 90).unwrap_or(0) as i32)?;
+                    d.set_item("usBreakChar", read_u16_be(os2, 92).unwrap_or(0) as i32)?;
+                    d.set_item("usMaxContext", read_u16_be(os2, 94).unwrap_or(0) as i32)?;
                 }
-                if !face.is_italic() && !face.is_bold() {
-                    fs_sel |= 0x40;
-                }
-                d.set_item("fsSelection", fs_sel as i32)?;
-                d.set_item("usFirstCharIndex", 0_i32)?;
-                d.set_item("usLastCharIndex", 0xFFFF_i32)?;
-                d.set_item("sTypoAscender", os2.typographic_ascender() as i32)?;
-                d.set_item("sTypoDescender", os2.typographic_descender() as i32)?;
-                d.set_item("sTypoLineGap", os2.typographic_line_gap() as i32)?;
-                d.set_item("usWinAscent", os2.windows_ascender() as i32)?;
-                d.set_item("usWinDescent", os2.windows_descender() as i32)?;
                 Ok(d.into_any().unbind())
             }
             "post" => {
-                // _SfntPostDict: format AND italicAngle are both 16.16
-                // fixed-point exposed as (major, minor) tuples.
-                // backend_pdf.py:1446 does `post['italicAngle'][1]`
-                // which would TypeError on a float. matplotlib's OG C
-                // ft2font returns the Fixed value split into signed
-                // upper i16 + unsigned lower u16.
-                d.set_item("format", fixed_tuple_1616(0x30000))?; // 3.0
-                let italic_deg = face.italic_angle().unwrap_or(0.0);
-                // Convert to 16.16 fixed-point then split.
-                let fixed = (italic_deg * 65536.0) as i32;
-                d.set_item("italicAngle", fixed_tuple_1616(fixed))?;
-                d.set_item("underlinePosition", self.underline_position as i32)?;
-                d.set_item("underlineThickness", self.underline_thickness as i32)?;
-                d.set_item(
-                    "isFixedPitch",
-                    if face.is_monospaced() { 1_i32 } else { 0_i32 },
-                )?;
-                d.set_item("minMemType42", 0_i32)?;
-                d.set_item("maxMemType42", 0_i32)?;
-                d.set_item("minMemType1", 0_i32)?;
-                d.set_item("maxMemType1", 0_i32)?;
+                let Some(post) = raw_face.table(ttf_parser::Tag::from_bytes(b"post")) else {
+                    return Ok(py.None());
+                };
+                d.set_item("format", fixed_tuple_1616(read_i32_be(post, 0).unwrap_or(0)))?;
+                d.set_item("italicAngle", fixed_tuple_1616(read_i32_be(post, 4).unwrap_or(0)))?;
+                d.set_item("underlinePosition", read_i16_be(post, 8).unwrap_or(0) as i32)?;
+                d.set_item("underlineThickness", read_i16_be(post, 10).unwrap_or(0) as i32)?;
+                d.set_item("isFixedPitch", read_u32_be(post, 12).unwrap_or(0) as i32)?;
+                d.set_item("minMemType42", read_u32_be(post, 16).unwrap_or(0) as i32)?;
+                d.set_item("maxMemType42", read_u32_be(post, 20).unwrap_or(0) as i32)?;
+                d.set_item("minMemType1", read_u32_be(post, 24).unwrap_or(0) as i32)?;
+                d.set_item("maxMemType1", read_u32_be(post, 28).unwrap_or(0) as i32)?;
                 Ok(d.into_any().unbind())
             }
             "maxp" => {
-                // _SfntMaxpDict: version is 16.16 fixed-point tuple.
-                d.set_item("version", fixed_tuple_1616(0x10000))?;
-                d.set_item("numGlyphs", face.number_of_glyphs() as i32)?;
-                d.set_item("maxPoints", 0_i32)?;
-                d.set_item("maxContours", 0_i32)?;
-                d.set_item("maxComponentPoints", 0_i32)?;
-                d.set_item("maxComponentContours", 0_i32)?;
-                d.set_item("maxZones", 0_i32)?;
-                d.set_item("maxTwilightPoints", 0_i32)?;
-                d.set_item("maxStorage", 0_i32)?;
-                d.set_item("maxFunctionDefs", 0_i32)?;
-                d.set_item("maxInstructionDefs", 0_i32)?;
-                d.set_item("maxStackElements", 0_i32)?;
-                d.set_item("maxSizeOfInstructions", 0_i32)?;
-                d.set_item("maxComponentElements", 0_i32)?;
-                d.set_item("maxComponentDepth", 0_i32)?;
+                let Some(maxp) = raw_face.table(ttf_parser::Tag::from_bytes(b"maxp")) else {
+                    return Ok(py.None());
+                };
+                d.set_item("version", fixed_tuple_1616(read_i32_be(maxp, 0).unwrap_or(0)))?;
+                d.set_item("numGlyphs", read_u16_be(maxp, 4).unwrap_or(0) as i32)?;
+                d.set_item("maxPoints", read_u16_be(maxp, 6).unwrap_or(0) as i32)?;
+                d.set_item("maxContours", read_u16_be(maxp, 8).unwrap_or(0) as i32)?;
+                d.set_item("maxComponentPoints", read_u16_be(maxp, 10).unwrap_or(0) as i32)?;
+                d.set_item("maxComponentContours", read_u16_be(maxp, 12).unwrap_or(0) as i32)?;
+                d.set_item("maxZones", read_u16_be(maxp, 14).unwrap_or(0) as i32)?;
+                d.set_item("maxTwilightPoints", read_u16_be(maxp, 16).unwrap_or(0) as i32)?;
+                d.set_item("maxStorage", read_u16_be(maxp, 18).unwrap_or(0) as i32)?;
+                d.set_item("maxFunctionDefs", read_u16_be(maxp, 20).unwrap_or(0) as i32)?;
+                d.set_item("maxInstructionDefs", read_u16_be(maxp, 22).unwrap_or(0) as i32)?;
+                d.set_item("maxStackElements", read_u16_be(maxp, 24).unwrap_or(0) as i32)?;
+                d.set_item("maxSizeOfInstructions", read_u16_be(maxp, 26).unwrap_or(0) as i32)?;
+                d.set_item("maxComponentElements", read_u16_be(maxp, 28).unwrap_or(0) as i32)?;
+                d.set_item("maxComponentDepth", read_u16_be(maxp, 30).unwrap_or(0) as i32)?;
+                Ok(d.into_any().unbind())
+            }
+            "pclt" => {
+                let Some(pclt) = raw_face.table(ttf_parser::Tag::from_bytes(b"PCLT")) else {
+                    return Ok(py.None());
+                };
+                d.set_item("version", fixed_tuple_1616(read_i32_be(pclt, 0).unwrap_or(0)))?;
+                d.set_item("fontNumber", read_u32_be(pclt, 4).unwrap_or(0))?;
+                d.set_item("pitch", read_u16_be(pclt, 8).unwrap_or(0) as i32)?;
+                d.set_item("xHeight", read_u16_be(pclt, 10).unwrap_or(0) as i32)?;
+                d.set_item("style", read_u16_be(pclt, 12).unwrap_or(0) as i32)?;
+                d.set_item("typeFamily", read_u16_be(pclt, 14).unwrap_or(0) as i32)?;
+                d.set_item("capHeight", read_u16_be(pclt, 16).unwrap_or(0) as i32)?;
+                d.set_item("symbolSet", read_u16_be(pclt, 18).unwrap_or(0) as i32)?;
+                d.set_item(
+                    "typeFace",
+                    pyo3::types::PyBytes::new(py, pclt.get(20..36).unwrap_or(&[])),
+                )?;
+                d.set_item(
+                    "characterComplement",
+                    pyo3::types::PyBytes::new(py, pclt.get(36..44).unwrap_or(&[])),
+                )?;
+                d.set_item("strokeWeight", pclt.get(50).copied().unwrap_or(0) as i8 as i32)?;
+                d.set_item("widthType", pclt.get(51).copied().unwrap_or(0) as i8 as i32)?;
+                d.set_item("serifStyle", pclt.get(52).copied().unwrap_or(0) as i8 as i32)?;
                 Ok(d.into_any().unbind())
             }
             _ => Ok(py.None()),
@@ -742,6 +1094,8 @@ impl FT2Font {
         let ch = char::from_u32(codepoint).unwrap_or('\0');
         let gid = self.fontdue.lookup_glyph_index(ch);
         self.current_glyph_index = gid;
+        self.has_current_glyph = true;
+        self.loaded_glyphs += 1;
         self.glyph_at(gid)
     }
 
@@ -751,6 +1105,8 @@ impl FT2Font {
         let _ = flags;
         let gid = glyph_index as u16;
         self.current_glyph_index = gid;
+        self.has_current_glyph = true;
+        self.loaded_glyphs += 1;
         self.glyph_at(gid)
     }
 
@@ -786,11 +1142,19 @@ impl FT2Font {
         &self,
         py: Python<'py>,
     ) -> (Bound<'py, PyArray2<f64>>, Bound<'py, numpy::PyArray1<u8>>) {
+        if !self.has_current_glyph {
+            return (
+                ndarray::Array2::<f64>::zeros((0, 2)).into_pyarray(py),
+                ndarray::Array1::<u8>::zeros(0).into_pyarray(py),
+            );
+        }
         let mut collector = crate::outline::OutlineCollector::new();
+        let mut px_per_unit = 1.0_f64;
 
         // Re-parse the face on demand. ttf-parser's Face borrows the
         // font_data buffer, but only for the duration of this call.
         if let Ok(face) = ttf_parser::Face::parse(&self.font_data, 0) {
+            px_per_unit = self.px_size() as f64 / f64::from(face.units_per_em().max(1));
             let _ = face.outline_glyph(
                 ttf_parser::GlyphId(self.current_glyph_index),
                 &mut collector,
@@ -800,8 +1164,8 @@ impl FT2Font {
         let n = collector.vertices.len();
         let mut verts = ndarray::Array2::<f64>::zeros((n, 2));
         for (i, (x, y)) in collector.vertices.iter().enumerate() {
-            verts[(i, 0)] = *x;
-            verts[(i, 1)] = *y;
+            verts[(i, 0)] = *x * px_per_unit;
+            verts[(i, 1)] = *y * px_per_unit;
         }
         let codes = ndarray::Array1::from_vec(collector.codes);
         (verts.into_pyarray(py), codes.into_pyarray(py))
@@ -821,6 +1185,26 @@ fn fixed_tuple_1616(fixed: i32) -> (i16, u16) {
     let major = (fixed >> 16) as i16;
     let minor = (fixed & 0xFFFF) as u16;
     (major, minor)
+}
+
+fn read_u16_be(data: &[u8], offset: usize) -> Option<u16> {
+    Some(u16::from_be_bytes(data.get(offset..offset + 2)?.try_into().ok()?))
+}
+
+fn read_i16_be(data: &[u8], offset: usize) -> Option<i16> {
+    Some(i16::from_be_bytes(data.get(offset..offset + 2)?.try_into().ok()?))
+}
+
+fn read_u32_be(data: &[u8], offset: usize) -> Option<u32> {
+    Some(u32::from_be_bytes(data.get(offset..offset + 4)?.try_into().ok()?))
+}
+
+fn read_i32_be(data: &[u8], offset: usize) -> Option<i32> {
+    Some(i32::from_be_bytes(data.get(offset..offset + 4)?.try_into().ok()?))
+}
+
+fn read_u64_be(data: &[u8], offset: usize) -> Option<u64> {
+    Some(u64::from_be_bytes(data.get(offset..offset + 8)?.try_into().ok()?))
 }
 
 /// Translate ttf-parser's PlatformId enum into the numeric value
@@ -877,6 +1261,8 @@ impl FT2Font {
         let width = (bx1 - bx0).max(0);
         let height = (by1 - by0).max(0);
         Glyph {
+            glyph_index: gid as u32,
+            pixel_size: self.px_size(),
             width,
             height,
             horiBearingX: (bearing_px * 64.0) as i32,
@@ -903,6 +1289,14 @@ impl FT2Font {
 #[pyclass(unsendable, module = "matplotlib.ft2font")]
 pub struct FT2Image {
     data: ndarray::Array2<u8>,
+}
+
+#[pyclass(unsendable, module = "matplotlib.ft2font")]
+pub struct LayoutItem {
+    #[pyo3(get)]
+    char: String,
+    #[pyo3(get)]
+    ft_object: Py<FT2Font>,
 }
 
 #[pymethods]
@@ -960,6 +1354,9 @@ impl FT2Image {
 #[pyclass(module = "matplotlib.ft2font")]
 #[derive(Default, Clone, Copy)]
 pub struct Glyph {
+    #[pyo3(get)]
+    pub glyph_index: u32,
+    pub pixel_size: f32,
     #[pyo3(get)]
     pub width: i32,
     #[pyo3(get)]

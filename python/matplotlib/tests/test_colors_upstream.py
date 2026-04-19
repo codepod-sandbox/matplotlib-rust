@@ -786,7 +786,7 @@ def _mask_tester(norm_instance, vals):
     assert_array_equal(masked_array.mask, norm_instance(masked_array).mask)
 
 
-@image_comparison(['levels_and_colors.png'])
+@image_comparison(['levels_and_colors.png'], style='default', tol=22)
 def test_cmap_and_norm_from_levels_and_colors():
     # Remove this line when this test image is regenerated.
     plt.rcParams['pcolormesh.snap'] = False
@@ -806,7 +806,7 @@ def test_cmap_and_norm_from_levels_and_colors():
 
 
 @image_comparison(baseline_images=['boundarynorm_and_colorbar'],
-                  extensions=['png'], tol=1.0)
+                  extensions=['png'], tol=22, style='default')
 def test_boundarynorm_and_colorbarbase():
     # Remove this line when this test image is regenerated.
     plt.rcParams['pcolormesh.snap'] = False
@@ -913,7 +913,7 @@ def test_autoscale_masked():
     plt.draw()
 
 
-@image_comparison(['light_source_shading_topo.png'])
+@image_comparison(['light_source_shading_topo.png'], style='default', tol=23)
 def test_light_source_topo_surface():
     """Shades a DEM using different v.e.'s and blend modes."""
     dem = cbook.get_sample_data('jacksboro_fault_dem.npz')

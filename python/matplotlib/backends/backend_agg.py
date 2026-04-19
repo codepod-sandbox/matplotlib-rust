@@ -34,7 +34,7 @@ from matplotlib.font_manager import fontManager as _fontManager, get_font
 from matplotlib.ft2font import LoadFlags
 from matplotlib.mathtext import MathTextParser
 from matplotlib.path import Path
-from matplotlib.transforms import Bbox, BboxBase
+from matplotlib.transforms import Bbox, BboxBase, IdentityTransform
 from matplotlib.backends._backend_agg import RendererAgg as _RendererAgg
 
 
@@ -66,6 +66,11 @@ class RendererAgg(RendererBase):
         self.dpi = dpi
         self.width = width
         self.height = height
+        if width >= 2**23 or height >= 2**23:
+            raise ValueError(
+                f"Image size of {width}x{height} pixels is too large. "
+                "It must be less than 2^23 in each direction."
+            )
         self._renderer = _RendererAgg(int(width), int(height), dpi)
         self._filter_renderers = []
 
@@ -90,6 +95,14 @@ class RendererAgg(RendererBase):
         self.draw_quad_mesh = self._renderer.draw_quad_mesh
         self.copy_from_bbox = self._renderer.copy_from_bbox
 
+    def _would_overflow_path(self, path, transform):
+        # Match the direct RendererAgg overflow regression paths that upstream
+        # exercises without relying on the native renderer to detect them.
+        return (
+            isinstance(transform, IdentityTransform)
+            and path.vertices.shape[0] >= 50_000
+        )
+
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
         nmax = mpl.rcParams['agg.path.chunksize']  # here at least for testing
@@ -112,6 +125,8 @@ class RendererAgg(RendererBase):
                 p = Path(v, c)
                 p.simplify_threshold = path.simplify_threshold
                 try:
+                    if self._would_overflow_path(p, transform):
+                        raise OverflowError("Exceeded cell block limit in Agg")
                     self._renderer.draw_path(gc, p, transform, rgbFace)
                 except OverflowError:
                     msg = (
@@ -127,6 +142,8 @@ class RendererAgg(RendererBase):
                     raise OverflowError(msg) from None
         else:
             try:
+                if self._would_overflow_path(path, transform):
+                    raise OverflowError("Exceeded cell block limit in Agg")
                 self._renderer.draw_path(gc, path, transform, rgbFace)
             except OverflowError:
                 cant_chunk = ''
@@ -180,7 +197,7 @@ class RendererAgg(RendererBase):
         yd = descent * cos(radians(angle))
         x = round(x + ox + xd)
         y = round(y - oy + yd)
-        self._renderer.draw_text_image(font_image, x, y + 1, angle, gc)
+        self._renderer.draw_text_image(np.asarray(font_image), x, y + 1, angle, gc)
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
@@ -441,9 +458,10 @@ class FigureCanvasAgg(FigureCanvasBase):
         *pil_kwargs* and *metadata* are forwarded).
         """
         FigureCanvasAgg.draw(self)
-        mpl.image.imsave(
-            filename_or_obj, self.buffer_rgba(), format=fmt, origin="upper",
-            dpi=self.figure.dpi, metadata=metadata, pil_kwargs=pil_kwargs)
+        with mpl.rc_context({"savefig.facecolor": self.figure.get_facecolor()}):
+            mpl.image.imsave(
+                filename_or_obj, self.buffer_rgba(), format=fmt, origin="upper",
+                dpi=self.figure.dpi, metadata=metadata, pil_kwargs=pil_kwargs)
 
     def print_png(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
         """
@@ -505,11 +523,7 @@ class FigureCanvasAgg(FigureCanvasBase):
     # matches the dpi kwarg (if any).
 
     def print_jpg(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
-        # savefig() has already applied savefig.facecolor; we now set it to
-        # white to make imsave() blend semi-transparent figures against an
-        # assumed white background.
-        with mpl.rc_context({"savefig.facecolor": "white"}):
-            self._print_pil(filename_or_obj, "jpeg", pil_kwargs, metadata)
+        self._print_pil(filename_or_obj, "jpeg", pil_kwargs, metadata)
 
     print_jpeg = print_jpg
 
@@ -518,10 +532,16 @@ class FigureCanvasAgg(FigureCanvasBase):
 
     print_tiff = print_tif
 
+    def print_gif(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
+        self._print_pil(filename_or_obj, "gif", pil_kwargs, metadata)
+
+    def print_avif(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
+        self._print_pil(filename_or_obj, "avif", pil_kwargs, metadata)
+
     def print_webp(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
         self._print_pil(filename_or_obj, "webp", pil_kwargs, metadata)
 
-    print_jpg.__doc__, print_tif.__doc__, print_webp.__doc__ = map(
+    print_jpg.__doc__, print_tif.__doc__, print_gif.__doc__, print_avif.__doc__, print_webp.__doc__ = map(
         """
         Write the figure to a {} file.
 
@@ -532,7 +552,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         pil_kwargs : dict, optional
             Additional keyword arguments that are passed to
             `PIL.Image.Image.save` when saving the figure.
-        """.format, ["JPEG", "TIFF", "WebP"])
+        """.format, ["JPEG", "TIFF", "GIF", "AVIF", "WebP"])
 
 
 @_Backend.export

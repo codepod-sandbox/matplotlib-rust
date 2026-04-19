@@ -10,8 +10,7 @@ NOTE: All tests in this module require Phase 1 (_backend_agg) or Phase 2 (ft2fon
 """
 
 import re
-import pytest
-
+import numpy as np
 import pytest
 
 import matplotlib.pyplot as plt
@@ -434,8 +433,8 @@ class TestPngOutput:
         ax.plot([0, 1, 2], [0, 10, 5], color='red')
         data = render_figure_png(fig)
         img = Image.open(io.BytesIO(data))
-        pixels = list(img.getdata())
-        non_white = [p for p in pixels if p != (255, 255, 255)]
+        pixels = np.asarray(img.convert("RGB")).reshape(-1, 3)
+        non_white = [p for p in pixels if not np.all(p == (255, 255, 255))]
         assert len(non_white) > 10  # lots of non-white pixels (axes, line, ticks)
 
     def test_png_colored_line(self):
@@ -446,7 +445,7 @@ class TestPngOutput:
         ax.plot([0, 1, 2, 3, 4], [0, 5, 10, 5, 0], color='red')
         data = render_figure_png(fig)
         img = Image.open(io.BytesIO(data))
-        pixels = list(img.getdata())
+        pixels = np.asarray(img.convert("RGB")).reshape(-1, 3)
         red_pixels = [p for p in pixels if p[0] > 200 and p[1] < 50 and p[2] < 50]
         assert len(red_pixels) > 0, "Expected red pixels from the plotted line"
 
@@ -464,7 +463,7 @@ class TestPngChartTypes:
         ax.scatter([1, 2, 3, 4, 5], [5, 3, 4, 2, 1], color='blue')
         data = render_figure_png(fig)
         img = Image.open(io.BytesIO(data))
-        pixels = list(img.getdata())
+        pixels = np.asarray(img.convert("RGB")).reshape(-1, 3)
         blue_pixels = [p for p in pixels if p[2] > 200 and p[0] < 50 and p[1] < 50]
         assert len(blue_pixels) > 0
 
@@ -476,7 +475,7 @@ class TestPngChartTypes:
         ax.bar([1, 2, 3], [10, 20, 15], color='green')
         data = render_figure_png(fig)
         img = Image.open(io.BytesIO(data))
-        pixels = list(img.getdata())
+        pixels = np.asarray(img.convert("RGB")).reshape(-1, 3)
         green_pixels = [p for p in pixels if p[1] > 100 and p[0] < 50 and p[2] < 50]
         assert len(green_pixels) > 0
 
@@ -491,8 +490,8 @@ class TestPngChartTypes:
         ax2.bar([1, 2, 3], [5, 10, 7], color='blue')
         data = render_figure_png(fig)
         img = Image.open(io.BytesIO(data))
-        pixels = list(img.getdata())
-        non_white = [p for p in pixels if p != (255, 255, 255)]
+        pixels = np.asarray(img.convert("RGB")).reshape(-1, 3)
+        non_white = [p for p in pixels if not np.all(p == (255, 255, 255))]
         assert len(non_white) > 50
 
 

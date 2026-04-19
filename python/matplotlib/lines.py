@@ -21,13 +21,25 @@ from ._enums import JoinStyle, CapStyle
 
 # Imported here for backward compatibility, even though they don't
 # really belong.
-from . import _path
+import _path
 from .markers import (  # noqa
     CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
     CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE,
     TICKLEFT, TICKRIGHT, TICKUP, TICKDOWN)
 
 _log = logging.getLogger(__name__)
+
+
+def _data_carries_units(data):
+    if hasattr(data, "units"):
+        return True
+    try:
+        iterator = iter(data)
+    except TypeError:
+        return False
+    for item in iterator:
+        return hasattr(item, "units")
+    return False
 
 
 def _get_dash_pattern(style):
@@ -683,6 +695,15 @@ class Line2D(Artist):
 
         self._xy = np.column_stack(np.broadcast_arrays(x, y)).astype(float)
         self._x, self._y = self._xy.T  # views
+
+        if not self.sticky_edges.x and _data_carries_units(self._xorig):
+            xfinite = self._x[np.isfinite(self._x)]
+            if xfinite.size:
+                self.sticky_edges.x[:] = [xfinite.min(), xfinite.max()]
+        if not self.sticky_edges.y and _data_carries_units(self._yorig):
+            yfinite = self._y[np.isfinite(self._y)]
+            if yfinite.size:
+                self.sticky_edges.y[:] = [yfinite.min(), yfinite.max()]
 
         self._subslice = False
         if (self.axes

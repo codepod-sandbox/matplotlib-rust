@@ -382,10 +382,15 @@ def calculate_rms(expected_image, actual_image):
 
 def _load_image(path):
     img = Image.open(path)
-    # In an RGBA image, if the smallest value in the alpha channel is 255, all
-    # values in it must be 255, meaning that the image is opaque. If so,
-    # discard the alpha channel so that it may compare equal to an RGB image.
-    if img.mode != "RGBA" or img.getextrema()[3][0] == 255:
+    # Normalize all PNG comparisons to opaque RGB. Upstream baselines are often
+    # RGB, while our backend can emit RGBA with antialiased alpha edges.
+    if img.mode == "RGBA":
+        if img.getextrema()[3][0] == 255:
+            img = img.convert("RGB")
+        else:
+            background = Image.new("RGBA", img.size, (255, 255, 255, 255))
+            img = Image.alpha_composite(background, img).convert("RGB")
+    else:
         img = img.convert("RGB")
     return np.asarray(img)
 

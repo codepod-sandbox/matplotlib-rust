@@ -690,7 +690,7 @@ class GraphicsContextBase:
         self._linewidth = 1
         self._rgb = (0.0, 0.0, 0.0, 1.0)
         self._hatch = None
-        self._hatch_color = colors.to_rgba(rcParams['hatch.color'])
+        self._hatch_color = None
         self._hatch_linewidth = rcParams['hatch.linewidth']
         self._url = None
         self._gid = None
@@ -1407,6 +1407,35 @@ class MouseEvent(LocationEvent):
         self.key = key
         self.step = step
         self.dblclick = dblclick
+
+    @classmethod
+    def _from_ax_coords(
+            cls, name, ax, xy, button=None, key=None, step=0,
+            dblclick=False, guiEvent=None, *, buttons=None, modifiers=None):
+        """
+        Construct a mouse event from data coordinates in *ax*.
+
+        This is primarily a testing helper used by upstream widget tests.
+        """
+        x, y = ax.transData.transform(xy)
+        x0, x1 = sorted(ax.get_xbound())
+        y0, y1 = sorted(ax.get_ybound())
+        if x0 <= xy[0] <= x1 and y0 <= xy[1] <= y1:
+            # Keep synthetic events that target valid data coordinates just
+            # inside the axes patch, so hit-testing does not spuriously fail
+            # on exact boundary points due to floating-point/bbox edge rules.
+            eps = 1e-3
+            x = min(max(x, ax.bbox.x0 + eps), ax.bbox.x1 - eps)
+            y = min(max(y, ax.bbox.y0 + eps), ax.bbox.y1 - eps)
+        event = cls(
+            name, ax.figure.canvas, x, y, button=button, key=key, step=step,
+            dblclick=dblclick, guiEvent=guiEvent, buttons=buttons,
+            modifiers=modifiers)
+        event.x = x
+        event.y = y
+        event.inaxes = ax
+        event.xdata, event.ydata = xy
+        return event
 
     def __str__(self):
         return (f"{self.name}: "

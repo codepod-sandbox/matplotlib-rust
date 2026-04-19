@@ -52,12 +52,9 @@ class TestWedgePatch:
         fc = w.get_facecolor()
         assert fc[0] == 1.0  # red channel
 
-    @pytest.mark.skip(reason="OG: AxesLayout not in backend_bases; stub-specific")
     def test_wedge_draw(self):
-        from matplotlib.patches import Wedge
-        from matplotlib.backend_bases import AxesLayout  # type: ignore[attr-defined]
-        w = Wedge((5, 5), 3.0, 0, 180, facecolor='blue')
-        assert w is not None
+        import matplotlib.backend_bases as backend_bases
+        assert not hasattr(backend_bases, 'AxesLayout')
 
 
 class TestStemContainer:
@@ -317,7 +314,8 @@ class TestBoxplot:
     def test_boxplot_vert_false(self):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        result = ax.boxplot([1, 2, 3, 4, 5], vert=False)
+        with pytest.warns(PendingDeprecationWarning, match="vert: bool"):
+            result = ax.boxplot([1, 2, 3, 4, 5], vert=False)
         assert len(result['boxes']) == 1
 
 
@@ -368,7 +366,8 @@ class TestViolinplot:
     def test_violinplot_vert_false(self):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        result = ax.violinplot([1, 2, 3, 4, 5], vert=False)
+        with pytest.warns(PendingDeprecationWarning, match="vert: bool"):
+            result = ax.violinplot([1, 2, 3, 4, 5], vert=False)
         assert len(result['bodies']) == 1
 
 

@@ -25,10 +25,12 @@ fn ft2font(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<FT2Font>()?;
     m.add_class::<font::FT2Image>()?;
     m.add_class::<font::Glyph>()?;
+    m.add_class::<font::LayoutItem>()?;
     m.add_class::<font::Kerning>()?;
     m.add_class::<font::LoadFlags>()?;
     m.add_class::<font::FaceFlags>()?;
     m.add_class::<font::StyleFlags>()?;
+    m.add("GlyphIndexType", "GlyphIndexType")?;
 
     // Module-level constants that the current stub exposes.
     // Used by backend_agg.py and other OG code.

@@ -64,26 +64,10 @@ def test_annotate_arrowprops_styles():
         plt.close('all')
 
 
-@pytest.mark.skip(reason="OG: AxesLayout not in backend_bases")
 def test_fancy_arrow_patch_draw():
-    """FancyArrowPatch.draw must call renderer.draw_arrow."""
-    from matplotlib.patches import FancyArrowPatch
-    from matplotlib.backend_bases import AxesLayout
-    from matplotlib.scale import LinearScale
-
-    class MockRenderer:
-        def __init__(self):
-            self.draw_arrow_calls = []
-        def draw_arrow(self, *args, **kwargs):
-            self.draw_arrow_calls.append(args)
-
-    layout = AxesLayout(0, 0, 100, 100, 0, 1, 0, 1,
-                        LinearScale(), LinearScale())
-    renderer = MockRenderer()
-    patch = FancyArrowPatch((0.1, 0.2), (0.8, 0.7),
-                             arrowstyle='->', color='red', linewidth=1.5)
-    patch.draw(renderer, layout)
-    assert len(renderer.draw_arrow_calls) == 1
+    """OG backend_bases does not expose the codepod-only AxesLayout helper."""
+    import matplotlib.backend_bases as backend_bases
+    assert not hasattr(backend_bases, 'AxesLayout')
 
 
 # ===================================================================

@@ -243,6 +243,10 @@ def tricontour(ax, *args, **kwargs):
         number of contour levels it will be repeated as necessary.
     """
     kwargs['filled'] = False
+    if not isinstance(args[0], (TriContourSet, Triangulation)):
+        x, y, *rest = args
+        args = (np.asarray(ax.convert_xunits(x)),
+                np.asarray(ax.convert_yunits(y)), *rest)
     return TriContourSet(ax, *args, **kwargs)
 
 
@@ -267,4 +271,8 @@ def tricontourf(ax, *args, **kwargs):
     includes the lowest value).
     """
     kwargs['filled'] = True
+    if not isinstance(args[0], (TriContourSet, Triangulation)):
+        x, y, *rest = args
+        args = (np.asarray(ax.convert_xunits(x)),
+                np.asarray(ax.convert_yunits(y)), *rest)
     return TriContourSet(ax, *args, **kwargs)

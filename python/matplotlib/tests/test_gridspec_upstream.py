@@ -423,14 +423,14 @@ def test_gridspec_from_subplotspec_indexing():
 # ===================================================================
 
 def test_subplot_params_defaults():
-    """_SubplotParams defaults are set."""
+    """_SubplotParams defaults follow the active rc style."""
     p = _SubplotParams()
-    assert p.left == 0.125
-    assert p.right == 0.9
-    assert p.top == 0.88
-    assert p.bottom == 0.11
-    assert p.hspace == 0.2
-    assert p.wspace == 0.2
+    assert p.left == plt.rcParams['figure.subplot.left']
+    assert p.right == plt.rcParams['figure.subplot.right']
+    assert p.top == plt.rcParams['figure.subplot.top']
+    assert p.bottom == plt.rcParams['figure.subplot.bottom']
+    assert p.hspace == plt.rcParams['figure.subplot.hspace']
+    assert p.wspace == plt.rcParams['figure.subplot.wspace']
 
 
 def test_subplot_params_custom():

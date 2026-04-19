@@ -2,6 +2,7 @@
 
 import pytest
 
+import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.colors import to_hex
 
@@ -14,34 +15,34 @@ class TestLine2DConstruction:
         assert line.get_ydata() == [4, 5, 6]
 
     def test_default_color(self):
-        """Default color is C0."""
+        """Default color follows rcParams."""
         line = Line2D([0], [0])
-        assert line.get_color() == 'C0'
+        assert line.get_color() == plt.rcParams['lines.color']
 
     def test_default_linewidth(self):
-        """Default linewidth is 1.5."""
+        """Default linewidth follows rcParams."""
         line = Line2D([0], [0])
-        assert line.get_linewidth() == 1.5
+        assert line.get_linewidth() == plt.rcParams['lines.linewidth']
 
     def test_default_linestyle(self):
-        """Default linestyle is '-'."""
+        """Default linestyle follows rcParams."""
         line = Line2D([0], [0])
-        assert line.get_linestyle() == '-'
+        assert line.get_linestyle() == plt.rcParams['lines.linestyle']
 
     def test_default_marker(self):
-        """Default marker is 'None' (string)."""
+        """Default marker follows rcParams."""
         line = Line2D([0], [0])
-        assert line.get_marker() == 'None'
+        assert line.get_marker() == plt.rcParams['lines.marker']
 
     def test_default_markersize(self):
-        """Default markersize is 6.0."""
+        """Default markersize follows rcParams."""
         line = Line2D([0], [0])
-        assert line.get_markersize() == 6.0
+        assert line.get_markersize() == plt.rcParams['lines.markersize']
 
     def test_default_fillstyle(self):
-        """Default fillstyle is 'full'."""
+        """Default fillstyle follows rcParams."""
         line = Line2D([0], [0])
-        assert line.get_fillstyle() == 'full'
+        assert line.get_fillstyle() == plt.rcParams['markers.fillstyle']
 
     def test_default_drawstyle(self):
         """Default drawstyle is 'default'."""

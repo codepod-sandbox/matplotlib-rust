@@ -5,6 +5,7 @@ Baseline: 868 passed, 0 failed. Any regression is a bug.
 NOTE: All tests in this module require Phase 1 (_backend_agg) or Phase 2 (ft2font).
 """
 import io
+import numpy as np
 import pytest
 
 
@@ -19,7 +20,7 @@ def test_polygon_fill_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     red_pixels = sum(1 for r, g, b in pixels if r > 200 and g < 50)
     assert red_pixels > len(pixels) * 0.05, \
         f"Expected filled red region, got {red_pixels}/{len(pixels)} red pixels"
@@ -36,7 +37,7 @@ def test_pie_fill_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     saturated = sum(
         1 for r, g, b in pixels
         if (r > 180 and g < 80 and b < 80)
@@ -86,7 +87,7 @@ def test_markers_square_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     blue_pixels = sum(1 for r, g, b in pixels if b > 150 and r < 100 and g < 100)
     assert blue_pixels > 5, \
         f"Expected blue square marker pixels, got {blue_pixels}"
@@ -121,7 +122,7 @@ def test_imshow_png():
     buf.seek(0)
     from PIL import Image
     img = Image.open(buf).convert('RGB')
-    pixels = list(img.getdata())
+    pixels = np.asarray(img).reshape(-1, 3)
     has_red = any(r > 200 and g < 50 for r, g, b in pixels)
     has_green = any(g > 200 and r < 50 for r, g, b in pixels)
     has_blue = any(b > 200 and r < 50 for r, g, b in pixels)

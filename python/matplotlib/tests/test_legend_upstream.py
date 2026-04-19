@@ -1,6 +1,7 @@
 """Upstream-ported tests for matplotlib.legend."""
 
 import pytest
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.legend import Legend
 from matplotlib.lines import Line2D
@@ -73,7 +74,8 @@ class TestLegendCreation:
 
     def test_legend_empty(self):
         fig, ax = self._make_fig_ax()
-        leg = ax.legend()
+        with pytest.warns(UserWarning, match="No artists with labels found"):
+            leg = ax.legend()
         texts = leg.get_texts()
         assert len(texts) == 0
 
@@ -107,7 +109,7 @@ class TestLegendProperties:
 
     def test_get_loc_default(self):
         leg = self._make_legend()
-        assert leg.get_loc() == 'best'
+        assert leg.get_loc() == plt.rcParams['legend.loc']
 
     def test_set_loc(self):
         leg = self._make_legend()
@@ -399,7 +401,8 @@ def test_legend_no_handles_labels():
     """ax.legend() with nothing labeled returns empty legend (no error)."""
     fig, ax = plt.subplots()
     ax.plot([1, 2], [1, 2])  # no label
-    leg = ax.legend()
+    with pytest.warns(UserWarning, match="No artists with labels found"):
+        leg = ax.legend()
     assert len(leg.get_texts()) == 0
     plt.close('all')
 
@@ -708,7 +711,8 @@ class TestLegendHandlesLabels:
     def test_no_legend_when_no_labels(self):
         fig, ax = plt.subplots()
         ax.plot([1, 2], [3, 4])  # no label
-        leg = ax.legend()
+        with pytest.warns(UserWarning, match="No artists with labels found"):
+            leg = ax.legend()
         # legend with no labeled artists is still a Legend object
         assert leg is not None
         plt.close('all')

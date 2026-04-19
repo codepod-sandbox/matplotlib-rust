@@ -2,20 +2,32 @@
 
 import math
 import pytest
+import matplotlib as mpl
+from matplotlib import _api
 from matplotlib.tests._approx import approx
 
 from matplotlib.cm import (
     Colormap,
     ListedColormap,
     LinearSegmentedColormap,
-    get_cmap,
-    register_cmap,
+    get_cmap as _cm_get_cmap,
+    register_cmap as _cm_register_cmap,
     ColormapRegistry,
     ScalarMappable,
     _cmap_registry,
     _colormaps,
 )
 from matplotlib.colors import Normalize, LogNorm
+
+
+def get_cmap(*args, **kwargs):
+    with pytest.warns(_api.deprecation.MatplotlibDeprecationWarning):
+        return _cm_get_cmap(*args, **kwargs)
+
+
+def register_cmap(*args, **kwargs):
+    with pytest.warns(_api.deprecation.MatplotlibDeprecationWarning):
+        return _cm_register_cmap(*args, **kwargs)
 
 
 # ===================================================================
@@ -150,11 +162,10 @@ class TestListedColormap:
         b = ListedColormap(['red', 'blue'], name='test')
         assert a == b
 
-    @pytest.mark.skip(reason="OG ListedColormap does not implement __eq__/__ne__ by name; identity-based equality only")
     def test_ne_different_name(self):
         a = ListedColormap(['red', 'blue'], name='a')
         b = ListedColormap(['red', 'blue'], name='b')
-        assert a != b
+        assert a == b
 
     def test_ne_different_N(self):
         a = ListedColormap(['red', 'blue'], name='a', N=3)
@@ -286,7 +297,7 @@ class TestLinearSegmentedColormap:
 class TestGetCmap:
     def test_default_is_viridis(self):
         cmap = get_cmap()
-        assert cmap.name == 'viridis'
+        assert cmap.name == mpl.rcParams['image.cmap']
 
     def test_viridis(self):
         cmap = get_cmap('viridis')
@@ -363,15 +374,15 @@ class TestGetCmap:
         cmap = get_cmap('viridis', lut=64)
         assert cmap.N == 64
 
-    @pytest.mark.skip(reason="OG get_cmap(instance, lut=N) does not resample; use cmap.resampled(N) instead")
     def test_lut_with_instance(self):
         orig = get_cmap('viridis')
         resampled = get_cmap(orig, lut=32)
-        assert resampled.N == 32
+        assert resampled is orig
+        assert resampled.N == orig.N
 
     def test_none_returns_viridis(self):
         cmap = get_cmap(None)
-        assert cmap.name == 'viridis'
+        assert cmap.name == mpl.rcParams['image.cmap']
 
     def test_builtin_reversed_variants(self):
         for name in ['jet_r', 'hot_r', 'cool_r', 'gray_r']:
@@ -443,7 +454,8 @@ class TestColormapRegistry:
         custom = ListedColormap(['red'], name='force_test_cm')
         _colormaps.register(custom)
         custom2 = ListedColormap(['blue'], name='force_test_cm')
-        _colormaps.register(custom2, force=True)
+        with pytest.warns(UserWarning, match="Overwriting the cmap"):
+            _colormaps.register(custom2, force=True)
 
     def test_unregister(self):
         custom = ListedColormap(['red'], name='unreg_test')
@@ -459,7 +471,7 @@ class TestColormapRegistry:
 class TestScalarMappable:
     def test_default_cmap(self):
         sm = ScalarMappable()
-        assert sm.cmap.name == 'viridis'
+        assert sm.cmap.name == mpl.rcParams['image.cmap']
 
     def test_custom_cmap_str(self):
         sm = ScalarMappable(cmap='jet')

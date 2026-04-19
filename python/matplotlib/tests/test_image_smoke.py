@@ -58,6 +58,20 @@ def test_resample_rgba_alpha_scales_only_alpha():
     assert out[0, 0, 3] == 100  # A halved
 
 
+def test_resample_identity_rgba_f32():
+    # Float RGBA inputs are used by the Python image pipeline for shaded
+    # RGB(A) images such as LightSource output. Identity resampling should
+    # accept them and preserve the values.
+    rgba = np.array(
+        [[[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]],
+         [[0.9, 1.0, 0.2, 0.3], [0.4, 0.5, 0.6, 0.7]]],
+        dtype=np.float32,
+    )
+    out = np.zeros_like(rgba)
+    _image.resample(rgba, out, Affine2D(), _image.NEAREST)
+    np.testing.assert_allclose(out, rgba)
+
+
 def test_resample_out_of_bounds_yields_zero():
     # Translate the whole input off-screen — every output pixel should
     # fall outside the source and read 0.

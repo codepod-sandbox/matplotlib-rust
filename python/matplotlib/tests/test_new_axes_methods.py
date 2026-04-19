@@ -430,36 +430,8 @@ class TestCircleCollection:
 # collections.py: BrokenBarHCollection
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(BrokenBarHCollection is None, reason="BrokenBarHCollection removed in OG 3.10")
-class TestBrokenBarHCollection:
-    def test_creates_verts(self):
-        xranges = [(0, 2), (5, 3)]
-        coll = BrokenBarHCollection(xranges, (1, 2))
-        verts = coll.get_verts()
-        assert len(verts) == 2
-
-    def test_correct_vertex_coords(self):
-        coll = BrokenBarHCollection([(0, 2)], (1, 3))
-        verts = coll.get_verts()
-        # ymin=1, ymax=4; xmin=0, xmax=2
-        v = np.array(verts[0])
-        xs = v[:, 0]
-        ys = v[:, 1]
-        assert set(xs.tolist()) == {0.0, 2.0}
-        assert set(ys.tolist()) == {1.0, 4.0}
-
-    def test_is_poly_collection(self):
-        from matplotlib.collections import PolyCollection
-        coll = BrokenBarHCollection([(0, 1)], (0, 1))
-        assert isinstance(coll, PolyCollection)
-
-    def test_span_where(self):
-        x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
-        where = np.array([True, True, False, True, True])
-        coll = BrokenBarHCollection.span_where(x, ymin=0, ymax=1, where=where)
-        assert isinstance(coll, BrokenBarHCollection)
-        verts = coll.get_verts()
-        assert len(verts) == 2  # two runs of True
+def test_broken_barhcollection_absent():
+    assert BrokenBarHCollection is None
 
 
 # ---------------------------------------------------------------------------
